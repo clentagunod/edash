@@ -1,0 +1,34 @@
+<div class="app-shell">
+  <div id="sidebarMount"></div>
+  <div class="main-area">
+    <div id="topbarMount"></div>
+    <main class="page">
+      <div class="page-header">
+        <div><h1>Nutritional Status</h1><p class="desc">Baseline, Midline, and Endline nutrition measurements and status changes</p></div>
+        <button class="btn btn-primary" id="exportNutritionBtn" style="width:auto;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg> Export Excel</button>
+      </div>
+      <div id="yearSwitcherMount"></div>
+      <div class="stat-pill-row" id="nutritionSummary"></div>
+      <div class="profile-section-tabs" role="tablist" aria-label="Nutritional status sections">
+        <button type="button" id="nutritionLearnersTab" role="tab" aria-selected="true" aria-controls="nutritionLearnersPanel" tabindex="0">Learner</button>
+        <button type="button" id="nutritionGraphsTab" role="tab" aria-selected="false" aria-controls="nutritionGraphsPanel" tabindex="-1">Graphs</button>
+      </div>
+      <section class="panel profile-learners-panel" id="nutritionLearnersPanel" role="tabpanel" aria-labelledby="nutritionLearnersTab">
+        <div class="panel-header"><h3>Nutrition Progress by Learner</h3></div>
+        <div class="toolbar profile-filters">
+          <div class="search-box"><input id="nutritionSearch" type="search" placeholder="Search learner or LRN..." /></div>
+          <select class="select-filter" id="nutritionPeriodFilter"><option value="">All Assessment Periods</option><option value="bosy">Baseline</option><option value="mosy">Midline</option><option value="eosy">Endline</option></select>
+          <select class="select-filter" id="nutritionSexFilter"><option value="">All Sex</option><option>Male</option><option>Female</option></select>
+          <select class="select-filter" id="nutritionGradeFilter"><option value="">All Grade Levels</option><option>Kinder</option><option>Grade 1</option><option>Grade 2</option><option>Grade 3</option><option>Grade 4</option><option>Grade 5</option><option>Grade 6</option></select>
+          <select class="select-filter" id="nutritionStatusFilter"><option value="">All Nutritional Statuses</option><option>Normal</option><option>Wasted</option><option>Severely Wasted</option><option>Overweight</option><option>Obese</option></select>
+        </div>
+        <div style="overflow-x:auto;"><table class="data-table nutrition-table" style="min-width:1050px;"><thead><tr><th>Name</th><th>Gender</th><th>Baseline<br><small>Height / Weight / Status</small></th><th>Midline<br><small>Height / Weight / Status</small></th><th>Endline<br><small>Height / Weight / Status</small></th><th>Status change</th></tr></thead><tbody id="nutritionTableBody"><tr><td colspan="6" class="state-row">Loading nutritional records...</td></tr></tbody></table></div>
+        <div class="pagination"><span id="nutritionPageInfo">-</span><div class="pager-btns" id="nutritionPagerBtns"></div></div>
+      </section>
+      <section class="panel profile-graphs-panel" id="nutritionGraphsPanel" role="tabpanel" aria-labelledby="nutritionGraphsTab" hidden>
+        <div class="panel-header"><h3>Nutritional Status Graphs</h3></div>
+        <div id="nutritionProfileCharts" class="nutrition-chart-grid profile-chart-container"></div>
+      </section>
+    </main>
+  </div>
+</div>

@@ -1,0 +1,63 @@
+<div class="app-shell">
+  <div id="sidebarMount"></div>
+  <div class="main-area">
+    <div id="topbarMount"></div>
+    <main class="page preferences-page">
+      <div class="page-header">
+        <div>
+          <span class="eyebrow">Personalize your workspace</span>
+          <h1>Preferences</h1>
+          <p class="desc">Choose how E-Dash looks and which learner tools appear in your workspace.</p>
+        </div>
+        <a class="btn btn-secondary preferences-back-link" href="settings.html">← Settings</a>
+      </div>
+
+      <section class="preferences-list" aria-label="Workspace preferences">
+        <section class="panel preferences-card" aria-labelledby="themePreferenceTitle">
+          <div class="preferences-card-heading">
+            <span class="settings-option-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+            </span>
+            <div>
+              <h2 id="themePreferenceTitle">Themes</h2>
+              <p>Choose the appearance used across your workspace.</p>
+            </div>
+          </div>
+          <label class="preference-theme-field" for="themePreferenceSelect">
+            <span>Theme</span>
+            <select id="themePreferenceSelect" aria-labelledby="themePreferenceTitle">
+              <option value="Light">Light Theme</option>
+              <option value="Dark">Dark Theme</option>
+              <option value="Dracula">Dracula</option>
+              <option value="Monokai">Monokai</option>
+              <option value="Beach">Beach</option>
+              <option value="Nord">Nord</option>
+              <option value="Forest">Forest</option>
+              <option value="ClentIndustries Theme">ClentIndustries Theme</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="panel preferences-card" aria-labelledby="learnerInspectionTitle">
+          <div class="preferences-card-heading">
+            <span class="settings-option-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+            </span>
+            <div>
+              <h2 id="learnerInspectionTitle">Learner Inspection</h2>
+              <p>Show the Inspect learner action beside Edit and Remove in learner lists.</p>
+            </div>
+          </div>
+          <label class="preference-switch">
+            <span class="preference-switch-copy">
+              <strong id="learnerInspectionState">On</strong>
+              <small>This setting is on by default for new accounts.</small>
+            </span>
+            <input id="learnerInspectionToggle" type="checkbox" role="switch" checked aria-labelledby="learnerInspectionTitle learnerInspectionState" />
+            <span class="preference-switch-track" aria-hidden="true"><span></span></span>
+          </label>
+        </section>
+      </section>
+    </main>
+  </div>
+</div>

@@ -1,0 +1,119 @@
+<div class="login-shell" data-login-stage="school-selection">
+  <main class="school-directory-loading" id="schoolDirectoryLoading" role="status" aria-live="polite" aria-busy="true">
+    <section class="school-access-card" aria-labelledby="schoolAccessTitle">
+      <header class="school-access-brand">
+        <span class="school-access-brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M12 2.75 20 6v5.1c0 5.16-3.33 8.7-8 10.15C7.33 19.8 4 16.26 4 11.1V6l8-3.25Z" />
+            <path d="m8.7 11.9 2.2 2.2 4.55-4.8" />
+          </svg>
+        </span>
+        <span class="school-access-brand-name">E-Dash</span>
+        <span class="school-access-brand-divider" aria-hidden="true" />
+        <span class="school-access-brand-label">School directory</span>
+      </header>
+      <div class="school-access-state-icon" aria-hidden="true"><span class="school-access-spinner" /></div>
+      <p class="school-access-eyebrow">Secure workspace selection</p>
+      <h1 id="schoolAccessTitle">Loading school directory</h1>
+      <p class="school-access-description">Please wait while we retrieve the active school workspaces.</p>
+      <div class="school-access-progress" aria-hidden="true"><span /><span /><span /></div>
+      <footer class="school-access-footnote">
+        <svg viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M8 1.8 13 3.9v3.2c0 3.25-2.08 5.47-5 6.4-2.92-.93-5-3.15-5-6.4V3.9L8 1.8Z" />
+          <path d="m5.8 7.7 1.45 1.45 3-3.15" />
+        </svg>
+        Your school data stays protected during verification.
+      </footer>
+    </section>
+  </main>
+  <section class="login-visual">
+    <div class="login-brand">
+      <div class="login-brand-mark">
+        <img class="login-brand-logo" src="/assets/edash/edash.png" alt="E-Dash logo" width="42" height="42" />
+      </div>
+      <div class="login-brand-text">
+        <div class="eyebrow">Department of Education</div>
+        <div class="name">E-Dash</div>
+      </div>
+    </div>
+
+    <div class="login-headline">
+      <h1>Choose your workspace</h1>
+      <p>Select your registered school to continue to its secure E-Dash workspace.</p>
+    </div>
+
+    <div class="login-school-media" id="loginSchoolMedia" aria-live="polite"></div>
+  </section>
+
+  <section class="login-panel">
+    <div class="login-card">
+      <section class="school-picker" aria-labelledby="schoolPickerTitle">
+        <h2 id="schoolPickerTitle">Select your school</h2>
+        <p class="sub">Only active schools in the E-Dash directory can continue.</p>
+        <div class="field">
+          <label for="schoolSelect">School</label>
+          <select id="schoolSelect" name="school" autocomplete="organization" required disabled>
+            <option value="">Loading registered schools…</option>
+          </select>
+        </div>
+        <div class="form-alert" id="schoolPickerAlert" role="alert" aria-live="polite"></div>
+        <button type="button" class="btn btn-primary" id="schoolContinueBtn" disabled>Continue to sign in</button>
+        <button type="button" class="school-retry-button" id="schoolRetryBtn" hidden>Retry loading schools</button>
+        <div class="school-registration-cta">
+          <p>Your school is not registered yet?</p>
+          <button type="button" class="school-registration-open" id="schoolRegistrationOpen">Register your school</button>
+        </div>
+      </section>
+    </div>
+    <footer class="site-footer">
+      <p>© 2026 E-Dash · Courtesy of <a href="https://clentindustries.vercel.app/" target="_blank" rel="noopener noreferrer">ClentIndustries</a></p>
+    </footer>
+  </section>
+  <dialog class="school-registration-dialog" id="schoolRegistrationDialog" aria-labelledby="schoolRegistrationTitle">
+    <form class="school-registration-form" id="schoolRegistrationForm">
+      <header class="school-registration-header">
+        <div>
+          <span class="school-registration-kicker">E-Dash school directory</span>
+          <h2 id="schoolRegistrationTitle">Request school registration</h2>
+          <p>Share your school and contact details. The E-Dash team will review your request.</p>
+        </div>
+        <button type="button" class="school-registration-close" id="schoolRegistrationClose" aria-label="Close registration form">&times;</button>
+      </header>
+      <div class="school-registration-fields">
+        <div class="field">
+          <label for="registrationSchoolName">School name</label>
+          <input id="registrationSchoolName" name="schoolName" type="text" maxlength="120" autocomplete="organization" required />
+        </div>
+        <div class="field">
+          <label for="registrationSchoolId">DepEd school ID</label>
+          <input id="registrationSchoolId" name="schoolId" type="text" maxlength="30" inputmode="numeric" required />
+        </div>
+        <div class="field">
+          <label for="registrationContactName">Contact person</label>
+          <input id="registrationContactName" name="contactName" type="text" maxlength="120" autocomplete="name" required />
+        </div>
+        <div class="field">
+          <label for="registrationEmail">Email address</label>
+          <input id="registrationEmail" name="email" type="email" maxlength="254" autocomplete="email" required />
+        </div>
+        <div class="field">
+          <label for="registrationPhone">Phone number</label>
+          <input id="registrationPhone" name="phone" type="tel" maxlength="40" autocomplete="tel" required />
+        </div>
+        <div class="field">
+          <label for="registrationDivision">Schools division</label>
+          <input id="registrationDivision" name="division" type="text" maxlength="120" required />
+        </div>
+        <div class="school-registration-honeypot" aria-hidden="true">
+          <label for="registrationWebsite">Leave this field empty</label>
+          <input id="registrationWebsite" name="website" type="text" tabindex="-1" autocomplete="off" />
+        </div>
+      </div>
+      <p class="school-registration-status" id="schoolRegistrationStatus" role="status" aria-live="polite" hidden></p>
+      <footer class="school-registration-actions">
+        <button type="button" class="school-registration-cancel" id="schoolRegistrationCancel">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="schoolRegistrationSubmit">Send registration request</button>
+      </footer>
+    </form>
+  </dialog>
+</div>

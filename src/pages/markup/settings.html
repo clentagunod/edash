@@ -1,0 +1,87 @@
+<div class="app-shell">
+  <div id="sidebarMount"></div>
+  <div class="main-area">
+    <div id="topbarMount"></div>
+    <main class="page settings-page">
+      <div class="page-header">
+        <div>
+          <span class="eyebrow">Personalize your workspace</span>
+          <h1>Settings</h1>
+          <p class="desc">Manage your account and dashboard preferences.</p>
+        </div>
+      </div>
+
+      <section class="settings-profile panel" aria-label="Signed-in account">
+        <div class="settings-profile-avatar">?</div>
+        <div class="settings-profile-details">
+          <span class="eyebrow">Signed in as</span>
+          <h2 class="settings-profile-name">Account</h2>
+          <p class="settings-profile-email">Email unavailable</p>
+        </div>
+        <div class="settings-profile-actions">
+          <button class="button button-primary" id="uploadProfilePhoto" type="button">Upload a Profile Photo</button>
+          <button class="button button-secondary" id="removeProfilePhoto" type="button" hidden>Remove photo</button>
+        </div>
+      </section>
+      <input id="profilePhotoFile" type="file" accept="image/jpeg,image/png,image/webp" hidden />
+
+      <div class="profile-photo-backdrop" id="profilePhotoBackdrop" aria-hidden="true">
+        <section class="profile-photo-modal" role="dialog" aria-modal="true" aria-labelledby="profilePhotoTitle">
+          <div class="profile-photo-modal-header">
+            <div>
+              <span class="eyebrow">Personalize your account</span>
+              <h2 id="profilePhotoTitle">Adjust profile photo</h2>
+            </div>
+            <button class="profile-photo-close" id="closeProfilePhoto" type="button" aria-label="Close photo editor">×</button>
+          </div>
+          <p class="profile-photo-help">Click and drag the photo to reposition it inside the circle. Use the slider to zoom.</p>
+          <div class="profile-photo-crop" id="profilePhotoCrop" role="application" aria-label="Click and drag to reposition profile photo">
+            <img id="profilePhotoPreview" alt="Profile photo crop preview" draggable="false" />
+          </div>
+          <label class="profile-photo-zoom" for="profilePhotoZoom">
+            <span>Zoom</span>
+            <input id="profilePhotoZoom" type="range" min="1" max="3" step="0.01" value="1.25" />
+          </label>
+          <p class="profile-photo-status" id="profilePhotoStatus" role="status" aria-live="polite"></p>
+          <div class="profile-photo-modal-actions">
+            <button class="button button-secondary" id="cancelProfilePhoto" type="button">Cancel</button>
+            <button class="button button-primary" id="saveProfilePhoto" type="button">Upload photo</button>
+          </div>
+        </section>
+      </div>
+
+      <section class="settings-options" aria-label="Settings options">
+        <button class="settings-option panel" id="openAccountSettings" type="button">
+          <span class="settings-option-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="9" r="2.5"/><path d="M7.5 18c.8-2.2 2.3-3.3 4.5-3.3s3.7 1.1 4.5 3.3"/></svg>
+          </span>
+          <span class="settings-option-copy">
+            <strong>Account Settings</strong>
+            <small>Manage your account name and password.</small>
+          </span>
+          <span class="settings-option-arrow" aria-hidden="true">›</span>
+        </button>
+        <a class="settings-option panel settings-option-link" href="preferences.html">
+          <span class="settings-option-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7m0-4V3m8 18v-9m0-4V3m8 18v-5m0-4V3M2 14h4m4-6h4m4 8h4"/></svg>
+          </span>
+          <span class="settings-option-copy">
+            <strong>Preferences</strong>
+            <small>Choose a theme and learner inspection options.</small>
+          </span>
+          <span class="settings-option-arrow" aria-hidden="true">›</span>
+        </a>
+        <a class="settings-option panel settings-option-link" id="adminConsoleOption" href="manage-users.html" hidden>
+          <span class="settings-option-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 20 6v5c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6l8-3Z"/><circle cx="12" cy="11" r="2.5"/><circle cx="12" cy="11" r=".6"/><path d="M12 7v1.5m0 5V15m4-4h-1.5m-5 0H8m6.83-2.83-1.06 1.06m-3.54 3.54-1.06 1.06m5.66 0-1.06-1.06m-3.54-3.54L9.17 7.17"/></svg>
+          </span>
+          <span class="settings-option-copy">
+            <strong>Admin Console</strong>
+            <small>Manage users, school years, and dashboard settings.</small>
+          </span>
+          <span class="settings-option-arrow" aria-hidden="true">›</span>
+        </a>
+      </section>
+    </main>
+  </div>
+</div>

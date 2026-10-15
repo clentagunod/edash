@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="description" content="A realtime learner enrollment, profiles, and school statistics dashboard." />
+<title>E-Dash — Realtime Enrollment Dashboard</title>
+
+<!--
+  Flash-of-wrong-theme guard, inlined here (not in the bundled stylesheet)
+  so it applies the instant the parser reaches this point in <head> —
+  before any external CSS or JS has had a chance to load over the
+  network. Two parts, both required:
+    1. This <style> block: a minimal, hard-coded dark palette matching
+       the real `.dark-mode` theme in src/styles/base/tokens.css closely
+       enough to avoid a visible flash while that stylesheet is loading.
+       Kept alive by the `dark-mode-preload` class on <html> until
+       src/lib/shell.ts's applySavedTheme() removes it.
+    2. The inline <script> right after it: reads the saved preference and
+       applies both classes synchronously, before first paint — instead
+       of waiting on React to mount and run applySavedTheme() itself.
+  Keep the colors below in sync with `body.dark-mode` in
+  src/styles/base/tokens.css if that palette ever changes.
+-->
+<style>
+  html.dark-mode-preload, html.dark-mode-preload body { background: #101010; color: #d5d5d5; }
+  html.dark-mode-preload .topbar { background: #181818; border-bottom-color: #303030; }
+  html.dark-mode-preload .sidebar { background: #101010; border-right-color: #2a2a2a; }
+  html.dark-mode-preload .panel, html.dark-mode-preload .stat-card { background: #181818; }
+</style>
+<script>
+  try {
+    var __lpsLoginPath = window.location.pathname;
+    var __lpsThemeIndependentRoute = __lpsLoginPath === '/' || /\/index\.html$/i.test(__lpsLoginPath) || /\/select-school\/?$/i.test(__lpsLoginPath);
+    var __lpsCachedProfile = JSON.parse(sessionStorage.getItem('lps_user_profile') || 'null');
+    var __lpsThemeName = __lpsCachedProfile && __lpsCachedProfile.uid && __lpsCachedProfile.uid !== 'guest'
+      ? __lpsCachedProfile.teacherPrefs && __lpsCachedProfile.teacherPrefs.theme
+      : 'Light';
+    var __lpsThemeMap = {
+      'Light': 'light',
+      'Dark': 'dark',
+      'Dracula': 'dracula',
+      'Monokai': 'monokai',
+      'Beach': 'beach',
+      'Nord': 'nord',
+      'Forest': 'forest',
+      'ClentIndustries Theme': 'clentindustries-theme'
+    };
+    var __lpsSavedTheme = __lpsThemeMap[__lpsThemeName] || 'light';
+    if (!__lpsThemeIndependentRoute && __lpsCachedProfile && __lpsCachedProfile.uid && __lpsCachedProfile.uid !== 'guest') {
+      document.documentElement.dataset.theme = __lpsSavedTheme;
+    }
+    if (!__lpsThemeIndependentRoute && ['dark', 'dracula', 'monokai', 'nord', 'forest', 'clentindustries-theme'].includes(__lpsSavedTheme)) {
+      document.documentElement.classList.add('dark-mode-preload');
+    }
+  } catch (error) {
+    /* Storage unavailable (private browsing, etc.) — default to light. */
+  }
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="icon" type="image/png" href="/assets/favicon.png" onerror="this.remove()" />
+
+<!--
+  Firebase SDK (compat build) — kept as-is from the original site so the
+  Firestore/Auth data layer (src/lib/firestore-api.ts) does not need to be
+  rewritten against the modular SDK. See README.md.
+
+  `defer` on all three keeps them off the critical rendering path: the
+  browser can parse the rest of the document and start loading everything
+  else (fonts, the app bundle, its CSS) in parallel instead of stalling on
+  three sequential render-blocking requests to a third-party CDN — this
+  was the main cause of the dashboard/login pages appearing to hang on
+  slower connections. `defer` still guarantees these three run in this
+  exact order, and before src/main.tsx (itself deferred by default as a
+  module script), which is what firebase-auth-compat.js and
+  firebase-firestore-compat.js need from firebase-app-compat.js.
+-->
+<script defer src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.13.0/firebase-functions-compat.js"></script>
+</head>
+<body>
+  <script>
+    try {
+      var __lpsBodyPath = window.location.pathname;
+      var __lpsIsLoginBody = __lpsBodyPath === '/' || /\/index\.html$/i.test(__lpsBodyPath);
+      var __lpsIsThemeIndependentBody = __lpsIsLoginBody || /\/select-school\/?$/i.test(__lpsBodyPath);
+      var __lpsBodyProfile = JSON.parse(sessionStorage.getItem('lps_user_profile') || 'null');
+      var __lpsBodyThemeName = __lpsBodyProfile && __lpsBodyProfile.uid && __lpsBodyProfile.uid !== 'guest'
+        ? __lpsBodyProfile.teacherPrefs && __lpsBodyProfile.teacherPrefs.theme
+        : 'Light';
+      var __lpsBodyTheme = __lpsThemeMap[__lpsBodyThemeName] || 'light';
+      if (!__lpsIsThemeIndependentBody && __lpsBodyProfile && __lpsBodyProfile.uid && __lpsBodyProfile.uid !== 'guest') {
+        document.body.dataset.theme = __lpsBodyTheme;
+      }
+      if (!__lpsIsThemeIndependentBody && ['dark', 'dracula', 'monokai', 'nord', 'forest', 'clentindustries-theme'].includes(__lpsBodyTheme)) {
+        document.body.classList.add('dark-mode');
+      }
+    } catch (error) {
+      /* Storage unavailable — default to light. */
+    }
+  </script>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+</html>

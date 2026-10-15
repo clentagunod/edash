@@ -1,0 +1,17 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // The login page must be able to list eligible schools before sign-in.
+    // Enabled school documents are public, including every field in the
+    // schoolHead map. Tenant data is stored in separate Firebase projects.
+    match /schools/{schoolId} {
+      allow get, list: if resource.data.enabled == true;
+      allow create, update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

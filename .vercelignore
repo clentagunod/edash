@@ -1,0 +1,26 @@
+# Vercel only needs the Vite app source, static assets, and build configuration.
+apps-script/
+deploy/
+scripts/
+
+# Firebase Hosting and rules are managed separately from Vercel.
+firebase*.json
+firestore.rules
+school-registry.rules
+
+# Project documentation and local-only examples.
+README.md
+SETUP_README.md
+.env*
+school-registration.example.json
+
+# Local dependencies, build output, caches, and credentials.
+node_modules/
+dist/
+coverage/
+.vite/
+.vercel/
+*.tsbuildinfo
+*.log
+*-firebase-adminsdk-*.json
+service-account*.json
