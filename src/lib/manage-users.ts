@@ -28,14 +28,12 @@ export function initAdminSectionTabs() {
     document.getElementById("adminStructureTab"),
     document.getElementById("adminAccessTab"),
     document.getElementById("adminBackupTab"),
-    document.getElementById("adminUsageTab"),
     document.getElementById("adminAuditTab"),
   ];
   const panels = [
     document.getElementById("adminStructurePanel"),
     document.getElementById("adminAccessPanel"),
     document.getElementById("adminBackupPanel"),
-    document.getElementById("adminUsagePanel"),
     document.getElementById("adminAuditPanel"),
   ];
   if (tabs.some((tab) => !tab) || panels.some((panel) => !panel)) return;
@@ -71,10 +69,6 @@ export async function initManageUsers() {
     return;
   }
   renderShell("users", "Admin Console");
-  const usageConsoleLink = document.querySelector<HTMLAnchorElement>(".usage-console-link");
-  if (usageConsoleLink) {
-    usageConsoleLink.href = `https://console.firebase.google.com/project/${encodeURIComponent(APP_CONFIG.firebase.projectId)}/usage`;
-  }
   initAdminSectionTabs();
   ensureUserBulkControls();
   document.getElementById("searchInput").addEventListener("input", debounce((e) => renderUsersTable(filterUsers(e.target.value)), 250));

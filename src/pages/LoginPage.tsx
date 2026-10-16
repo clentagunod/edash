@@ -46,6 +46,8 @@ export default function LoginPage() {
     const visitorBtn = container?.querySelector<HTMLButtonElement>('#visitorLoginBtn');
     const parentBtn = container?.querySelector<HTMLButtonElement>('#parentLoginBtn');
     const forgotLink = container?.querySelector<HTMLAnchorElement>('#forgotPasswordLink');
+    const passwordToggle = container?.querySelector<HTMLButtonElement>('#togglePasswordVisibility');
+    const passwordInput = container?.querySelector<HTMLInputElement>('#password');
     const schoolLogoUrl = safeMediaUrl(school.logoUrl);
 
     if (schoolName) schoolName.textContent = school.name;
@@ -154,11 +156,19 @@ export default function LoginPage() {
         console.error('Password reset request failed:', error);
       }
     };
+    const onPasswordToggle = () => {
+      if (!passwordInput || !passwordToggle) return;
+      const showPassword = passwordInput.type === 'password';
+      passwordInput.type = showPassword ? 'text' : 'password';
+      passwordToggle.setAttribute('aria-pressed', String(showPassword));
+      passwordToggle.setAttribute('aria-label', showPassword ? 'Hide password' : 'Show password');
+    };
 
     changeSchoolButton?.addEventListener('click', onChangeSchool);
     visitorBtn?.addEventListener('click', onVisitorClick);
     parentBtn?.addEventListener('click', onParentClick);
     forgotLink?.addEventListener('click', onForgotClick);
+    passwordToggle?.addEventListener('click', onPasswordToggle);
 
     return () => {
       cleanupLogin?.();
@@ -167,6 +177,7 @@ export default function LoginPage() {
       visitorBtn?.removeEventListener('click', onVisitorClick);
       parentBtn?.removeEventListener('click', onParentClick);
       forgotLink?.removeEventListener('click', onForgotClick);
+      passwordToggle?.removeEventListener('click', onPasswordToggle);
     };
   }, [navigate]);
 

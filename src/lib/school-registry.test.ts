@@ -26,7 +26,6 @@ describe('school directory tenant selection', () => {
     },
     auditLogApiUrl: '',
     feedbackApiUrl: '',
-    backupSpreadsheetUrl: '',
   };
 
   beforeEach(() => {

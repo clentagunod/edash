@@ -34,7 +34,6 @@ export interface RegisteredSchool {
   firebaseConfig: FirebaseWebConfig;
   auditLogApiUrl: string;
   feedbackApiUrl: string;
-  backupSpreadsheetUrl: string;
 }
 
 const env = import.meta.env as Record<string, string | undefined>;
@@ -94,7 +93,6 @@ const registryBootstrapSchool: RegisteredSchool = Object.freeze({
   firebaseConfig: registryFirebaseConfig,
   auditLogApiUrl: "",
   feedbackApiUrl: "",
-  backupSpreadsheetUrl: "",
 });
 
 const REGISTRY_CACHE_TTL_MS = 30_000;
@@ -124,8 +122,6 @@ export function isRegisteredSchool(value: unknown): value is RegisteredSchool {
     isHttpsOrEmpty(school.auditLogApiUrl) &&
     typeof school.feedbackApiUrl === "string" &&
     isHttpsOrEmpty(school.feedbackApiUrl) &&
-    typeof school.backupSpreadsheetUrl === "string" &&
-    isHttpsOrEmpty(school.backupSpreadsheetUrl) &&
     (school.schoolInfo === undefined ||
       (!!school.schoolInfo &&
         typeof school.schoolInfo === "object" &&
@@ -159,8 +155,7 @@ export function sameSchoolRegistration(left: RegisteredSchool, right: Registered
     left.firebaseConfig.messagingSenderId === right.firebaseConfig.messagingSenderId &&
     left.firebaseConfig.appId === right.firebaseConfig.appId &&
     left.auditLogApiUrl === right.auditLogApiUrl &&
-    left.feedbackApiUrl === right.feedbackApiUrl &&
-    left.backupSpreadsheetUrl === right.backupSpreadsheetUrl
+    left.feedbackApiUrl === right.feedbackApiUrl
   );
 }
 

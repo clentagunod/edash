@@ -82,7 +82,7 @@ function validateRegistration(value) {
     throw new Error(`firebaseConfig must include non-empty strings for: ${requiredConfigKeys.join(", ")}.`);
   }
 
-  const serviceFields = ["auditLogApiUrl", "feedbackApiUrl", "backupSpreadsheetUrl"];
+  const serviceFields = ["auditLogApiUrl", "feedbackApiUrl"];
   for (const field of serviceFields) {
     if (typeof value[field] !== "string" || (value[field] && !isHttpsUrl(value[field]))) {
       throw new Error(`${field} must be an empty string or an HTTPS URL.`);
@@ -106,7 +106,6 @@ function validateRegistration(value) {
     firebaseConfig: Object.fromEntries(requiredConfigKeys.map((key) => [key, config[key].trim()])),
     auditLogApiUrl: value.auditLogApiUrl.trim(),
     feedbackApiUrl: value.feedbackApiUrl.trim(),
-    backupSpreadsheetUrl: value.backupSpreadsheetUrl.trim(),
   };
 }
 

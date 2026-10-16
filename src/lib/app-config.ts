@@ -32,8 +32,6 @@ export const APP_CONFIG = Object.freeze({
   // Set this after deploying apps-script/AuditLog.gs as a Web App.
   auditLogApiUrl: activeSchool.auditLogApiUrl,
   feedbackApiUrl: activeSchool.feedbackApiUrl,
-  // Paste the Google Sheets backup URL here after creating the backup sheet.
-  backupSpreadsheetUrl: activeSchool.backupSpreadsheetUrl,
   assetsPath: "assets/",
   pagePath: "pages/",
   firestore: Object.freeze({
@@ -44,6 +42,11 @@ export const APP_CONFIG = Object.freeze({
     schoolYearDefaults: Object.freeze({
       gradeTerms: DEFAULT_GRADE_TERMS_SETTINGS,
       isCurrent: false,
+    }),
+    settingsDefaults: Object.freeze({
+      toggles: Object.freeze({
+        canParentAccess: true,
+      }),
     }),
     userDefaults: Object.freeze({
       teacherPrefs: Object.freeze({
@@ -75,6 +78,7 @@ export const APP_CONFIG = Object.freeze({
       currentSchoolYear: "currentSchoolYear",
       curriculumSubjectPool: "curriculumSubjectPool",
       gradeTerms: "gradeTerms",
+      toggles: "toggles",
       publicStatsSummary: "summary",
     }),
     // Canonical learner document fields; dynamic curriculum subject IDs may be

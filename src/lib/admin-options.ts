@@ -1,18 +1,18 @@
 // @ts-nocheck -- ported from the original site; behavior preserved, not yet fully typed.
 import { LPSApi } from './sheets-api';
 import { requireAuth } from './auth';
-import { APP_CONFIG, isSchoolAdmin } from './app-config';
+import { isSchoolAdmin } from './app-config';
 import { clearButtonLoading, escapeHtml, setButtonLoading, showToast } from './shell';
 import { Icon } from './icons';
-import { downloadFirestoreBackup } from './firestore-backup';
+import { downloadFirestoreBackup, importFirestoreBackupFile, updateFirestoreBackupModeWarning } from './firestore-backup';
 import { CURRICULUM_GRADE_LEVELS, CURRICULUM_SUBJECTS, isCustomCurriculumSubjectId, normalizeCurriculumSubjectPool } from './curriculum-subjects';
 import { DEFAULT_GRADE_TERM_COUNT, MAX_GRADE_TERM_COUNT, MIN_GRADE_TERM_COUNT } from './academic-grades';
-import { fsGetGradeLevelGradingConfigurations, fsGetGradeTermCount, fsGetPassingThreshold, fsSetGradeLevelGradingConfiguration, fsSetGradeTermCount, fsSetPassingThreshold } from './firestore-api';
+import { fsGetGradeLevelGradingConfigurations, fsGetGradeTermCount, fsGetParentAccessConfiguration, fsGetPassingThreshold, fsSetGradeLevelGradingConfiguration, fsSetGradeTermCount, fsSetParentAccessEnabled, fsSetPassingThreshold } from './firestore-api';
 import { DEFAULT_LETTER_GRADE_SCALE, DEFAULT_PASSING_THRESHOLD, gradeLevelConfigKey, normalizeGradeLevelGrading, normalizePassingThreshold } from './grading-config';
 
 /* Admin Console: school years and dynamic section directory. */
 
-export const ADMIN_OPTIONS = { years: [], sections: [], selectedYear: "", gradeTermCount: DEFAULT_GRADE_TERM_COUNT, passingThreshold: DEFAULT_PASSING_THRESHOLD, gradeTermsSaving: false, gradeTermsRequestId: 0, passingThresholdSaving: false, gradingByGrade: {}, gradingRequestId: 0, gradingSaving: false, editingSection: null, curricula: {}, curriculumDrafts: {}, curriculumSubjects: [...CURRICULUM_SUBJECTS], curriculumRequestId: 0, curriculumSaving: false, curriculumLoadError: false, addingCurriculumSubject: false, deletingCurriculumSubject: false };
+export const ADMIN_OPTIONS = { years: [], sections: [], selectedYear: "", gradeTermCount: DEFAULT_GRADE_TERM_COUNT, passingThreshold: DEFAULT_PASSING_THRESHOLD, gradeTermsSaving: false, gradeTermsRequestId: 0, passingThresholdSaving: false, parentAccessEnabled: true, parentAccessLoaded: false, parentAccessSaving: false, parentAccessRequestId: 0, gradingByGrade: {}, gradingRequestId: 0, gradingSaving: false, editingSection: null, curricula: {}, curriculumDrafts: {}, curriculumSubjects: [...CURRICULUM_SUBJECTS], curriculumRequestId: 0, curriculumSaving: false, curriculumLoadError: false, addingCurriculumSubject: false, deletingCurriculumSubject: false };
 
 export function adminOptionEscape(value) {
   return typeof escapeHtml === "function" ? escapeHtml(String(value ?? "")) : String(value ?? "").replace(/[&<>\"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '\"': "&quot;" }[char]));
@@ -25,12 +25,45 @@ export function adminGradeLabel(value) {
   return match ? `Grade ${match[1]}` : String(value || "Unassigned").trim() || "Unassigned";
 }
 
+export function initializeSheetsBackupLink() {
+  const link = document.getElementById("openSheetsBackupBtn");
+  const status = document.getElementById("sheetsBackupStatus");
+  if (!link || !status) return false;
+
+  const configuredUrl = APP_CONFIG.backupSpreadsheetUrl || "";
+  if (!configuredUrl) {
+    link.hidden = true;
+    status.textContent = "Google Sheets backup is not configured for this school.";
+    return false;
+  }
+
+  let url;
+  try {
+    url = new URL(configuredUrl);
+  } catch {
+    link.hidden = true;
+    status.textContent = "The configured Google Sheets backup link is invalid.";
+    return false;
+  }
+  if (url.protocol !== "https:" || url.hostname !== "docs.google.com" || !url.pathname.startsWith("/spreadsheets/")) {
+    link.hidden = true;
+    status.textContent = "The configured Google Sheets backup link is invalid.";
+    return false;
+  }
+
+  link.href = url.toString();
+  link.hidden = false;
+  status.textContent = "The configured school backup spreadsheet is ready to open.";
+  return true;
+}
+
 function adminCurriculumDraftKey(schoolYear, gradeLevel) {
   return `${schoolYear}::${gradeLevel}`;
 }
 
 export async function initAdminOptions() {
   if (!isSchoolAdmin()) return;
+  initializeSheetsBackupLink();
   document.getElementById("openYearModalBtn")?.addEventListener("click", openAdminYearModal);
   document.getElementById("openSectionModalBtn")?.addEventListener("click", () => openAdminSectionModal());
   document.getElementById("adminYearSelect")?.addEventListener("change", (event) => loadAdminSections(event.target.value));
@@ -52,11 +85,75 @@ export async function initAdminOptions() {
   document.getElementById("makeCurrentYearBtn")?.addEventListener("click", makeAdminYearCurrent);
   document.getElementById("adminGradeTermCount")?.addEventListener("change", saveAdminGradeTermCount);
   document.getElementById("savePassingThresholdBtn")?.addEventListener("click", saveAdminPassingThreshold);
-  document.getElementById("downloadFirestoreBackupBtn")?.addEventListener("click", downloadFirestoreBackup);
-  const backupLink = document.getElementById("openBackupSpreadsheetBtn");
-  if (backupLink && APP_CONFIG.backupSpreadsheetUrl) backupLink.href = APP_CONFIG.backupSpreadsheetUrl;
-  await loadAdminStructure();
+  document.getElementById("adminParentAccessToggle")?.addEventListener("change", saveAdminParentAccessToggle);
+  document.getElementById("downloadFirestoreBackupBtn")?.addEventListener("click", () => { void downloadFirestoreBackup(); });
+  const importMode = document.getElementById("firestoreBackupMode");
+  if (importMode) {
+    updateFirestoreBackupModeWarning(importMode.value);
+    importMode.addEventListener("change", (event) => updateFirestoreBackupModeWarning(event.currentTarget.value));
+  }
+  const importButton = document.getElementById("importFirestoreBackupBtn");
+  const importInput = document.getElementById("firestoreBackupFile");
+  importButton?.addEventListener("click", () => importInput?.click());
+  importInput?.addEventListener("change", async (event) => {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (file) await importFirestoreBackupFile(file, importMode?.value || "replace");
+    input.value = "";
+  });
+  await Promise.all([loadAdminStructure(), loadAdminParentAccess()]);
   ensureAdminModals();
+}
+
+export async function loadAdminParentAccess() {
+  const toggle = document.getElementById("adminParentAccessToggle");
+  const state = document.getElementById("adminParentAccessState");
+  if (!toggle || !state) return;
+  const requestId = ++ADMIN_OPTIONS.parentAccessRequestId;
+  toggle.disabled = true;
+  state.classList.remove("is-error");
+  state.textContent = "Loading Parent Access setting…";
+  ADMIN_OPTIONS.parentAccessLoaded = false;
+  try {
+    const configuration = await fsGetParentAccessConfiguration();
+    if (requestId !== ADMIN_OPTIONS.parentAccessRequestId) return;
+    ADMIN_OPTIONS.parentAccessEnabled = configuration.canParentAccess;
+    ADMIN_OPTIONS.parentAccessLoaded = true;
+    toggle.checked = configuration.canParentAccess;
+    state.textContent = configuration.configured
+      ? `Parent Portal access is ${configuration.canParentAccess ? "on" : "off"}.`
+      : "Parent Portal access is on by default. Save the switch to create settings/toggles.";
+  } catch (error) {
+    if (requestId !== ADMIN_OPTIONS.parentAccessRequestId) return;
+    state.textContent = `Unable to load Parent Access setting: ${error.message || "Unknown error"}`;
+    state.classList.add("is-error");
+  } finally {
+    if (requestId === ADMIN_OPTIONS.parentAccessRequestId) toggle.disabled = !ADMIN_OPTIONS.parentAccessLoaded;
+  }
+}
+
+export async function saveAdminParentAccessToggle(event) {
+  const toggle = event?.currentTarget || document.getElementById("adminParentAccessToggle");
+  const state = document.getElementById("adminParentAccessState");
+  if (!toggle || !state || !ADMIN_OPTIONS.parentAccessLoaded || ADMIN_OPTIONS.parentAccessSaving) return;
+  const nextValue = toggle.checked;
+  ADMIN_OPTIONS.parentAccessSaving = true;
+  toggle.disabled = true;
+  state.classList.remove("is-error");
+  state.textContent = "Saving Parent Access setting…";
+  try {
+    await fsSetParentAccessEnabled(nextValue);
+    ADMIN_OPTIONS.parentAccessEnabled = nextValue;
+    state.textContent = `Parent Portal access is now ${nextValue ? "on" : "off"}.`;
+  } catch (error) {
+    toggle.checked = ADMIN_OPTIONS.parentAccessEnabled;
+    state.textContent = `Unable to save Parent Access setting: ${error.message || "Unknown error"}`;
+    state.classList.add("is-error");
+    showToast(error.message || "Unable to update Parent Access.", "error");
+  } finally {
+    ADMIN_OPTIONS.parentAccessSaving = false;
+    toggle.disabled = false;
+  }
 }
 
 export async function loadAdminGradeTerms(schoolYear = ADMIN_OPTIONS.selectedYear) {

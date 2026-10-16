@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { parentAuth } from '../lib/firebase';
-import { fsGetParentCurrentSchoolYear, fsGetParentGradeTermCount, fsGetParentLearner } from '../lib/firestore-api';
+import { fsGetParentAccessEnabled, fsGetParentCurrentSchoolYear, fsGetParentGradeTermCount, fsGetParentLearner } from '../lib/firestore-api';
 import { LPSCache } from '../lib/cache';
 import { Icon } from '../lib/icons';
 import '../styles/pages/parent-portal.css';
@@ -209,6 +209,10 @@ export default function ParentPortalPage() {
     setLoading(true);
     try {
       await ensureParentAuthentication();
+      if (!(await fsGetParentAccessEnabled())) {
+        setMessage('Parent Portal access is temporarily unavailable. Your search was received, but learner information cannot be shown right now. Please try again later or contact the school office for assistance.');
+        return;
+      }
       const cacheKey = `parent_learner_lookup_${JSON.stringify([schoolYear, normalizedId])}`;
       const result = await LPSCache.getOrLoadMemory(
         cacheKey,

@@ -25,6 +25,5 @@
     "appId": "PUBLIC_WEB_APP_ID"
   },
   "auditLogApiUrl": "",
-  "feedbackApiUrl": "",
-  "backupSpreadsheetUrl": ""
+  "feedbackApiUrl": ""
 }

@@ -1174,7 +1174,9 @@ body.dark-mode .teacher-assignment-option input:checked + .teacher-assignment-ch
 
 .toast-stack {
   position: fixed; bottom: 20px; right: 20px;
-  display: flex; flex-direction: column; gap: 10px;
+  display: flex; width: min(380px, calc(100vw - 40px)); max-height: min(50vh, 360px);
+  flex-direction: column; align-items: stretch; gap: 8px; overflow-y: auto;
+  pointer-events: none; overscroll-behavior: contain;
   z-index: 200;
 }
 .network-loader {
@@ -1199,18 +1201,18 @@ body.dark-mode .teacher-assignment-option input:checked + .teacher-assignment-ch
 @keyframes network-progress { from { background-position: 100% 0; } to { background-position: -120% 0; } }
 .toast {
   display: flex; align-items: center; gap: 12px;
+  width: 100%; min-width: 0; max-width: 100%; pointer-events: auto;
   background: var(--ink-900); color: #fff;
   padding: 12px 16px;
   border-radius: var(--radius-md);
   font-size: 13.5px;
   box-shadow: var(--shadow-pop);
-  min-width: 280px; max-width: min(420px, calc(100vw - 40px));
   animation: toast-in 0.18s ease;
 }
 .toast.success { background: #16543a; }
 .toast.error { background: #6b2020; }
 .toast.info { background: #183b68; border: 1px solid rgba(255,255,255,.16); }
-.toast-copy { display: grid; gap: 3px; line-height: 1.4; flex: 1; }
+.toast-copy { display: grid; min-width: 0; gap: 3px; line-height: 1.4; flex: 1; overflow-wrap: anywhere; }
 .toast-copy strong { font-size: 12px; }
 .toast-copy span { color: rgba(255,255,255,.86); }
 .toast-action, .toast-close {
@@ -1222,6 +1224,11 @@ body.dark-mode .teacher-assignment-option input:checked + .teacher-assignment-ch
 .toast-close { align-self: flex-start; padding: 0 0 0 4px; font-size: 20px; line-height: 1; opacity: .72; }
 .toast-close:hover { opacity: 1; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (max-width: 560px) {
+  .toast-stack { right: 12px; bottom: 12px; width: calc(100vw - 24px); max-height: 42vh; }
+  .toast { gap: 9px; padding: 11px 13px; font-size: 13px; }
+}
 
 .bulk-toolbar {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;

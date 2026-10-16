@@ -35,6 +35,11 @@ service cloud.firestore {
     function isRegistrar() { return myRole() == "Registrar"; }
     function isTeacher() { return myRole() == "Teacher"; }
     function isStaff() { return myRole() in ["School Admin", "Registrar", "Teacher"]; }
+    function parentAccessEnabled() {
+      let togglesPath = /databases/$(database)/documents/settings/toggles;
+      return !exists(togglesPath)
+        || get(togglesPath).data.get("canParentAccess", true) == true;
+    }
     function validTeacherPrefs(prefs) {
       return prefs is map
         && prefs.keys().hasAll(["theme", "inspectLearner"])
@@ -82,6 +87,7 @@ service cloud.firestore {
       match /learners/{learnerId} {
         allow read, write: if isStaff();
         allow get: if isAnonymous()
+          && parentAccessEnabled()
           && resource.data.get("enrollmentStatus", "") != "TRANSFERRED_OUT"
           && resource.data.get("enrollmentStatus", "") != "DROPPED_OUT"
           && resource.data.get("eosyStatus", "") != "Dropped Out"

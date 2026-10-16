@@ -1,6 +1,6 @@
 # E-Dash Setup and New-School Registration
 
-This guide covers a complete deployment: central school directory, public school registration requests, a new school's Firebase project and Firestore schema, shared rules, optional Apps Script endpoints for audit logs, feedback, and backups, and the web app configuration.
+This guide covers a complete deployment: central school directory, public school registration requests, a new school's Firebase project and Firestore schema, shared rules, optional Apps Script endpoints for audit logs and feedback, and the web app configuration.
 
 ## 1. Understand the project layout
 
@@ -11,7 +11,7 @@ Use one Firebase project per school and one separate Firebase project for the ce
 | Central registry Firebase project | School selection directory: `schools/{schoolId}` | `firebase.registry.json`, `school-registry.rules` |
 | School/tenant Firebase project | School's Firebase Authentication and Firestore records | `firebase.json`, `firestore.rules` |
 | Vite/Vercel app | Shared web app; registry and registration request settings are build-time `VITE_*` values | `.env.local` locally; Vercel environment variables in deployment |
-| Apps Script Web Apps | Central school registration requests and optional audit, feedback, and backup integrations | Files in `apps-script/` |
+| Apps Script Web Apps | Central school registration requests and optional audit and feedback integrations | Files in `apps-script/` |
 
 The Firebase Web App config is public and is delivered to browsers. A Firebase Admin service-account key is a private credential. Never put a service-account JSON or private key into the web app, the school-registration JSON, source control, or any `VITE_*` variable.
 
@@ -77,6 +77,7 @@ schoolYears/{schoolYear}
 settings/currentSchoolYear
 settings/gradeTerms                              # legacy fallback
 settings/curriculumSubjectPool
+settings/toggles                                # manually create for Parent Access
 settings/gradeTerms/years/{schoolYear}
 publicStats/summary
 ```
@@ -89,6 +90,7 @@ users/{uid}/assignmentHistory/{schoolYear}
 schoolYears/{schoolYear}
 settings/{settingId}
 settings/currentSchoolYear
+settings/toggles                                # { canParentAccess: true | false }
 settings/gradeTerms/years/{schoolYear}
 schoolYears/{schoolYear}/learners/{learnerId}
 schoolYears/{schoolYear}/dropouts/{learnerId}
@@ -98,6 +100,8 @@ schoolYears/{schoolYear}/grades/{gradeKey}/sections/{sectionKey}
 schoolYears/{schoolYear}/grades/{gradeKey}/sections/{sectionKey}/teachers/{uid}
 publicStats/summary
 ```
+
+`settings/toggles` controls parent access and stores a boolean `canParentAccess`. Create this document manually in each tenant project; bootstrap scripts intentionally do not create it. Set the value to `true` to allow Parent Portal learner lookups or `false` to disable them. Until the document or field is configured, the app keeps existing behavior and treats Parent Access as enabled. The default is also declared in `APP_CONFIG.firestore.settingsDefaults.toggles`. Publish the current `firestore.rules` to enforce the setting on anonymous learner reads as well as in the Parent Portal UI.
 
 The year-specific `settings/gradeTerms/years/{schoolYear}` document stores `{ schoolYear, termCount, passingThreshold, gradeLevels, updatedAt, updatedBy }`. `termCount` defaults to 3 and supports 1–4; **Final Grade** is always available. `passingThreshold` defaults to 75 and is adjustable from 0 to 100 in **Admin Console → Grade configuration**. The Student Card shows a subject's Passed/Failed remark only when the final grade is numeric and all configured term grades for that subject are present; it compares the final grade against this threshold (equal to or above passes). The overall General Average remark also remains blank until all subjects have complete configured terms and final grades. `gradeLevels` is an optional map keyed by normalized grade level, for example `gradeLevels.grade3: { gradeLevel: "Grade 3", gradingType: "numerical", finalGradeMode: "automatic", letterScale: [...] }`. `finalGradeMode` is `"automatic"` by default for Numerical Grade levels, or `"manual"` to let teachers enter Final Grade. Automatic mode writes the mean of available configured-term numeric grades into the learner's `gradesByTerm.final` and legacy subject fields; terms with blank grades are excluded from the mean. Letter Grade levels do not use this setting. Unconfigured grade levels default to Numerical Grade with automatic final computation. Letter Grade defaults to ABCDF ranges A=90–100, B=80–89, C=70–79, D=60–69, F=0–59; these equivalencies are editable and support additional rows. Teachers enter letter grades directly; ranges are reference equivalencies. Creating a school year copies saved grade-level grading settings and the passing threshold from the source year, so later edits remain scoped to their own year. The Admin Console reads and edits the configuration for its selected inspection year. Existing deployments can still use the legacy `settings/gradeTerms` document as a fallback for the current year's term count until its year-specific setting is saved or provisioned; historical years without a saved setting use the default. When the term count is reduced, hidden-term values remain in learner `gradesByTerm`; they are not deleted.
 
@@ -251,8 +255,7 @@ Copy [`school-registration.example.json`](./school-registration.example.json) to
     "appId": "TENANT_WEB_APP_ID"
   },
   "auditLogApiUrl": "",
-  "feedbackApiUrl": "",
-  "backupSpreadsheetUrl": ""
+  "feedbackApiUrl": ""
 }
 ```
 
@@ -329,21 +332,19 @@ The read-only Parent Portal uses a separate Firebase app instance with **Anonymo
 
 Feedback submissions require an authenticated user and valid ratings. Restrict spreadsheet and script editor access; review the deployed Web App's execution/access settings for your intended user audience.
 
-### Firestore backup to Google Sheets
+### Tenant database JSON backup and restore
 
-1. Create a standalone Apps Script project and paste `apps-script/FirestoreBackup.gs`.
-2. Add Script Properties:
-   - `FIRESTORE_PROJECT_ID` — this tenant's Firebase project ID.
-   - `FIRESTORE_CLIENT_EMAIL` — service-account `client_email`.
-   - `FIRESTORE_PRIVATE_KEY` — service-account `private_key`; preserve line breaks or store escaped `\n` sequences.
-   - `FIREBASE_WEB_API_KEY` — tenant Firebase Web App `apiKey`, required for the protected on-demand backup action.
-   - `BACKUP_SPREADSHEET_ID` — optional. If omitted, the script creates a spreadsheet and stores its ID in Script Properties.
-3. Grant the configured service account **Cloud Datastore Viewer** on the tenant project. Share a pre-existing backup spreadsheet with the Apps Script execution account if using `BACKUP_SPREADSHEET_ID`.
-4. Run `verifyFirestoreBackupSetup()` and authorize it. Fix permission errors before continuing.
-5. Run `setupBackupTrigger()` once to install the daily trigger (around 2 AM, script timezone). Run `exportFirestoreBackupToSheets()` once manually to validate the export.
-6. Deploy as a Web App. Put its `/exec` URL—not the sheet's share URL—in `backupSpreadsheetUrl`. The app adds `action=runBackup` and the signed-in user's Firebase token for authorized on-demand runs; opening the endpoint without that action redirects to the backup spreadsheet.
+School administrators can use **Admin Console → Database backup** to export a structured JSON file or restore from one. Export and import run in the signed-in browser against the selected tenant project and do not require gcloud, a billing account, Google Sheets, Apps Script, or a service account.
 
-Backups contain learner and user information. Keep the spreadsheet private, restrict access to Apps Script project editors, and periodically verify the trigger and completed backup log. A Sheets export is a convenience copy, not a substitute for Firebase-managed backups/export retention.
+The backup includes the app-managed documents in `users` and their `assignmentHistory` subcollections; `schoolYears` and their learner, dropout, transferred-out, grade, section, and teacher documents; all root `settings` documents and `settings/gradeTerms/years`; and `publicStats/summary`. Firestore timestamps, dates, and geographic points use tagged JSON values so they can be restored to their Firestore types. Backups are tenant-bound and schema-versioned; import rejects another school's file, incompatible versions, unsupported paths, duplicates, invalid data, and files that omit the currently signed-in active School Admin account.
+
+Before importing, select a mode:
+
+- **Replace** overwrites imported documents and deletes existing E-Dash-managed documents absent from the file.
+- **Merge** applies the imported fields to each matching document, preserving existing fields not supplied in the file; new document paths are created, and existing documents absent from the backup remain unchanged.
+- **Extend** creates only document paths that do not already exist; existing matching documents are skipped unchanged.
+
+All three modes are limited to the supported E-Dash-managed paths. They cannot clear or modify arbitrary/custom Firestore collections or Firebase Authentication users, passwords, and credentials. Before changing data, the browser downloads a separate safety JSON backup of the current app-managed data. Restore writes are chunked and are not atomic; an interrupted restore may leave a partial result, so use that safety file to restore the prior state.
 
 ## 9. Run locally and deploy the web app
 
@@ -358,7 +359,7 @@ npm run build
 
 For Vercel, configure the same six `VITE_REGISTRY_FIREBASE_*` values in the deployment's environment settings, then redeploy. `VITE_MAINTENANCE_MODE` and `VITE_TEST_MODE` are optional flags; do not put secrets in any `VITE_*` variable because Vite embeds them in the browser bundle. The provided `vercel.json` rewrites app paths to `index.html`; Firebase Hosting settings are in `firebase.json`.
 
-After deployment, visit the site, select the new school, sign in with the administrator Auth account, and verify Firestore reads/writes. Verify audit log, feedback, and backup links separately if configured. Confirm that the school appears only when its central registry document has `enabled: true`.
+After deployment, visit the site, select the new school, sign in with the administrator Auth account, and verify Firestore reads/writes. Verify audit log and feedback separately if configured. Confirm that the school appears only when its central registry document has `enabled: true`.
 
 ## 10. Enable account profile-photo uploads
 
@@ -486,12 +487,12 @@ Cloudinary's current references: [managing upload presets](https://cloudinary.co
 | Rule deployment is denied | Run Firebase CLI login with an account allowed to deploy rules to that exact project; choose the correct project ID and config file. |
 | Tenant reads/writes are denied | Confirm tenant rules deployed from `firestore.rules`, Auth UID matches `users/{uid}`, and its profile is active with the intended role. |
 | Apps Script returns permission errors | Check Script Properties, spreadsheet sharing, script owner/execution settings, service-account IAM role, and that the project ID is the tenant project. |
-| Feedback/audit/backup endpoint does not respond | Use the deployed HTTPS `/exec` URL for the matching service; confirm Web App deployment version/access; update the registry document and wait for the app's short school-directory cache to expire or reload. |
+| Feedback/audit endpoint does not respond | Use the deployed HTTPS `/exec` URL for the matching service; confirm Web App deployment version/access; update the registry document and wait for the app's short school-directory cache to expire or reload. |
 
 ## Security checklist
 
 - Keep service-account key files outside the repository. `.gitignore` excludes common downloaded Admin SDK key names, but ignore rules do not remove a key that was already committed. If a private key was ever committed, uploaded, or shared, revoke it and create a replacement.
-- Use separate service accounts for tenant provisioning, central registry writes, audit integration, and backup where practical. Grant only required project-level roles.
-- Treat learner data, backup sheets, feedback, audit logs, and Apps Script project settings as restricted school data.
+- Use separate service accounts for tenant provisioning, central registry writes, and audit integration where practical. Grant only required project-level roles.
+- Treat learner data, downloaded JSON backups, feedback, audit logs, and Apps Script project settings as restricted school data.
 - Keep Firestore rules restrictive. The app's UI role checks are not a security boundary; Firestore rules and trusted backends must enforce access.
 - Use public Firebase Web App settings only in browser-facing config. Never use service-account credentials as Firebase client settings.

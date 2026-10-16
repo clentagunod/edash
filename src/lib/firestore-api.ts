@@ -1631,6 +1631,38 @@ export async function fsGetSetting(key) {
   return doc.exists ? doc.data().value : null;
 }
 
+async function fsReadParentAccessToggle_(database) {
+  const doc = await database.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles).get();
+  const value = doc.exists ? doc.data()?.canParentAccess : undefined;
+  if (value !== undefined && typeof value !== "boolean") {
+    throw new Error("Invalid Parent Access setting. The canParentAccess value must be true or false.");
+  }
+  return {
+    canParentAccess: value ?? APP_CONFIG.firestore.settingsDefaults.toggles.canParentAccess,
+    configured: typeof value === "boolean",
+  };
+}
+
+export async function fsGetParentAccessConfiguration() {
+  return fsReadParentAccessToggle_(db);
+}
+
+export async function fsGetParentAccessEnabled() {
+  return (await fsReadParentAccessToggle_(parentDb)).canParentAccess;
+}
+
+export async function fsSetParentAccessEnabled(enabled) {
+  if (typeof enabled !== "boolean") throw new Error("Parent Access must be enabled or disabled.");
+  try {
+    await db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles).set({
+      canParentAccess: enabled,
+    }, { merge: true });
+    return enabled;
+  } catch (error) {
+    throw fsError_("Update Parent Access", error);
+  }
+}
+
 function fsGradeTermsYearRef_(schoolYear) {
   return db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.gradeTerms).collection(FS_PATHS.gradeTermYears).doc(fsNormalizeSchoolYear_(schoolYear));
 }

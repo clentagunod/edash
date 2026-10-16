@@ -1131,6 +1131,7 @@ export function wireModal() {
   ensureTransferInputs();
   ensureLearnerStatusInputs();
   ensureSectionInput();
+  wireGuardianContactFields();
   normalizeHeightInputs();
   const learnerIdInput = document.getElementById("f_learnerId");
   if (learnerIdInput) {
@@ -1363,6 +1364,30 @@ export function getLearnerFieldValue(id) {
 export function sentenceCaseName(value) {
   const text = String(value || "").trim().toLowerCase();
   return text.replace(/(^|[\s.'])([a-zñ])/giu, (_, prefix, letter) => prefix + letter.toUpperCase());
+}
+
+export function normalizeNotAvailableInput(value) {
+  return /^\s*n\s*\/\s*a\s*$/i.test(String(value || "")) ? "N/A" : value;
+}
+
+export function wireGuardianContactFields() {
+  ["f_guardian", "f_contact"].forEach((id) => {
+    const input = document.getElementById(id);
+    if (!input) return;
+    if (input.dataset.notAvailableWired !== "true") {
+      input.addEventListener("input", () => {
+        input.value = normalizeNotAvailableInput(input.value);
+      });
+      input.dataset.notAvailableWired = "true";
+    }
+    const field = input.closest(".field");
+    if (field && !field.querySelector(".not-available-hint")) {
+      const hint = document.createElement("small");
+      hint.className = "field-hint not-available-hint";
+      hint.textContent = "N/A if not available";
+      input.insertAdjacentElement("afterend", hint);
+    }
+  });
 }
 
 export function ensureSuffixInputs() {

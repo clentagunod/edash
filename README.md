@@ -19,7 +19,7 @@ npm run build
 npm test
 ```
 
-The app reads enabled school registrations from `schools/{schoolId}` in the central project's Firestore. For the complete new-school procedure—including automatic Firestore bootstrap, the shared tenant rules, school registration JSON, Apps Script endpoints for audit logs/feedback/backups, and deployment—see [SETUP_README.md](./SETUP_README.md).
+The app reads enabled school registrations from `schools/{schoolId}` in the central project's Firestore. For the complete new-school procedure—including automatic Firestore bootstrap, the shared tenant rules, school registration JSON, Apps Script endpoints for audit logs and feedback, JSON database backup/restore, and deployment—see [SETUP_README.md](./SETUP_README.md).
 
 ## Project scripts
 
@@ -53,4 +53,4 @@ Card identity fields can be corrected for that print session. Region, division, 
 
 ## Data handling
 
-Learner information is stored in the school's Firestore project. Apps Script Web Apps are optional integrations: the audit-log and feedback endpoints store their respective spreadsheet records, and the backup endpoint exports Firestore data to a Google Sheet. Protect access to those spreadsheets as student data.
+Learner information is stored in the school's Firestore project. Apps Script Web Apps are optional integrations for audit logs and feedback. Admin Console database backup and restore use downloadable JSON files in the signed-in browser; no Google Sheets backup service is used.

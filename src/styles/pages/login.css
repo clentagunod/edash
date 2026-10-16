@@ -2435,6 +2435,513 @@ body.dark-mode .login-shell[data-login-stage="school-selection"] .school-picker 
   }
 }
 
+/* School login desktop layout follows the split-screen portal reference. */
+.login-shell[data-login-stage="school-login"] {
+  grid-template-columns: minmax(0, 53.5fr) minmax(0, 46.5fr);
+  height: 100svh;
+  min-height: 100svh;
+  overflow: hidden;
+  background: #f7f9fc;
+}
+
+.login-shell[data-login-stage="school-login"] .login-visual {
+  justify-content: flex-start;
+  gap: clamp(14px, 2.8vh, 22px);
+  padding: clamp(28px, 7.5vh, 54px) clamp(32px, 4.7vw, 60px) 34px;
+  background:
+    radial-gradient(ellipse at 94% 92%, rgba(14, 105, 218, .58), transparent 38%),
+    radial-gradient(ellipse at 1% 54%, rgba(8, 31, 80, .88), transparent 62%),
+    linear-gradient(140deg, #05265e 0%, #073678 52%, #064a9f 100%);
+  padding-right: clamp(28px, 3.6vw, 46px);
+}
+
+.login-shell[data-login-stage="school-login"] .login-visual::before {
+  inset: -22% 54% auto -14%;
+  width: 75%;
+  height: 48%;
+  border-radius: 0 0 80% 0;
+  opacity: .28;
+  background: linear-gradient(140deg, #1c66bd, transparent 72%);
+}
+
+.login-shell[data-login-stage="school-login"] .login-visual::after {
+  inset: auto -24% -35% 25%;
+  width: 110%;
+  height: 44%;
+  border-radius: 50% 50% 0 0;
+  opacity: .28;
+  background: linear-gradient(150deg, #1682ed, #0753b0 72%);
+}
+
+.login-shell[data-login-stage="school-login"] .login-brand {
+  gap: 14px;
+  flex: 0 0 auto;
+}
+
+.login-shell[data-login-stage="school-login"] .login-brand-mark {
+  width: 54px;
+  height: 54px;
+  border-radius: 15px;
+}
+
+.login-shell[data-login-stage="school-login"] .login-brand-mark img {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+}
+
+.login-shell[data-login-stage="school-login"] .login-brand-text .eyebrow {
+  color: rgba(222, 235, 255, .78);
+  font-size: 9px;
+  letter-spacing: .16em;
+}
+
+.login-shell[data-login-stage="school-login"] .login-brand-text .name {
+  font-size: 23px;
+}
+
+.login-shell[data-login-stage="school-login"] .login-school-visual {
+  flex: 0 1 auto;
+}
+
+.login-shell[data-login-stage="school-login"] .login-school-name {
+  margin: 0 0 7px;
+  font-size: clamp(25px, 2.55vw, 34px);
+  font-weight: 750;
+  line-height: 1.15;
+  letter-spacing: -.035em;
+}
+
+.login-shell[data-login-stage="school-login"] .login-school-tagline {
+  margin: 0 0 15px;
+  color: #81e6f2;
+  font-size: clamp(14px, 1.35vw, 18px);
+  font-weight: 650;
+}
+
+.login-shell[data-login-stage="school-login"] .login-school-media {
+  width: 100%;
+  min-height: 0;
+  max-height: none;
+  aspect-ratio: 1.9;
+  border-color: rgba(197, 226, 255, .7);
+  border-radius: 18px;
+  box-shadow: 0 18px 44px rgba(0, 13, 44, .3);
+  background: #153966;
+}
+
+.login-shell[data-login-stage="school-login"] .school-preview-video,
+.login-shell[data-login-stage="school-login"] .school-video-placeholder {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  aspect-ratio: auto;
+  border-radius: inherit;
+  object-fit: cover;
+}
+
+.login-shell[data-login-stage="school-login"] .login-school-tag {
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  color: #f6c928;
+  font-size: clamp(20px, 2.7vw, 38px);
+}
+
+.login-shell[data-login-stage="school-login"] .login-metrics {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
+.login-shell[data-login-stage="school-login"] .login-metric {
+  min-width: 0;
+  min-height: 82px;
+  gap: 8px;
+  padding: 10px;
+  border-color: rgba(134, 190, 255, .34);
+  border-radius: 13px;
+  background: rgba(27, 82, 155, .56);
+  box-shadow: inset 0 1px rgba(255, 255, 255, .06);
+}
+
+.login-shell[data-login-stage="school-login"] .login-metric-icon {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #277ded, #1761c7);
+}
+
+.login-shell[data-login-stage="school-login"] .login-metric:nth-child(2) .login-metric-icon {
+  background: linear-gradient(145deg, #16a9be, #087993);
+}
+
+.login-shell[data-login-stage="school-login"] .login-metric:nth-child(3) .login-metric-icon {
+  background: linear-gradient(145deg, #2597e8, #126bc8);
+}
+
+.login-shell[data-login-stage="school-login"] .login-metric:nth-child(4) .login-metric-icon {
+  background: linear-gradient(145deg, #527df0, #315fd1);
+}
+
+.login-shell[data-login-stage="school-login"] .login-metric-icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+.login-shell[data-login-stage="school-login"] .login-metric-copy {
+  min-width: 0;
+}
+
+.login-shell[data-login-stage="school-login"] .login-metric-copy strong {
+  overflow: hidden;
+  font-size: clamp(15px, 1.55vw, 21px);
+  font-weight: 750;
+  letter-spacing: -.025em;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.login-shell[data-login-stage="school-login"] .login-metric-copy span {
+  display: block;
+  margin-top: 2px;
+  color: rgba(230, 240, 255, .86);
+  font-size: clamp(8px, .76vw, 10px);
+  line-height: 1.25;
+}
+
+.login-shell[data-login-stage="school-login"] .login-panel {
+  min-height: 100svh;
+  padding: 34px clamp(24px, 3vw, 40px);
+  background:
+    radial-gradient(circle at 100% 0%, rgba(63, 196, 213, .11) 0 15%, transparent 15.2%),
+    radial-gradient(circle at 98% 16%, rgba(31, 186, 215, .38) 0 6px, transparent 7px),
+    radial-gradient(ellipse at 100% 100%, rgba(79, 147, 231, .08), transparent 32%),
+    #f7f9fc;
+}
+
+.login-shell[data-login-stage="school-login"] .login-card {
+  width: min(100%, 464px);
+  max-width: 464px;
+  min-height: 580px;
+  padding: 24px 32px 26px;
+  border-color: #e1e9f3;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, .95);
+  box-shadow: 0 18px 42px rgba(31, 73, 124, .14), 0 3px 10px rgba(31, 73, 124, .04);
+}
+
+.login-shell[data-login-stage="school-login"] .login-card-header {
+  display: flex;
+  min-height: 31px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.login-shell[data-login-stage="school-login"] .login-card-kicker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  color: #2470d9;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .17em;
+  text-transform: uppercase;
+}
+
+.login-shell[data-login-stage="school-login"] .login-card-kicker::after {
+  position: absolute;
+  right: 0;
+  bottom: -9px;
+  left: 0;
+  height: 3px;
+  border-radius: 3px;
+  background: #2ed4c2;
+  content: "";
+}
+
+.login-shell[data-login-stage="school-login"] .school-change-link {
+  min-height: 32px;
+  margin: 0;
+  padding: 6px 10px;
+  border-color: #d6e5fb;
+  border-radius: 9px;
+  background: #f1f6ff;
+  font-size: 11px;
+}
+
+.login-shell[data-login-stage="school-login"] .login-card h2 {
+  margin: 0 0 5px;
+  font-size: clamp(27px, 2.6vw, 32px);
+  font-weight: 750;
+  letter-spacing: -.045em;
+  line-height: 1.13;
+}
+
+.login-shell[data-login-stage="school-login"] .login-card .sub {
+  display: block;
+  margin: 0 0 20px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.login-shell[data-login-stage="school-login"] .field {
+  margin-bottom: 15px;
+}
+
+.login-shell[data-login-stage="school-login"] .field label {
+  margin-bottom: 6px;
+  color: #17315a;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.login-shell[data-login-stage="school-login"] .login-input-wrap {
+  position: relative;
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 11px;
+  border: 1px solid #d5e1f0;
+  border-radius: 9px;
+  background: #fff;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+.login-shell[data-login-stage="school-login"] .login-input-wrap:focus-within {
+  border-color: #3985ed;
+  box-shadow: 0 0 0 3px rgba(57, 133, 237, .12);
+}
+
+.login-shell[data-login-stage="school-login"] .login-input-wrap > svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: #7890ad;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.login-shell[data-login-stage="school-login"] .login-input-wrap input {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 0;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #1d3558;
+  font-size: 12px;
+}
+
+.login-shell[data-login-stage="school-login"] .login-input-wrap input:focus {
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+}
+
+.login-shell[data-login-stage="school-login"] .login-input-wrap input::placeholder {
+  color: #9aaac0;
+}
+
+.login-shell[data-login-stage="school-login"] .login-password-toggle {
+  display: grid;
+  width: 28px;
+  height: 30px;
+  flex: 0 0 auto;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #7890ad;
+  cursor: pointer;
+}
+
+.login-shell[data-login-stage="school-login"] .login-password-toggle svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.login-shell[data-login-stage="school-login"] .field-row {
+  margin: -1px 0 15px;
+  color: #7589a5;
+  font-size: 11px;
+}
+
+.login-shell[data-login-stage="school-login"] .field-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.login-shell[data-login-stage="school-login"] .field-row input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: #1769d2;
+}
+
+.login-shell[data-login-stage="school-login"] .field-row a {
+  color: #1769d2;
+  font-weight: 700;
+}
+
+.login-shell[data-login-stage="school-login"] #loginSubmit {
+  position: relative;
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 10px;
+  background: linear-gradient(100deg, #0648cb 0%, #159bed 100%);
+  box-shadow: 0 8px 18px rgba(12, 104, 211, .2);
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.login-shell[data-login-stage="school-login"] #loginSubmit svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.login-shell[data-login-stage="school-login"] .login-divider {
+  margin: 19px 0 13px;
+  color: #8395ae;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.login-shell[data-login-stage="school-login"] .login-divider::before,
+.login-shell[data-login-stage="school-login"] .login-divider::after {
+  background: #dce5f0;
+}
+
+.login-shell[data-login-stage="school-login"] .login-access-options {
+  gap: 8px;
+}
+
+.login-shell[data-login-stage="school-login"] .visitor-login {
+  min-height: 54px;
+  padding: 8px 11px;
+  border-color: #d8ebed;
+  border-radius: 10px;
+  background: linear-gradient(105deg, #f0fbfa 0%, #f7fbfc 100%);
+}
+
+.login-shell[data-login-stage="school-login"] .visitor-login.parent-login {
+  border-color: #d7e5fb;
+  background: linear-gradient(105deg, #f0f6ff 0%, #f8faff 100%);
+}
+
+.login-shell[data-login-stage="school-login"] .visitor-login-icon {
+  width: 34px;
+  height: 34px;
+  flex-basis: 34px;
+  border-radius: 50%;
+  color: #079a85;
+  background: #d4f4ed;
+}
+
+.login-shell[data-login-stage="school-login"] .parent-login .visitor-login-icon {
+  color: #1672e2;
+  background: #dceaff;
+}
+
+.login-shell[data-login-stage="school-login"] .visitor-login-copy strong {
+  color: #17315a;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.login-shell[data-login-stage="school-login"] .visitor-login-copy small {
+  margin-top: 2px;
+  color: #7d91ad;
+  font-size: 9px;
+}
+
+.login-shell[data-login-stage="school-login"] .visitor-login-arrow {
+  width: 17px;
+  height: 17px;
+  color: #1774df;
+}
+
+.login-shell[data-login-stage="school-login"] .login-footnote {
+  display: none;
+}
+
+.login-shell[data-login-stage="school-login"] .login-panel .site-footer {
+  bottom: 28px;
+  color: #8797ae;
+  font-size: 9px;
+}
+
+@media (max-width: 1120px) and (min-width: 861px) {
+  .login-shell[data-login-stage="school-login"] .login-visual {
+    padding-inline: 30px;
+  }
+
+  .login-shell[data-login-stage="school-login"] .login-metrics {
+    gap: 8px;
+  }
+
+  .login-shell[data-login-stage="school-login"] .login-metric {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+    min-height: 83px;
+  }
+
+  .login-shell[data-login-stage="school-login"] .login-metric-icon {
+    width: 27px;
+    height: 27px;
+  }
+}
+
+@media (max-width: 860px) {
+  .login-shell[data-login-stage="school-login"] {
+    height: auto;
+    min-height: 100svh;
+    overflow-y: auto;
+  }
+
+  .login-shell[data-login-stage="school-login"] .login-card {
+    min-height: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-shell[data-login-stage="school-login"] .login-input-wrap {
+    transition: none;
+  }
+}
+
 .login-metric-copy strong {
   font-size: 1.15rem;
   font-variant-numeric: tabular-nums;
@@ -3216,5 +3723,110 @@ body.dark-mode .school-registration-status.is-error {
 
   .login-shell[data-login-stage="school-login"] .login-footnote {
     margin-top: 6px;
+  }
+}
+
+/* Decorative background accents from the split-screen login reference. */
+.login-shell[data-login-stage="school-login"] .login-visual {
+  isolation: isolate;
+}
+
+.login-shell[data-login-stage="school-login"] .login-visual::before {
+  inset: 0;
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  filter: none;
+  opacity: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle, rgba(22, 127, 226, .44) 1px, transparent 1.4px) 92% 7% / 12px 12px,
+    radial-gradient(circle, rgba(16, 126, 218, .42) 1px, transparent 1.4px) 4% 90% / 12px 12px,
+    linear-gradient(145deg, rgba(24, 100, 190, .58) 0 11%, transparent 11.1%),
+    linear-gradient(180deg, transparent 0 78%, rgba(4, 35, 91, .35) 78.1% 100%);
+}
+
+.login-shell[data-login-stage="school-login"] .login-visual::after {
+  inset: auto -12% -28% 35%;
+  width: 86%;
+  height: 42%;
+  border-radius: 50% 50% 0 0;
+  filter: none;
+  opacity: .8;
+  pointer-events: none;
+  background: linear-gradient(150deg, rgba(23, 126, 229, .65), rgba(9, 72, 158, .16) 70%);
+  transform: rotate(-9deg);
+}
+
+.login-shell[data-login-stage="school-login"] .login-panel {
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.login-shell[data-login-stage="school-login"] .login-panel::before,
+.login-shell[data-login-stage="school-login"] .login-panel::after {
+  position: absolute;
+  z-index: 0;
+  display: block;
+  content: "";
+  pointer-events: none;
+}
+
+.login-shell[data-login-stage="school-login"] .login-panel::before {
+  top: -92px;
+  right: -74px;
+  width: 250px;
+  height: 250px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 69% 34%, rgba(49, 205, 215, .28) 0 22%, transparent 22.5%),
+    radial-gradient(circle at 42% 47%, rgba(91, 218, 223, .16) 0 34%, transparent 34.5%);
+}
+
+.login-shell[data-login-stage="school-login"] .login-panel::after {
+  right: -96px;
+  bottom: -142px;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 37% 31%, rgba(204, 224, 245, .34) 0 2px, transparent 2.5px) 0 0 / 12px 12px,
+    radial-gradient(ellipse at 50% 50%, rgba(206, 225, 246, .44) 0 47%, transparent 47.5%);
+}
+
+.login-shell[data-login-stage="school-login"] .login-panel .site-footer {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  bottom: 26px;
+  width: calc(100% - 48px);
+  max-width: none;
+  transform: translateX(-50%);
+  text-align: center;
+}
+
+.login-shell[data-login-stage="school-login"] .login-card {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 860px) {
+  .login-shell[data-login-stage="school-login"] .login-visual::after {
+    opacity: .42;
+  }
+
+  .login-shell[data-login-stage="school-login"] .login-panel::before {
+    top: -140px;
+    right: -120px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-shell[data-login-stage="school-login"] .login-visual::before,
+  .login-shell[data-login-stage="school-login"] .login-visual::after,
+  .login-shell[data-login-stage="school-login"] .login-panel::before,
+  .login-shell[data-login-stage="school-login"] .login-panel::after {
+    animation: none;
+    transition: none;
   }
 }

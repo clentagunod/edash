@@ -584,8 +584,21 @@ export function ensureToastStack() {
 
 export function showToast(message, type = "info", options = {}) {
   const stack = ensureToastStack();
+  const toastKey = `${type}:${options.title || ""}:${message}`;
+  const existing = [...stack.querySelectorAll(".toast")].find((toast) => toast.dataset.toastKey === toastKey);
+  if (existing) {
+    const previousTimer = Number(existing.dataset.dismissTimer);
+    if (previousTimer) window.clearTimeout(previousTimer);
+    existing.dataset.dismissTimer = String(window.setTimeout(() => existing.remove(), options.duration || 3800));
+    return existing;
+  }
+
+  const visibleToasts = [...stack.querySelectorAll(".toast")];
+  while (visibleToasts.length >= 2) visibleToasts.shift()?.remove();
+
   const el = document.createElement("div");
   el.className = `toast ${type}`;
+  el.dataset.toastKey = toastKey;
   el.setAttribute("role", type === "error" ? "alert" : "status");
 
   const copy = document.createElement("div");
@@ -617,7 +630,8 @@ export function showToast(message, type = "info", options = {}) {
   close.addEventListener("click", () => el.remove());
   el.appendChild(close);
   stack.appendChild(el);
-  setTimeout(() => el.remove(), options.duration || 3800);
+  el.dataset.dismissTimer = String(window.setTimeout(() => el.remove(), options.duration || 3800));
+  return el;
 }
 
 /* ---- Small formatting helpers used across pages ----------------------- */

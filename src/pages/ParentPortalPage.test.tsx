@@ -2,7 +2,7 @@ import { act, createElement } from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { auth, getCurrentSchoolYear, getGradeTermCount, getParentLearner } = vi.hoisted(() => ({
+const { auth, getCurrentSchoolYear, getGradeTermCount, getParentAccessEnabled, getParentLearner } = vi.hoisted(() => ({
   auth: {
     currentUser: null as { uid: string; isAnonymous: boolean } | null,
     onAuthStateChanged: vi.fn(),
@@ -10,6 +10,7 @@ const { auth, getCurrentSchoolYear, getGradeTermCount, getParentLearner } = vi.h
   },
   getCurrentSchoolYear: vi.fn(),
   getGradeTermCount: vi.fn(),
+  getParentAccessEnabled: vi.fn(),
   getParentLearner: vi.fn(),
 }));
 
@@ -17,6 +18,7 @@ vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
 
 vi.mock('../lib/firebase', () => ({ parentAuth: auth }));
 vi.mock('../lib/firestore-api', () => ({
+  fsGetParentAccessEnabled: getParentAccessEnabled,
   fsGetParentCurrentSchoolYear: getCurrentSchoolYear,
   fsGetParentGradeTermCount: getGradeTermCount,
   fsGetParentLearner: getParentLearner,
@@ -54,6 +56,7 @@ describe('ParentPortalPage', () => {
     root = createRoot(container);
     getCurrentSchoolYear.mockReset().mockResolvedValue('2026-2027');
     getGradeTermCount.mockReset().mockResolvedValue(3);
+    getParentAccessEnabled.mockReset().mockResolvedValue(true);
     getParentLearner.mockReset().mockResolvedValue({
       learnerId: '128528250041',
       firstName: 'Sample',
@@ -89,6 +92,24 @@ describe('ParentPortalPage', () => {
     expect(getGradeTermCount).toHaveBeenCalledWith('2026-2027');
     expect(container.textContent).toContain('Sample Learner');
     expect(container.textContent).toContain('10/17/2021');
+  });
+
+  it('lets parents search while explaining when Parent Access is disabled', async () => {
+    getParentAccessEnabled.mockResolvedValue(false);
+    await act(async () => root.render(createElement(ParentPortalPage)));
+    const input = container.querySelector<HTMLInputElement>('#parentLearnerId')!;
+    const form = container.querySelector<HTMLFormElement>('.parent-search-card')!;
+
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '128528250041');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+
+    expect(getParentAccessEnabled).toHaveBeenCalledOnce();
+    expect(getParentLearner).not.toHaveBeenCalled();
+    expect(container.textContent).toContain('Your search was received, but learner information cannot be shown right now');
+    expect(container.textContent).toContain('contact the school office');
   });
 
   it('asks for all 12 digits before attempting a lookup', async () => {

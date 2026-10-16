@@ -68,6 +68,8 @@ describe('shared application configuration', () => {
     expect(APP_CONFIG.firestore.paths.gradeTermYears).toBe('years');
     expect(APP_CONFIG.firestore.documents.currentSchoolYear).toBe('currentSchoolYear');
     expect(APP_CONFIG.firestore.documents.gradeTerms).toBe('gradeTerms');
+    expect(APP_CONFIG.firestore.documents.toggles).toBe('toggles');
+    expect(APP_CONFIG.firestore.settingsDefaults.toggles).toEqual({ canParentAccess: true });
     expect(APP_CONFIG.firestore.schoolDefaults.gradeTerms).toEqual({ termCount: 3, passingThreshold: 75, gradeLevels: {} });
     expect(APP_CONFIG.firestore.schoolYearDefaults).toEqual({ gradeTerms: { termCount: 3, passingThreshold: 75, gradeLevels: {} }, isCurrent: false });
     expect(APP_CONFIG.firestore.userDefaults.teacherPrefs).toEqual({
@@ -241,6 +243,40 @@ describe('school-year rollover', () => {
       setAppUserProfile(previousProfile);
       schoolYearModule.setSelectedSchoolYear(previousYear);
       schoolYearModule.writeStoredSchoolYear_(previousStoredYear);
+    }
+  });
+});
+
+describe('Parent Access setting', () => {
+  it('uses the tenant toggle document and defaults to enabled until explicitly configured', async () => {
+    const togglesRef = {
+      get: vi.fn().mockResolvedValue({ exists: false, data: () => undefined }),
+      set: vi.fn().mockResolvedValue(undefined),
+    };
+    const collectionSpy = vi.spyOn(mockDb, 'collection').mockImplementation((name) => {
+      if (name === 'settings') return { doc: vi.fn((id) => {
+        expect(id).toBe('toggles');
+        return togglesRef;
+      }) };
+      throw new Error(`Unexpected collection ${name}`);
+    });
+
+    try {
+      await expect(firestoreApi.fsGetParentAccessConfiguration()).resolves.toEqual({
+        canParentAccess: true,
+        configured: false,
+      });
+      togglesRef.get.mockResolvedValue({ exists: true, data: () => ({ canParentAccess: false }) });
+      await expect(firestoreApi.fsGetParentAccessConfiguration()).resolves.toEqual({
+        canParentAccess: false,
+        configured: true,
+      });
+      await expect(firestoreApi.fsGetParentAccessEnabled()).resolves.toBe(false);
+      await expect(firestoreApi.fsSetParentAccessEnabled(false)).resolves.toBe(false);
+      expect(togglesRef.set).toHaveBeenCalledWith({ canParentAccess: false }, { merge: true });
+      await expect(firestoreApi.fsSetParentAccessEnabled('false')).rejects.toThrow('must be enabled or disabled');
+    } finally {
+      collectionSpy.mockRestore();
     }
   });
 });
@@ -1237,7 +1273,6 @@ describe('visitor session handling', () => {
       },
       auditLogApiUrl: '',
       feedbackApiUrl: '',
-      backupSpreadsheetUrl: '',
     }));
     document.body.innerHTML = `
       <div id="sidebarMount"></div>

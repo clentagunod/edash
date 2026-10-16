@@ -27,11 +27,14 @@ const {
   filterLearnersByTeacherScope,
   filterDemoLearners,
   LL,
+  normalizeNotAvailableInput,
   renderLearnerDetailSections,
   renderLearnersTable,
   sentenceCaseName,
   sortLearners,
+  wireGuardianContactFields,
 } = await import('./learner-list');
+const { showToast } = await import('./shell');
 
 describe('learner list sorting and teacher scope', () => {
   it('sorts names by surname and preserves lowercase after hyphens', () => {
@@ -162,6 +165,52 @@ describe('learner grade input configuration', () => {
     LL.gradeTerm = original.gradeTerm;
     LL.editingLearnerOriginal = original.editingLearnerOriginal;
     document.body.innerHTML = '';
+  });
+});
+
+describe('learner guardian and contact inputs', () => {
+  it('normalizes N/A to uppercase while typing and shows availability guidance', () => {
+    document.body.innerHTML = `
+      <div class="field"><input id="f_guardian"></div>
+      <div class="field"><input id="f_contact"></div>`;
+    wireGuardianContactFields();
+
+    const guardianInput = document.querySelector<HTMLInputElement>('#f_guardian')!;
+    const contactInput = document.querySelector<HTMLInputElement>('#f_contact')!;
+    guardianInput.value = 'n/a';
+    guardianInput.dispatchEvent(new Event('input'));
+    contactInput.value = 'n/a';
+    contactInput.dispatchEvent(new Event('input'));
+
+    expect(guardianInput.value).toBe('N/A');
+    expect(contactInput.value).toBe('N/A');
+    expect(document.querySelectorAll('.not-available-hint')).toHaveLength(2);
+    expect([...document.querySelectorAll('.not-available-hint')].map((hint) => hint.textContent))
+      .toEqual(['N/A if not available', 'N/A if not available']);
+    expect(normalizeNotAvailableInput('0917-123-4567')).toBe('0917-123-4567');
+    document.body.innerHTML = '';
+  });
+});
+
+describe('notification stack', () => {
+  it('deduplicates repeated notifications and limits the stack to two items', () => {
+    vi.useFakeTimers();
+    document.querySelector('.toast-stack')?.remove();
+
+    const first = showToast('Loading is taking longer than expected.', 'info', { title: 'Still loading' });
+    expect(showToast('Loading is taking longer than expected.', 'info', { title: 'Still loading' })).toBe(first);
+    showToast('Enrollment refreshed.', 'success');
+    showToast('A new update is available.', 'info');
+
+    const toasts = [...document.querySelectorAll('.toast-stack .toast')];
+    expect(toasts).toHaveLength(2);
+    expect(toasts.map((toast) => toast.textContent)).toEqual([
+      'Enrollment refreshed.x',
+      'A new update is available.x',
+    ]);
+    document.querySelector('.toast-stack')?.remove();
+    vi.clearAllTimers();
+    vi.useRealTimers();
   });
 });
 

@@ -26,9 +26,40 @@ vi.mock('./firestore-api', () => ({ fsGetUsers: vi.fn(), fsSubscribeUsers: vi.fn
 
 import {
   filterTeacherAssignmentSections,
+  initAdminSectionTabs,
   loadTeacherAssignmentSections,
   updateTeacherAssignmentSummary,
 } from './manage-users';
+
+describe('Admin Console section navigation', () => {
+  beforeEach(() => {
+    document.body.innerHTML = `
+      <div role="tablist">
+        <button id="adminStructureTab" role="tab" aria-selected="true" aria-controls="adminStructurePanel"></button>
+        <button id="adminAccessTab" role="tab" aria-selected="false" aria-controls="adminAccessPanel"></button>
+        <button id="adminBackupTab" role="tab" aria-selected="false" aria-controls="adminBackupPanel"></button>
+        <button id="adminAuditTab" role="tab" aria-selected="false" aria-controls="adminAuditPanel"></button>
+      </div>
+      <section id="adminStructurePanel"></section>
+      <section id="adminAccessPanel" hidden></section>
+      <section id="adminBackupPanel" hidden></section>
+      <section id="adminAuditPanel" hidden></section>
+    `;
+  });
+
+  it('navigates between the remaining sections without a Database usage tab', () => {
+    initAdminSectionTabs();
+    const backupTab = document.getElementById('adminBackupTab') as HTMLButtonElement;
+    backupTab.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+
+    expect(document.querySelectorAll('[role="tab"]')).toHaveLength(4);
+    expect(document.getElementById('adminUsageTab')).toBeNull();
+    expect(document.getElementById('adminUsagePanel')).toBeNull();
+    expect(document.getElementById('adminAuditTab')?.getAttribute('aria-selected')).toBe('true');
+    expect(document.getElementById('adminAuditPanel')?.hasAttribute('hidden')).toBe(false);
+    expect(document.getElementById('adminBackupPanel')?.hasAttribute('hidden')).toBe(true);
+  });
+});
 
 describe('teacher assignment selector', () => {
   beforeEach(() => {

@@ -79,9 +79,6 @@
   .admin-year-actions { align-items: stretch; flex-direction: column; }
   .admin-year-actions, .admin-year-picker, .admin-year-picker select, .admin-year-actions .btn { width: 100%; }
   .admin-section-grid { grid-template-columns: 1fr; padding-left: 12px; padding-right: 12px; }
-  .firestore-usage-head { flex-direction: column; }
-  .usage-quota-grid { grid-template-columns: 1fr; padding: 14px 16px; }
-  .usage-chart-wrap { margin-left: 16px; margin-right: 16px; }
   .access-management-label { align-items: stretch; flex-direction: column; }
   .access-management-label > div { align-items: flex-start; flex-direction: column; gap: 2px; }
   .access-management-label .btn { width: 100% !important; }

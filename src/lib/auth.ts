@@ -4,6 +4,7 @@ import { LPSApi } from './sheets-api';
 import { auth, authPersistenceReady, getPublicStats } from './firebase';
 import { APP_LOGIN_PATH, APP_PAGE_PREFIX, appSessionId, clearVisitorSession, ensureVisitorSession, hasRealUserProfile, isVisitorSession, setAppUserProfile, storedAppProfile } from './app-config';
 import { LPSCache } from './cache';
+import { clearLoginPublicStats, renderLoginPublicStats } from './login-public-stats';
 
 /**
  * ============================================================================
@@ -61,16 +62,12 @@ export function initLoginPage() {
   const submitBtn = document.getElementById("loginSubmit");
 
   async function refreshLoginStatsFromStats(stats = null) {
-    const learnerCount = document.getElementById("loginLearnerCount");
-    const programCount = document.getElementById("loginProgramCount");
-    const syncStatus = document.getElementById("loginSyncStatus");
     try {
       const nextStats = stats || await getPublicStats() || {};
-      if (learnerCount) learnerCount.textContent = Number(nextStats.totalLearners || 0).toLocaleString();
-      if (programCount) programCount.textContent = Number(nextStats.programsTracked || 0).toLocaleString();
-      if (syncStatus) syncStatus.textContent = nextStats.syncStatus || "Live";
+      renderLoginPublicStats(nextStats);
     } catch (error) {
-      if (syncStatus) syncStatus.textContent = "Unavailable";
+      clearLoginPublicStats();
+      console.error("Could not load public login statistics:", error);
     }
   }
 

@@ -112,7 +112,7 @@ export async function loadEnrollmentData(schoolYear = getSelectedSchoolYear(), q
 export async function syncEnrollmentCounts(showFeedback, schoolYear = getSelectedSchoolYear()) {
   try {
     const result = await LPSApi.syncEnrollmentData(schoolYear);
-    if (showFeedback) showToast(typeof fsSyncEnrollmentData === "function" ? "Enrollment counts refreshed from Firestore." : `${result.updated} enrollment section${result.updated === 1 ? "" : "s"} synced to the sheet.`, "success");
+    if (showFeedback) showToast(typeof fsSyncEnrollmentData === "function" ? "Refreshed Enrollment Data." : `${result.updated} enrollment section${result.updated === 1 ? "" : "s"} synced to the sheet.`, "success");
     return result;
   } catch (error) {
     if (showFeedback && !/not authorized|permission|role/i.test(error.message || "")) showToast(error.message, "error");

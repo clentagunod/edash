@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockCreateSchoolYear } = vi.hoisted(() => ({
+const { mockCreateSchoolYear, mockGetParentAccess, mockSetParentAccess } = vi.hoisted(() => ({
   mockCreateSchoolYear: vi.fn(),
+  mockGetParentAccess: vi.fn(),
+  mockSetParentAccess: vi.fn(),
 }));
 
 vi.mock("./sheets-api", () => ({
@@ -19,7 +21,10 @@ vi.mock("./shell", () => ({
   showToast: vi.fn(),
 }));
 vi.mock("./icons", () => ({ Icon: { edit: "", trash: "" } }));
-vi.mock("./firestore-backup", () => ({ downloadFirestoreBackup: vi.fn() }));
+vi.mock("./firestore-backup", () => ({
+  downloadFirestoreBackup: vi.fn(),
+  updateFirestoreBackupModeWarning: vi.fn(),
+}));
 vi.mock("./curriculum-subjects", () => ({
   CURRICULUM_GRADE_LEVELS: [],
   CURRICULUM_SUBJECTS: [],
@@ -34,9 +39,11 @@ vi.mock("./academic-grades", () => ({
 vi.mock("./firestore-api", () => ({
   fsGetGradeLevelGradingConfigurations: vi.fn(),
   fsGetGradeTermCount: vi.fn(),
+  fsGetParentAccessConfiguration: mockGetParentAccess,
   fsGetPassingThreshold: vi.fn(),
   fsSetGradeLevelGradingConfiguration: vi.fn(),
   fsSetGradeTermCount: vi.fn(),
+  fsSetParentAccessEnabled: mockSetParentAccess,
   fsSetPassingThreshold: vi.fn(),
 }));
 vi.mock("./grading-config", () => ({
@@ -47,7 +54,64 @@ vi.mock("./grading-config", () => ({
   normalizePassingThreshold: vi.fn(),
 }));
 
-import { ADMIN_OPTIONS, createAdminYear } from "./admin-options";
+import { ADMIN_OPTIONS, createAdminYear, initializeSheetsBackupLink, loadAdminParentAccess, saveAdminParentAccessToggle } from "./admin-options";
+import { APP_CONFIG } from "./app-config";
+
+describe("Google Sheets backup link", () => {
+  beforeEach(() => {
+    document.body.innerHTML = `
+      <a id="openSheetsBackupBtn" hidden></a>
+      <p id="sheetsBackupStatus"></p>
+    `;
+    APP_CONFIG.backupSpreadsheetUrl = "";
+  });
+
+  it("opens the configured Google Sheets backup and hides unavailable or invalid links", () => {
+    const link = document.getElementById("openSheetsBackupBtn") as HTMLAnchorElement;
+    const status = document.getElementById("sheetsBackupStatus");
+
+    expect(initializeSheetsBackupLink()).toBe(false);
+    expect(link.hidden).toBe(true);
+    expect(status?.textContent).toContain("not configured");
+
+    APP_CONFIG.backupSpreadsheetUrl = "https://docs.google.com/spreadsheets/d/example/edit";
+    expect(initializeSheetsBackupLink()).toBe(true);
+    expect(link.href).toBe("https://docs.google.com/spreadsheets/d/example/edit");
+    expect(link.hidden).toBe(false);
+
+    APP_CONFIG.backupSpreadsheetUrl = "https://example.com/not-a-spreadsheet";
+    expect(initializeSheetsBackupLink()).toBe(false);
+    expect(link.hidden).toBe(true);
+    expect(status?.textContent).toContain("invalid");
+  });
+});
+
+describe("Parent Access toggle", () => {
+  beforeEach(() => {
+    document.body.innerHTML = `
+      <input id="adminParentAccessToggle" type="checkbox" />
+      <p id="adminParentAccessState" role="status"></p>
+    `;
+    ADMIN_OPTIONS.parentAccessLoaded = false;
+    ADMIN_OPTIONS.parentAccessSaving = false;
+    ADMIN_OPTIONS.parentAccessEnabled = true;
+    mockGetParentAccess.mockReset().mockResolvedValue({ canParentAccess: false, configured: true });
+    mockSetParentAccess.mockReset().mockResolvedValue(undefined);
+  });
+
+  it("loads the saved state and persists an admin change", async () => {
+    const toggle = document.getElementById("adminParentAccessToggle") as HTMLInputElement;
+    await loadAdminParentAccess();
+    expect(toggle.checked).toBe(false);
+    expect(toggle.disabled).toBe(false);
+
+    toggle.checked = true;
+    await saveAdminParentAccessToggle({ currentTarget: toggle });
+
+    expect(mockSetParentAccess).toHaveBeenCalledWith(true);
+    expect(document.getElementById("adminParentAccessState")?.textContent).toContain("now on");
+  });
+});
 
 describe("createAdminYear", () => {
   beforeEach(() => {
