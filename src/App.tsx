@@ -98,6 +98,13 @@ function SchoolRegistrationGate({ children }: { children: ReactNode }) {
         }
         const registeredSchool = registeredSchools.find((registered) => registered.id === school.id);
         if (registeredSchool && sameSchoolRegistration(registeredSchool, school)) {
+          if (registeredSchool.colorGradientTag !== school.colorGradientTag) {
+            storeActiveSchool(registeredSchool);
+            if (location.pathname === '/login') {
+              window.location.reload();
+              return;
+            }
+          }
           setStatus('active');
           setVerifiedPath(location.pathname);
           return;

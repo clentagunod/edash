@@ -35,6 +35,12 @@ export default function LoginPage() {
       return;
     }
 
+    const loginShell = container?.querySelector<HTMLElement>('.login-shell');
+    if (loginShell) {
+      loginShell.style.setProperty('--school-accent', school.colorGradientTag || '#667064');
+      loginShell.dataset.schoolAccent = 'true';
+    }
+
     const image = container?.querySelector<HTMLImageElement>('.login-brand-mark img');
     const fallbackIcon = container?.querySelector<SVGElement>('#brandFallbackIcon');
     const schoolName = container?.querySelector<HTMLHeadingElement>('#loginSchoolName');

@@ -60,6 +60,37 @@ describe('school directory tenant selection', () => {
     expect(isRegisteredSchool({ ...school, tagline: 7 })).toBe(false);
   });
 
+  it('accepts and validates the optional color gradient tag from school registration', () => {
+    const school = { ...validSchool, colorGradientTag: '#50A61E' };
+
+    expect(isRegisteredSchool(school)).toBe(true);
+    storeActiveSchool(school);
+    expect(getStoredSchool()?.colorGradientTag).toBe('#50A61E');
+    expect(isRegisteredSchool({ ...school, colorGradientTag: 'green' })).toBe(false);
+  });
+
+  it('accepts additional schema-defined registration fields', () => {
+    const school = {
+      ...validSchool,
+      branding: { accentColor: '#50A61E' },
+      schoolInfo: {
+        region: 'IX',
+        divisionOffice: 'Schools Division Office of Davao de Oro',
+        district: 'New Bataan',
+        municipality: 'New Bataan',
+      },
+      firebaseConfig: { ...validSchool.firebaseConfig, measurementId: 'G-EXAMPLE' },
+    };
+
+    expect(isRegisteredSchool(school)).toBe(true);
+    storeActiveSchool(school);
+    expect(getStoredSchool()).toMatchObject({
+      branding: school.branding,
+      schoolInfo: school.schoolInfo,
+      firebaseConfig: school.firebaseConfig,
+    });
+  });
+
   it('accepts an optional school-head map and rejects invalid contact fields', () => {
     const school = {
       ...validSchool,
@@ -98,15 +129,24 @@ describe('school directory tenant selection', () => {
     expect(sameSchoolRegistration(
       {
         ...validSchool,
+        colorGradientTag: '#50A61E',
         schoolHead: { name: 'Previous head' },
         schoolInfo: { region: 'XI', divisionOffice: 'Previous division', district: 'Previous district' },
       },
       {
         ...validSchool,
+        colorGradientTag: '#2468D3',
         schoolHead: { name: 'Current head' },
         schoolInfo: { region: 'IX', divisionOffice: 'Current division', district: 'Current district' },
       },
     )).toBe(true);
+  });
+
+  it('treats changes to additional Firebase config fields as tenant config changes', () => {
+    expect(sameSchoolRegistration(
+      { ...validSchool, firebaseConfig: { ...validSchool.firebaseConfig, measurementId: 'G-OLD' } },
+      { ...validSchool, firebaseConfig: { ...validSchool.firebaseConfig, measurementId: 'G-NEW' } },
+    )).toBe(false);
   });
 
   it('rejects malformed tenant configurations before they can initialize Firebase', () => {

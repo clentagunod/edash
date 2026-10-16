@@ -1,6 +1,7 @@
 declare const firebase: any;
 
 export interface FirebaseWebConfig {
+  [field: string]: unknown;
   apiKey: string;
   authDomain: string;
   projectId: string;
@@ -10,21 +11,25 @@ export interface FirebaseWebConfig {
 }
 
 export interface SchoolInfo {
+  [field: string]: unknown;
   region: string;
   divisionOffice: string;
   district: string;
 }
 
 export interface RegisteredSchool {
+  [field: string]: unknown;
   id: string;
   enabled: true;
   name: string;
   nickname: string;
   tagline?: string;
+  colorGradientTag?: string;
   logoUrl: string;
   videoUrl: string;
   schoolInfo?: SchoolInfo;
   schoolHead?: {
+    [field: string]: unknown;
     name?: string;
     position?: string;
     email?: string;
@@ -32,8 +37,8 @@ export interface RegisteredSchool {
     updatedAt?: unknown;
   };
   firebaseConfig: FirebaseWebConfig;
-  auditLogApiUrl: string;
-  feedbackApiUrl: string;
+  auditLogApiUrl?: string;
+  feedbackApiUrl?: string;
 }
 
 const env = import.meta.env as Record<string, string | undefined>;
@@ -113,15 +118,17 @@ export function isRegisteredSchool(value: unknown): value is RegisteredSchool {
     typeof school.nickname === "string" &&
     school.nickname.length <= 64 &&
     (school.tagline === undefined || (typeof school.tagline === "string" && school.tagline.length <= 240)) &&
+    (school.colorGradientTag === undefined ||
+      (typeof school.colorGradientTag === "string" && /^#[0-9a-fA-F]{6}$/.test(school.colorGradientTag))) &&
     typeof school.logoUrl === "string" &&
     isSafeAssetReference(school.logoUrl) &&
     typeof school.videoUrl === "string" &&
     (!school.videoUrl || isSafeAssetReference(school.videoUrl)) &&
     configIsUsable(school.firebaseConfig) &&
-    typeof school.auditLogApiUrl === "string" &&
-    isHttpsOrEmpty(school.auditLogApiUrl) &&
-    typeof school.feedbackApiUrl === "string" &&
-    isHttpsOrEmpty(school.feedbackApiUrl) &&
+    (school.auditLogApiUrl === undefined ||
+      (typeof school.auditLogApiUrl === "string" && isHttpsOrEmpty(school.auditLogApiUrl))) &&
+    (school.feedbackApiUrl === undefined ||
+      (typeof school.feedbackApiUrl === "string" && isHttpsOrEmpty(school.feedbackApiUrl))) &&
     (school.schoolInfo === undefined ||
       (!!school.schoolInfo &&
         typeof school.schoolInfo === "object" &&
@@ -148,15 +155,29 @@ export function sameSchoolRegistration(left: RegisteredSchool, right: Registered
     left.tagline === right.tagline &&
     left.logoUrl === right.logoUrl &&
     left.videoUrl === right.videoUrl &&
-    left.firebaseConfig.apiKey === right.firebaseConfig.apiKey &&
-    left.firebaseConfig.authDomain === right.firebaseConfig.authDomain &&
-    left.firebaseConfig.projectId === right.firebaseConfig.projectId &&
-    left.firebaseConfig.storageBucket === right.firebaseConfig.storageBucket &&
-    left.firebaseConfig.messagingSenderId === right.firebaseConfig.messagingSenderId &&
-    left.firebaseConfig.appId === right.firebaseConfig.appId &&
+    sameJsonValue(left.firebaseConfig, right.firebaseConfig) &&
     left.auditLogApiUrl === right.auditLogApiUrl &&
     left.feedbackApiUrl === right.feedbackApiUrl
   );
+}
+
+function sameJsonValue(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (!left || !right || typeof left !== "object" || typeof right !== "object") return false;
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return Array.isArray(left) && Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((value, index) => sameJsonValue(value, right[index]));
+  }
+  const leftRecord = left as Record<string, unknown>;
+  const rightRecord = right as Record<string, unknown>;
+  const leftKeys = Object.keys(leftRecord);
+  const rightKeys = Object.keys(rightRecord);
+  return leftKeys.length === rightKeys.length &&
+    leftKeys.every((key) =>
+      Object.prototype.hasOwnProperty.call(rightRecord, key) &&
+      sameJsonValue(leftRecord[key], rightRecord[key]),
+    );
 }
 
 export function getActiveSchool(): RegisteredSchool {
