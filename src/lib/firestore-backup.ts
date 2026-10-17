@@ -174,7 +174,7 @@ export function isSupportedFirestoreBackupPath(path) {
   if (parts.length === 4) {
     return (parts[0] === FS_USERS && parts[2] === FS_PATHS.assignmentHistory)
       || (parts[0] === FS_SETTINGS && parts[1] === FS_DOCUMENTS.gradeTerms && parts[2] === FS_PATHS.gradeTermYears)
-      || (parts[0] === FS_SCHOOL_YEARS && [FS_LEARNERS, FS_DROPOUTS, FS_TRANSFERRED_OUT, FS_PATHS.grades].includes(parts[2]));
+      || (parts[0] === FS_SCHOOL_YEARS && [FS_LEARNERS, FS_DROPOUTS, FS_TRANSFERRED_OUT, "trash", FS_PATHS.grades].includes(parts[2]));
   }
   if (parts.length === 6) {
     return parts[0] === FS_SCHOOL_YEARS
@@ -232,13 +232,14 @@ export async function collectFirestoreBackup() {
     )));
 
   await Promise.all(yearsSnapshot.docs.map(async (year) => {
-    const [learners, dropouts, transfers, grades] = await Promise.all([
+    const [learners, dropouts, transfers, trash, grades] = await Promise.all([
       year.ref.collection(FS_LEARNERS).get(),
       year.ref.collection(FS_DROPOUTS).get(),
       year.ref.collection(FS_TRANSFERRED_OUT).get(),
+      year.ref.collection("trash").get(),
       year.ref.collection(FS_PATHS.grades).get(),
     ]);
-    [learners, dropouts, transfers, grades].forEach((snapshot) => appendSnapshotDocuments(documents, snapshot));
+    [learners, dropouts, transfers, trash, grades].forEach((snapshot) => appendSnapshotDocuments(documents, snapshot));
     await Promise.all(grades.docs.map(async (grade) => {
       const sections = await grade.ref.collection(FS_PATHS.sections).get();
       appendSnapshotDocuments(documents, sections);

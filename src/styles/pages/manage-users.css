@@ -44,6 +44,44 @@
 .admin-nav-copy small { overflow: hidden; color: var(--ink-500); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .admin-nav-indicator { position: absolute; top: 12px; bottom: 12px; left: 0; width: 3px; border-radius: 0 4px 4px 0; background: var(--blue-600); opacity: 0; transform: scaleY(.5); transition: opacity .16s ease, transform .16s ease; }
 .admin-section-tabs button[aria-selected="true"] .admin-nav-indicator { opacity: 1; transform: scaleY(1); }
+.admin-card-preferences-panel { display: grid; gap: 22px; padding-bottom: 20px; }
+.admin-card-preferences-panel > .panel-header { align-items: flex-start; padding-bottom: 14px; border-bottom: 1px solid var(--line-100); }
+.admin-card-preferences-panel > .panel-header h3 { margin: 0 0 5px; color: var(--ink-900); font-size: 17px; }
+.admin-card-preferences-panel > .panel-header .panel-helper { max-width: 720px; margin: 0; }
+.admin-card-preference-grid { display: grid; min-width: 0; gap: 22px; padding: 0 20px; }
+.admin-card-active-template { display: grid; width: min(100%, 420px); min-width: 0; gap: 7px; color: var(--ink-700); font-size: 12px; font-weight: 700; }
+.admin-card-active-template span { color: var(--ink-500); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.admin-card-active-template select { width: 100%; min-width: 0; min-height: 42px; padding: 9px 12px; border: 1px solid var(--line-200); border-radius: 9px; background: var(--bg-card); color: var(--ink-900); font: inherit; font-size: 13px; }
+.admin-card-active-template select:focus-visible, .admin-card-grade-template select:focus-visible, .admin-card-attendance-labels input:focus-visible, .admin-card-months-field textarea:focus-visible { outline: 3px solid var(--blue-100); outline-offset: 2px; }
+.admin-card-assignment-field { display: grid; min-width: 0; gap: 11px; }
+.admin-card-assignment-field h4 { margin: 0; color: var(--ink-900); font-size: 14px; }
+.admin-card-grade-templates { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 12px; }
+.admin-card-grade-template { display: grid; min-width: 0; align-content: start; gap: 9px; padding: 14px; border: 1px solid var(--line-200); border-radius: 11px; background: var(--bg-page); color: var(--ink-700); font-size: 12px; font-weight: 700; transition: border-color .16s ease, background .16s ease, box-shadow .16s ease; }
+.admin-card-grade-template:focus-within { border-color: color-mix(in srgb, var(--blue-600) 45%, var(--line-200)); background: var(--bg-card); box-shadow: 0 0 0 3px var(--blue-100); }
+.admin-card-attendance-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 14px; }
+.admin-card-months-field, .admin-card-attendance-labels { display: grid; min-width: 0; align-content: start; gap: 10px; padding: 16px; border: 1px solid var(--line-200); border-radius: 11px; background: var(--bg-page); }
+.admin-card-months-field { color: var(--ink-700); font-size: 12px; font-weight: 700; }
+.admin-card-months-field textarea { width: 100%; min-width: 0; min-height: 96px; padding: 10px 12px; border: 1px solid var(--line-200); border-radius: 8px; background: var(--bg-card); color: var(--ink-900); font: inherit; font-size: 13px; line-height: 1.5; resize: vertical; }
+.admin-card-months-field small { color: var(--ink-500); font-size: 11px; font-weight: 400; line-height: 1.45; }
+.admin-card-attendance-labels { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.admin-card-attendance-labels > strong { grid-column: 1 / -1; margin-bottom: 1px; color: var(--ink-900); font-size: 13px; }
+.admin-card-attendance-labels label { display: grid; min-width: 0; gap: 7px; color: var(--ink-700); font-size: 11px; font-weight: 700; }
+.admin-card-grade-template select, .admin-card-attendance-labels input { width: 100%; min-width: 0; min-height: 40px; padding: 8px 10px; border: 1px solid var(--line-200); border-radius: 8px; background: var(--bg-card); color: var(--ink-900); font: inherit; font-size: 12px; }
+.admin-card-preferences-panel > .admin-final-grade-footer { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px 20px; min-width: 0; margin: 0 20px; padding-top: 16px; border-top: 1px solid var(--line-100); }
+.admin-card-preferences-panel .admin-grade-terms-state { display: block; grid-column: auto; min-width: 0; margin: 0; line-height: 1.5; overflow-wrap: anywhere; writing-mode: horizontal-tb; }
+.admin-card-preferences-state { display: flex !important; align-items: center; gap: 9px; }
+.admin-card-preferences-state::before { display: grid; width: 20px; height: 20px; flex: 0 0 20px; place-items: center; border: 1px solid currentColor; border-radius: 50%; font-size: 12px; font-weight: 800; line-height: 1; }
+.admin-card-preferences-state.is-success { color: var(--success-600); }
+.admin-card-preferences-state.is-success::before { content: "✓"; }
+.admin-card-preferences-state.is-error { color: var(--danger-600); }
+.admin-card-preferences-state.is-error::before { content: "!"; }
+.admin-card-preferences-state.is-saving { color: var(--blue-600); }
+.admin-card-preferences-state.is-saving::before { content: ""; border: 2px solid var(--blue-100); border-top-color: var(--blue-600); animation: admin-card-save-spin .7s linear infinite; }
+@keyframes admin-card-save-spin { to { transform: rotate(360deg); } }
+.admin-card-preferences-panel > .admin-final-grade-footer .btn { width: auto; min-width: 164px; max-width: 100%; justify-self: end; white-space: nowrap; }
+body.dark-mode .admin-card-grade-template, body.dark-mode .admin-card-months-field, body.dark-mode .admin-card-attendance-labels { background: #202020; }
+body.dark-mode .admin-card-grade-template:focus-within { background: #252525; }
+body.dark-mode .admin-card-active-template select, body.dark-mode .admin-card-grade-template select, body.dark-mode .admin-card-attendance-labels input, body.dark-mode .admin-card-months-field textarea { border-color: #3a3a3a; background: #191919; color: #eee; }
 .admin-nav-note { display: flex; align-items: center; gap: 8px; margin: 14px 8px 2px; padding-top: 12px; border-top: 1px solid var(--line-100); color: var(--ink-500); font-size: 9px; font-weight: 650; }
 .admin-nav-status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success-600); box-shadow: 0 0 0 3px rgba(32, 133, 90, .1); }
 .admin-section-content { min-width: 0; }
@@ -306,6 +344,14 @@ body.dark-mode .admin-backup-warning { border-color: #6b5421; color: #f2d98c; ba
 }
 
 @media (max-width: 760px) {
+  .admin-card-preference-grid, .admin-card-grade-templates, .admin-card-attendance-labels { grid-template-columns: minmax(0, 1fr); }
+  .admin-card-preferences-panel > .panel-header { padding: 16px 16px 12px; }
+  .admin-card-preference-grid { gap: 18px; padding: 0 16px; }
+  .admin-card-active-template { width: 100%; }
+  .admin-card-attendance-settings { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .admin-card-months-field, .admin-card-attendance-labels { padding: 13px; }
+  .admin-card-preferences-panel > .admin-final-grade-footer { grid-template-columns: minmax(0, 1fr); align-items: stretch; margin: 0 16px; }
+  .admin-card-preferences-panel > .admin-final-grade-footer .btn { width: 100%; min-width: 0; justify-self: stretch; }
   .admin-accordion-summary { min-height: 68px; padding: 12px; }
   .admin-accordion-content { padding: 0 10px 10px; }
   .admin-accordion-icon { width: 36px; height: 36px; }

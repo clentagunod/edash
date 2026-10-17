@@ -3,14 +3,16 @@ import type { CSSProperties } from 'react';
 import { requireAuth } from '../lib/auth';
 import {
   fsGetGradeLevelGradingConfigurations,
+  fsGetCardPrintingPreferences,
   fsGetGradeTermCount,
   fsGetGradeSubjectAssignments,
   fsGetLearners,
   fsGetPassingThreshold,
+  fsGetRoundType,
   fsGetSchoolYears,
   fsGetSections,
 } from '../lib/firestore-api';
-import { DEFAULT_GRADE_TERM_COUNT, finalGradeForDisplay, finalGradeRemark, gradeForTerm, gradeTermsForCount, numericalGradeAverage } from '../lib/academic-grades';
+import { DEFAULT_GRADE_TERM_COUNT, DEFAULT_ROUND_TYPE, finalGradeForDisplay, finalGradeRemark, gradeForTerm, gradeTermsForCount, numericalGradeAverage, roundGradeResult } from '../lib/academic-grades';
 import { DEFAULT_PASSING_THRESHOLD } from '../lib/grading-config';
 import {
   curriculumSubjectIdsForGrade,
@@ -38,7 +40,12 @@ import { APP_CONFIG, appBrandAssetUrl } from '../lib/app-config';
 import { gradeLevelConfigKey } from '../lib/grading-config';
 import '../styles/pages/print-card.css';
 
-const MONTHS = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'];
+const DEFAULT_MONTHS = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'];
+const DEFAULT_ATTENDANCE_ROWS = [
+  { id: 'classDays', label: 'Class days' },
+  { id: 'daysPresent', label: 'Present' },
+  { id: 'daysAbsent', label: 'Absent' },
+] as const;
 const PROGRAM_FILTERS = [
   { value: '4Ps', label: '4Ps Beneficiaries', field: 'is4Ps' },
   { value: 'IP', label: 'IP Learners', field: 'isIP' },
@@ -72,6 +79,7 @@ type ManualCardFields = {
   eligibleGrade: string;
   transferAdmittedIn: string;
   transferDate: string;
+  cancellationSchoolHead: string;
   attendance: {
     classDays: AttendanceEntry;
     daysPresent: AttendanceEntry;
@@ -105,8 +113,8 @@ function localityFromDivisionOffice(divisionOffice: string): string {
   return divisionOffice.replace(/^schools division office of\s*/i, '').trim();
 }
 
-function emptyAttendance(): AttendanceEntry {
-  return Object.fromEntries(MONTHS.map((month) => [month, '']));
+function emptyAttendance(months = DEFAULT_MONTHS): AttendanceEntry {
+  return Object.fromEntries(months.map((month) => [month, '']));
 }
 
 function makeManualFields(
@@ -140,6 +148,7 @@ function makeManualFields(
     eligibleGrade: '',
     transferAdmittedIn: '',
     transferDate: '',
+    cancellationSchoolHead: '',
     attendance: {
       classDays: emptyAttendance(),
       daysPresent: emptyAttendance(),
@@ -158,8 +167,8 @@ function computedAge(birthDate: string): string {
   return age >= 0 ? String(age) : '';
 }
 
-function displayAttendanceTotal(row: AttendanceEntry): string {
-  const values = Object.values(row).filter((value) => value.trim() !== '');
+function displayAttendanceTotal(row: AttendanceEntry, months = DEFAULT_MONTHS): string {
+  const values = months.map((month) => row[month] || '').filter((value) => value.trim() !== '');
   if (!values.length) return '';
   return String(values.reduce((sum, value) => sum + (Number(value) || 0), 0));
 }
@@ -172,6 +181,100 @@ function gradeResult(average: string, passingThreshold: number, termsComplete: b
 
 function gradeDisplay(value: unknown): string {
   return asText(value).trim() || '';
+}
+
+type CardGradeRow = {
+  id: string;
+  label: string;
+  kind: 'subject' | 'mapeh' | 'mapeh-component';
+  termGrades: string[];
+  finalGrade: string;
+  remarks: string;
+};
+
+const MAPEH_COMPONENT_IDS = new Set(['musicAndArts', 'physicalEducationAndHealth']);
+const LEGACY_MAPEH_GRADE_FIELDS: Record<string, string[]> = {
+  musicAndArts: ['music', 'arts'],
+  physicalEducationAndHealth: ['pe', 'health'],
+};
+
+function cardTermGrade(learner: LearnerRecord, termId: string, subject: Subject): string {
+  const currentGrade = gradeForTerm(learner, termId, subject.id);
+  if (currentGrade != null && String(currentGrade).trim() !== '') return String(currentGrade);
+  const legacyGrades = (LEGACY_MAPEH_GRADE_FIELDS[subject.id] || [])
+    .map((field) => gradeForTerm(learner, termId, field))
+    .filter((grade) => grade != null && String(grade).trim() !== '')
+    .map(String);
+  return legacyGrades.length ? numericalGradeAverage(legacyGrades, legacyGrades.length) : '';
+}
+
+function buildCardGradeRows(
+  learner: LearnerRecord,
+  subjects: Subject[],
+  termColumns: TermColumn[],
+  termCount: number,
+  autoCalculateFinalGrades: boolean,
+  passingThreshold: number,
+  roundType: string,
+): CardGradeRow[] {
+  const components = subjects.filter((subject) => MAPEH_COMPONENT_IDS.has(subject.id));
+  const regularSubjects = subjects.filter((subject) => !MAPEH_COMPONENT_IDS.has(subject.id));
+  const regularRows: CardGradeRow[] = regularSubjects.map((subject) => {
+    const termGrades = termColumns.map(({ id }) => cardTermGrade(learner, id, subject));
+    const finalGrade = roundGradeResult(finalGradeForDisplay(learner, subject.id, termCount, autoCalculateFinalGrades), roundType);
+    return {
+      id: subject.id,
+      label: subject.label,
+      kind: 'subject',
+      termGrades,
+      finalGrade: gradeDisplay(finalGrade),
+      remarks: finalGradeRemark(finalGrade, termGrades, passingThreshold),
+    };
+  });
+  if (!components.length) return regularRows;
+
+  const mapehTermGrades = termColumns.map(({ id }) => {
+    const grades = components.map((subject) => cardTermGrade(learner, id, subject));
+    if (grades.some((grade) => !grade.trim())) return '';
+    return numericalGradeAverage(grades, components.length);
+  });
+  const mapehFinalGrade = mapehTermGrades.length === termColumns.length
+    && mapehTermGrades.length === termCount
+    && mapehTermGrades.every(Boolean)
+    ? roundGradeResult(numericalGradeAverage(mapehTermGrades, mapehTermGrades.length), roundType)
+    : '';
+  const mapehRow: CardGradeRow = {
+    id: 'mapehAggregate',
+    label: 'MAPEH',
+    kind: 'mapeh',
+    termGrades: mapehTermGrades,
+    finalGrade: mapehFinalGrade,
+    remarks: finalGradeRemark(mapehFinalGrade, mapehTermGrades, passingThreshold),
+  };
+  const componentRows: CardGradeRow[] = components.map((subject) => ({
+    id: subject.id,
+    label: subject.label,
+    kind: 'mapeh-component',
+    termGrades: termColumns.map(({ id }) => cardTermGrade(learner, id, subject)),
+    finalGrade: '',
+    remarks: '',
+  }));
+  const firstComponentIndex = subjects.findIndex((subject) => MAPEH_COMPONENT_IDS.has(subject.id));
+  const rows: CardGradeRow[] = [];
+  let mapehInserted = false;
+  subjects.forEach((subject, index) => {
+    if (MAPEH_COMPONENT_IDS.has(subject.id)) {
+      if (!mapehInserted && index === firstComponentIndex) {
+        rows.push(mapehRow, ...componentRows);
+        mapehInserted = true;
+      }
+      return;
+    }
+    const row = regularRows.find((entry) => entry.id === subject.id);
+    if (row) rows.push(row);
+  });
+  if (!mapehInserted) rows.push(mapehRow, ...componentRows);
+  return rows;
 }
 
 function getInputValue(event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>): string {
@@ -204,6 +307,10 @@ function StudentCardReport({
   termCount,
   autoCalculateFinalGrades,
   passingThreshold,
+  roundType,
+  templateId,
+  attendanceMonths,
+  attendanceRows,
   schoolLogoUrl,
   schoolYear,
   side = 'both',
@@ -217,30 +324,27 @@ function StudentCardReport({
   termCount: number;
   autoCalculateFinalGrades: boolean;
   passingThreshold: number;
+  roundType: string;
+  templateId: string;
+  attendanceMonths: string[];
+  attendanceRows: Array<{ id: string; label: string }>;
   schoolLogoUrl: string;
   schoolYear: string;
   side?: 'both' | 'front' | 'back';
   transform?: string;
   className?: string;
 }) {
-  const finalGrades = subjects.map((subject) => finalGradeForDisplay(
-    learner,
-    subject.id,
-    termCount,
-    autoCalculateFinalGrades,
-  ));
-  const finalRemarks = subjects.map((subject, index) => finalGradeRemark(
-    finalGrades[index],
-    termColumns.map(({ id }) => gradeForTerm(learner, id, subject.id)),
-    passingThreshold,
-  ));
+  const gradeRows = buildCardGradeRows(learner, subjects, termColumns, termCount, autoCalculateFinalGrades, passingThreshold, roundType);
+  const averageRows = gradeRows.filter((row) => row.kind !== 'mapeh-component');
+  const finalGrades = averageRows.map((row) => row.finalGrade);
+  const finalRemarks = averageRows.map((row) => row.remarks);
   const allTermsComplete = finalRemarks.length > 0 && finalRemarks.every(Boolean);
-  const generalAverage = allTermsComplete ? numericalGradeAverage(finalGrades, subjects.length) : '';
-  const gradeRowHeight = subjects.length
-    ? Math.max(6, Math.min(17, 150 / subjects.length))
+  const generalAverage = allTermsComplete ? roundGradeResult(numericalGradeAverage(finalGrades, averageRows.length), roundType) : '';
+  const gradeRowHeight = gradeRows.length
+    ? Math.max(6, Math.min(17, 150 / gradeRows.length))
     : 17;
-  const printGradeRowHeight = subjects.length
-    ? Math.max(1.8, Math.min(4.1, 45 / subjects.length))
+  const printGradeRowHeight = gradeRows.length
+    ? Math.max(1.8, Math.min(4.1, 45 / gradeRows.length))
     : 4.1;
   const gradeTableStyle = {
     '--sf9-grade-row-height': `${gradeRowHeight}px`,
@@ -248,7 +352,7 @@ function StudentCardReport({
   } as CSSProperties;
 
   return (
-    <article className={`sf9-report-card${className ? ` ${className}` : ''}`} style={transform ? { transform } : undefined}>
+    <article className={`sf9-report-card${className ? ` ${className}` : ''}`} data-card-template={templateId} style={transform ? { transform } : undefined}>
       {side !== 'back' && <section className="sf9-card-side sf9-card-front">
         <header className="sf9-letterhead">
           <img src="/assets/edash/deped-seal.png" alt="Department of Education seal" />
@@ -308,19 +412,18 @@ function StudentCardReport({
               <tr>{termColumns.map(({ label, id }) => <th key={id}>{label.match(/^\d+/)?.[0] || ''}</th>)}</tr>
             </thead>
             <tbody>
-              {subjects.length ? subjects.map((subject, index) => {
-                const finalGrade = finalGrades[index];
+              {gradeRows.length ? gradeRows.map((row) => {
                 return (
-                  <tr key={subject.id}>
-                    <th>{subject.label}</th>
-                    {termColumns.map(({ id }) => <td key={id}>{gradeDisplay(gradeForTerm(learner, id, subject.id))}</td>)}
-                    <td>{gradeDisplay(finalGrade)}</td><td>{finalRemarks[index]}</td>
+                  <tr key={row.id} className={`sf9-grade-row sf9-grade-row--${row.kind}`}>
+                    <th>{row.label}</th>
+                    {row.termGrades.map((grade, index) => <td key={termColumns[index].id}>{gradeDisplay(grade)}</td>)}
+                    <td>{gradeDisplay(row.finalGrade)}</td><td>{row.remarks}</td>
                   </tr>
                 );
               }) : (
                 <tr><td className="sf9-no-subjects" colSpan={termColumns.length + 3}>No subjects are assigned to {asText(learner.gradeLevel) || 'this grade'} for {schoolYear}.</td></tr>
               )}
-              {subjects.length > 0 && <tr className="sf9-general-average">
+              {gradeRows.length > 0 && <tr className="sf9-general-average">
                 <th colSpan={termColumns.length + 1}>General Average</th>
                 <td>{generalAverage}</td>
                 <td>{gradeResult(generalAverage, passingThreshold, allTermsComplete)}</td>
@@ -348,15 +451,14 @@ function StudentCardReport({
         <section className="sf9-attendance-section">
           <h2>ATTENDANCE RECORD</h2>
           <table className="sf9-data-table sf9-attendance-table">
-            <thead><tr><th>Month</th>{MONTHS.map((month) => <th key={month}>{month}</th>)}<th>Total</th></tr></thead>
+            <thead><tr><th>Month</th>{attendanceMonths.map((month) => <th key={month}>{month}</th>)}<th>Total</th></tr></thead>
             <tbody>
-              {([
-                ['classDays', 'No. of Class Days'],
-                ['daysPresent', 'No. of Days Present'],
-                ['daysAbsent', 'No. of Days Absent'],
-              ] as const).map(([key, label]) => (
-                <tr key={key}><th>{label}</th>{MONTHS.map((month) => <td key={month}>{manual.attendance[key][month]}</td>)}<td>{displayAttendanceTotal(manual.attendance[key])}</td></tr>
-              ))}
+              {attendanceRows.map(({ id, label }) => {
+                const key = id as keyof ManualCardFields['attendance'];
+                return (
+                  <tr key={id}><th>{label}</th>{attendanceMonths.map((month) => <td key={month}>{manual.attendance[key]?.[month] || ''}</td>)}<td>{displayAttendanceTotal(manual.attendance[key] || {}, attendanceMonths)}</td></tr>
+                );
+              })}
             </tbody>
           </table>
         </section>
@@ -380,7 +482,7 @@ function StudentCardReport({
 
         <section className="sf9-cancellation-section">
           <h2>CANCELLATION OF ELIGIBILITY TO TRANSFER</h2>
-          <div><span>Admitted in: <strong>{manual.transferAdmittedIn}</strong></span><span>Date: <strong>{manual.transferDate}</strong></span></div>
+          <div><span className="sf9-cancellation-field"><span>Admitted in:</span><strong>{manual.transferAdmittedIn}</strong></span><span className="sf9-cancellation-field"><span>Date:</span><strong>{manual.transferDate}</strong></span><span className="sf9-cancellation-signature"><strong>{manual.cancellationSchoolHead}</strong><small>School Head</small></span></div>
         </section>
       </section>}
     </article>
@@ -407,6 +509,13 @@ export default function PrintCardPage() {
   const [gradeConfigurations, setGradeConfigurations] = useState<Record<string, { gradingType?: string; finalGradeMode?: string }>>({});
   const [gradeTermCount, setGradeTermCount] = useState(DEFAULT_GRADE_TERM_COUNT);
   const [passingThreshold, setPassingThreshold] = useState(DEFAULT_PASSING_THRESHOLD);
+  const [roundType, setRoundType] = useState(DEFAULT_ROUND_TYPE);
+  const [cardPreferences, setCardPreferences] = useState({
+    activeTemplate: 'sf9',
+    gradeTemplates: {} as Record<string, string>,
+    attendanceMonths: DEFAULT_MONTHS,
+    attendanceRows: [...DEFAULT_ATTENDANCE_ROWS],
+  });
   const [school, setSchool] = useState<RegisteredSchool | null>(getStoredSchool());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -436,12 +545,14 @@ export default function PrintCardPage() {
 
   const paper = PAPER_SIZES[paperSizeId];
   const { width: paperWidth, height: paperHeight } = getPaperDimensions(paperSizeId, paperOrientation);
+  const maxPrintLearners = paperSizeId === 'a5' ? 1 : 2;
+  const a5PortraitMode = paperSizeId === 'a5' && paperOrientation === 'portrait';
   const layoutDefaults = useMemo(
     () => ({
-      front: makeDefaultCardLayouts(selectedPrintIds.length, paperWidth, paperHeight, 'front'),
-      back: makeDefaultCardLayouts(selectedPrintIds.length, paperWidth, paperHeight, 'back'),
+      front: makeDefaultCardLayouts(selectedPrintIds.length, paperWidth, paperHeight, 'front', a5PortraitMode),
+      back: makeDefaultCardLayouts(selectedPrintIds.length, paperWidth, paperHeight, 'back', a5PortraitMode),
     }),
-    [selectedPrintIds.length, paperWidth, paperHeight],
+    [selectedPrintIds.length, paperWidth, paperHeight, a5PortraitMode],
   );
   const cardLayouts = cardLayoutsBySide[activeSheetSide];
 
@@ -505,13 +616,15 @@ export default function PrintCardPage() {
     setSelectedLearnerId('');
     setSelectedPrintIds([]);
     try {
-      const [records, sectionRows, curriculum, grading, configuredTermCount, configuredPassingThreshold] = await Promise.all([
+      const [records, sectionRows, curriculum, grading, configuredTermCount, configuredPassingThreshold, configuredRoundType, configuredCardPreferences] = await Promise.all([
         fsGetLearners(year),
         fsGetSections(year),
         fsGetGradeSubjectAssignments(year),
         fsGetGradeLevelGradingConfigurations(year),
         fsGetGradeTermCount(year),
         fsGetPassingThreshold(year),
+        fsGetRoundType(),
+        fsGetCardPrintingPreferences(),
       ]);
       if (!isCurrentRequest()) return;
       setStudents(records as LearnerRecord[]);
@@ -520,6 +633,8 @@ export default function PrintCardPage() {
       setGradeConfigurations(grading.gradeLevels || {});
       setGradeTermCount(configuredTermCount);
       setPassingThreshold(configuredPassingThreshold);
+      setRoundType(configuredRoundType);
+      setCardPreferences(configuredCardPreferences);
       setSubjectsById(Object.fromEntries(normalizeCurriculumSubjectPool(curriculum.subjects).map((subject) => [subject.id, subject])));
     } catch (loadError) {
       if (isCurrentRequest()) setError(loadError instanceof Error ? loadError.message : `Could not load learner data for ${year}.`);
@@ -580,11 +695,15 @@ export default function PrintCardPage() {
       .filter((subject): subject is Subject => Boolean(subject))
     : [];
   const cardSubjects = selectedSubjects;
-  const gradeRowHeight = cardSubjects.length
-    ? Math.max(6, Math.min(17, 150 / cardSubjects.length))
+  const selectedGradeRows = selectedLearner
+    ? buildCardGradeRows(selectedLearner, cardSubjects, termColumns, gradeTermCount, autoCalculateFinalGrades(selectedLearner), passingThreshold, roundType)
+    : [];
+  const selectedAverageRows = selectedGradeRows.filter((row) => row.kind !== 'mapeh-component');
+  const gradeRowHeight = selectedGradeRows.length
+    ? Math.max(6, Math.min(17, 150 / selectedGradeRows.length))
     : 17;
-  const printGradeRowHeight = cardSubjects.length
-    ? Math.max(1.8, Math.min(4.1, 45 / cardSubjects.length))
+  const printGradeRowHeight = selectedGradeRows.length
+    ? Math.max(1.8, Math.min(4.1, 45 / selectedGradeRows.length))
     : 4.1;
   const gradeTableStyle = {
     '--sf9-grade-row-height': `${gradeRowHeight}px`,
@@ -676,10 +795,19 @@ export default function PrintCardPage() {
     void loadYear(event.currentTarget.value);
   }
 
+  function handlePaperSizeChange(event: ChangeEvent<HTMLSelectElement>) {
+    const nextSize = getInputValue(event) as PaperSizeId;
+    setPaperSizeId(nextSize);
+    if (nextSize === 'a5') {
+      setPaperOrientation('portrait');
+      setSelectedPrintIds((current) => current.slice(0, 1));
+    }
+  }
+
   function togglePrintLearner(learnerId: string, checked: boolean) {
     setSelectedPrintIds((current) => {
       if (!checked) return current.filter((id) => id !== learnerId);
-      if (current.includes(learnerId) || current.length >= 2) return current;
+      if (current.includes(learnerId) || current.length >= maxPrintLearners) return current;
       return [...current, learnerId];
     });
   }
@@ -825,24 +953,11 @@ export default function PrintCardPage() {
     }
   }
 
-  const finalGrades = selectedLearner
-    ? cardSubjects.map((subject) => finalGradeForDisplay(
-      selectedLearner,
-      subject.id,
-      gradeTermCount,
-      autoCalculateFinalGrades(selectedLearner),
-    ))
-    : [];
-  const finalRemarks = selectedLearner
-    ? cardSubjects.map((subject, index) => finalGradeRemark(
-      finalGrades[index],
-      termColumns.map(({ id }) => gradeForTerm(selectedLearner, id, subject.id)),
-      passingThreshold,
-    ))
-    : [];
+  const finalGrades = selectedAverageRows.map((row) => row.finalGrade);
+  const finalRemarks = selectedAverageRows.map((row) => row.remarks);
   const allSelectedTermsComplete = finalRemarks.length > 0 && finalRemarks.every(Boolean);
   const selectedGeneralAverage = allSelectedTermsComplete
-    ? numericalGradeAverage(finalGrades, cardSubjects.length)
+    ? roundGradeResult(numericalGradeAverage(finalGrades, selectedAverageRows.length), roundType)
     : '';
   const printCards = selectedPrintLearners.map((learner) => {
     const id = asText(learner.learnerId);
@@ -976,7 +1091,7 @@ export default function PrintCardPage() {
                       <input
                         type="checkbox"
                         checked={isPrintSelected}
-                        disabled={unavailable || (!isPrintSelected && selectedPrintIds.length >= 2)}
+                        disabled={unavailable || (!isPrintSelected && selectedPrintIds.length >= maxPrintLearners)}
                         aria-label={`Include ${learnerName(learner)} in print batch`}
                         onChange={(event) => togglePrintLearner(id, event.currentTarget.checked)}
                       />
@@ -986,7 +1101,7 @@ export default function PrintCardPage() {
                 );
               }) : <p className="student-card-list-state">{students.length ? 'No learners match these filters.' : 'No learners are available for this school year.'}</p>}
             </div>
-            <p className="student-card-print-selection">{selectedPrintIds.length}/2 learners selected for side-by-side printing.</p>
+            <p className="student-card-print-selection">{selectedPrintIds.length}/{maxPrintLearners} learner{maxPrintLearners === 1 ? '' : 's'} selected{maxPrintLearners === 1 ? ' for individual A5 printing.' : ' for side-by-side printing.'}</p>
           </section>
 
           {selectedLearner && !templateUnavailable && (
@@ -1025,22 +1140,25 @@ export default function PrintCardPage() {
                 </fieldset>
                 <fieldset className="student-card-attendance-fields student-card-field--wide">
                   <legend>Attendance record · enter each month</legend>
-                  <div className="student-card-attendance-inputs">
-                    {MONTHS.map((month) => <span key={month}>{month}</span>)}
-                    {(['classDays', 'daysPresent', 'daysAbsent'] as const).map((row) => (
+                  <div className="student-card-attendance-inputs" style={{ gridTemplateColumns: `minmax(126px, 1.2fr) repeat(${cardPreferences.attendanceMonths.length}, minmax(42px, 1fr))` }}>
+                    {cardPreferences.attendanceMonths.map((month) => <span key={month}>{month}</span>)}
+                    {cardPreferences.attendanceRows.map(({ id, label }) => {
+                      const row = id as keyof ManualCardFields['attendance'];
+                      return (
                       <div className="student-card-attendance-input-row" key={row}>
-                        <strong>{row === 'classDays' ? 'Class days' : row === 'daysPresent' ? 'Present' : 'Absent'}</strong>
-                        {MONTHS.map((month) => (
+                        <strong>{label}</strong>
+                        {cardPreferences.attendanceMonths.map((month) => (
                           <input
                             key={month}
-                            aria-label={`${row === 'classDays' ? 'Class days' : row === 'daysPresent' ? 'Days present' : 'Days absent'} ${month}`}
+                            aria-label={`${label} ${month}`}
                             inputMode="numeric"
-                            value={manual.attendance[row][month]}
+                            value={manual.attendance[row]?.[month] || ''}
                             onChange={(event) => updateAttendance(row, month, getInputValue(event))}
                           />
                         ))}
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 </fieldset>
                 <fieldset className="student-card-attendance-fields student-card-field--wide">
@@ -1050,6 +1168,7 @@ export default function PrintCardPage() {
                     <label className="student-card-field"><span>Eligible for admission to grade</span><input value={manual.eligibleGrade} onChange={(event) => updateManual('eligibleGrade', getInputValue(event))} /></label>
                     <label className="student-card-field"><span>Cancellation · admitted in</span><input value={manual.transferAdmittedIn} onChange={(event) => updateManual('transferAdmittedIn', getInputValue(event))} /></label>
                     <label className="student-card-field"><span>Cancellation · date</span><input value={manual.transferDate} onChange={(event) => updateManual('transferDate', getInputValue(event))} /></label>
+                    <label className="student-card-field"><span>Cancellation · School Head</span><input value={manual.cancellationSchoolHead} onChange={(event) => updateManual('cancellationSchoolHead', getInputValue(event))} /></label>
                   </div>
                 </fieldset>
               </div>
@@ -1062,7 +1181,7 @@ export default function PrintCardPage() {
             <div>
               <span className="student-card-eyebrow">Print layout</span>
               <h2>Arrange cards on paper</h2>
-              <p>{selectedPrintLearners.length ? `${selectedPrintLearners.length} learner${selectedPrintLearners.length === 1 ? '' : 's'} selected · front and back print on separate sheets` : 'Select one or two learners to build a print layout.'}</p>
+              <p>{selectedPrintLearners.length ? `${selectedPrintLearners.length} learner${selectedPrintLearners.length === 1 ? '' : 's'} selected · front and back print on separate sheets${a5PortraitMode ? ' for back-to-back A5 printing' : ''}` : a5PortraitMode ? 'Select one learner for a back-to-back A5 card.' : 'Select one or two learners to build a print layout.'}</p>
             </div>
             <div className="student-card-mode-switch" role="group" aria-label="Preview mode">
               <button type="button" aria-pressed={studioMode === 'edit'} className={studioMode === 'edit' ? 'is-active' : ''} onClick={() => setStudioMode('edit')}>Edit layout</button>
@@ -1073,7 +1192,7 @@ export default function PrintCardPage() {
           <div className="student-card-studio-toolbar">
             <label className="student-card-paper-control">
               <span>Paper size</span>
-              <select value={paperSizeId} onChange={(event) => setPaperSizeId(getInputValue(event) as PaperSizeId)}>
+              <select value={paperSizeId} onChange={handlePaperSizeChange}>
                 {Object.entries(PAPER_SIZES).map(([id, size]) => <option key={id} value={id}>{size.label}</option>)}
               </select>
             </label>
@@ -1084,6 +1203,7 @@ export default function PrintCardPage() {
                   <button
                     type="button"
                     key={orientation}
+                    disabled={paperSizeId === 'a5' && orientation === 'landscape'}
                     aria-pressed={paperOrientation === orientation}
                     className={paperOrientation === orientation ? 'is-active' : ''}
                     onClick={() => setPaperOrientation(orientation)}
@@ -1159,6 +1279,10 @@ export default function PrintCardPage() {
                       termCount={gradeTermCount}
                       autoCalculateFinalGrades={autoCalculateFinalGrades(learner)}
                       passingThreshold={passingThreshold}
+                      roundType={roundType}
+                      templateId={cardPreferences.gradeTemplates[gradeLevelConfigKey(asText(learner.gradeLevel))] || cardPreferences.activeTemplate}
+                      attendanceMonths={cardPreferences.attendanceMonths}
+                      attendanceRows={cardPreferences.attendanceRows}
                       schoolLogoUrl={schoolLogoUrl}
                       schoolYear={selectedYear}
                       side={activeSheetSide}
@@ -1257,19 +1381,18 @@ export default function PrintCardPage() {
                         <tr>{termColumns.map(({ label, id }) => <th key={id}>{label.match(/^\d+/)?.[0] || ''}</th>)}</tr>
                       </thead>
                       <tbody>
-                        {cardSubjects.length ? cardSubjects.map((subject, index) => {
-                          const finalGrade = finalGrades[index];
+                        {selectedGradeRows.length ? selectedGradeRows.map((row) => {
                           return (
-                            <tr key={subject.id}>
-                              <th>{subject.label}</th>
-                              {termColumns.map(({ id }) => <td key={id}>{gradeDisplay(gradeForTerm(selectedLearner, id, subject.id))}</td>)}
-                              <td>{gradeDisplay(finalGrade)}</td><td>{finalRemarks[index]}</td>
+                            <tr key={row.id} className={`sf9-grade-row sf9-grade-row--${row.kind}`}>
+                              <th>{row.label}</th>
+                              {row.termGrades.map((grade, index) => <td key={termColumns[index].id}>{gradeDisplay(grade)}</td>)}
+                              <td>{gradeDisplay(row.finalGrade)}</td><td>{row.remarks}</td>
                             </tr>
                           );
                         }) : (
                           <tr><td className="sf9-no-subjects" colSpan={termColumns.length + 3}>No subjects are assigned to {asText(selectedLearner.gradeLevel) || 'this grade'} for {selectedYear}.</td></tr>
                         )}
-                        {cardSubjects.length > 0 && <tr className="sf9-general-average">
+                        {selectedGradeRows.length > 0 && <tr className="sf9-general-average">
                           <th colSpan={termColumns.length + 1}>General Average</th>
                           <td>{selectedGeneralAverage}</td>
                           <td>{gradeResult(selectedGeneralAverage, passingThreshold, allSelectedTermsComplete)}</td>
@@ -1297,15 +1420,12 @@ export default function PrintCardPage() {
                   <section className="sf9-attendance-section">
                     <h2>ATTENDANCE RECORD</h2>
                     <table className="sf9-data-table sf9-attendance-table">
-                      <thead><tr><th>Month</th>{MONTHS.map((month) => <th key={month}>{month}</th>)}<th>Total</th></tr></thead>
+                      <thead><tr><th>Month</th>{cardPreferences.attendanceMonths.map((month) => <th key={month}>{month}</th>)}<th>Total</th></tr></thead>
                       <tbody>
-                        {([
-                          ['classDays', 'No. of Class Days'],
-                          ['daysPresent', 'No. of Days Present'],
-                          ['daysAbsent', 'No. of Days Absent'],
-                        ] as const).map(([key, label]) => (
-                          <tr key={key}><th>{label}</th>{MONTHS.map((month) => <td key={month}>{manual.attendance[key][month]}</td>)}<td>{displayAttendanceTotal(manual.attendance[key])}</td></tr>
-                        ))}
+                        {cardPreferences.attendanceRows.map(({ id, label }) => {
+                          const key = id as keyof ManualCardFields['attendance'];
+                          return <tr key={id}><th>{label}</th>{cardPreferences.attendanceMonths.map((month) => <td key={month}>{manual.attendance[key]?.[month] || ''}</td>)}<td>{displayAttendanceTotal(manual.attendance[key] || {}, cardPreferences.attendanceMonths)}</td></tr>;
+                        })}
                       </tbody>
                     </table>
                   </section>
@@ -1329,7 +1449,7 @@ export default function PrintCardPage() {
 
                   <section className="sf9-cancellation-section">
                     <h2>CANCELLATION OF ELIGIBILITY TO TRANSFER</h2>
-                    <div><span>Admitted in: <strong>{manual.transferAdmittedIn}</strong></span><span>Date: <strong>{manual.transferDate}</strong></span></div>
+                    <div><span className="sf9-cancellation-field"><span>Admitted in:</span><strong>{manual.transferAdmittedIn}</strong></span><span className="sf9-cancellation-field"><span>Date:</span><strong>{manual.transferDate}</strong></span><span className="sf9-cancellation-signature"><strong>{manual.cancellationSchoolHead}</strong><small>School Head</small></span></div>
                   </section>
                   </section>
                 </article>
@@ -1367,6 +1487,10 @@ export default function PrintCardPage() {
                       termCount={gradeTermCount}
                       autoCalculateFinalGrades={autoCalculateFinalGrades(learner)}
                       passingThreshold={passingThreshold}
+                      roundType={roundType}
+                      templateId={cardPreferences.gradeTemplates[gradeLevelConfigKey(asText(learner.gradeLevel))] || cardPreferences.activeTemplate}
+                      attendanceMonths={cardPreferences.attendanceMonths}
+                      attendanceRows={cardPreferences.attendanceRows}
                       schoolLogoUrl={schoolLogoUrl}
                       schoolYear={selectedYear}
                       side={side}

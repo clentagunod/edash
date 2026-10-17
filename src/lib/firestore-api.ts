@@ -7,7 +7,7 @@ import { APP_CONFIG, appRole, appSessionId, isTeacher, isVisitorSession, normali
 import { LPSCache, PUBLIC_STATS_CACHE_TTL_MS } from './cache';
 import { CURRICULUM_GRADE_LEVELS, CURRICULUM_SUBJECTS, curriculumSubjectIdFromLabel, isCustomCurriculumSubjectId, normalizeCurriculumGrade, normalizeCurriculumSubjectIds, normalizeCurriculumSubjectPool } from './curriculum-subjects';
 import { isAppTheme } from './themes';
-import { DEFAULT_GRADE_TERM_COUNT, MAX_GRADE_TERM_COUNT, MIN_GRADE_TERM_COUNT } from './academic-grades';
+import { DEFAULT_GRADE_TERM_COUNT, DEFAULT_ROUND_TYPE, GRADE_ROUND_TYPES, MAX_GRADE_TERM_COUNT, MIN_GRADE_TERM_COUNT } from './academic-grades';
 import { DEFAULT_PASSING_THRESHOLD, gradeLevelConfigKey, normalizeGradeLevelGrading, normalizePassingThreshold } from './grading-config';
 import { formatLearnerName } from './learner-sorting';
 
@@ -106,6 +106,80 @@ export function fsArchiveCollection_(archive, schoolYear) {
   return db.collection(FS_SCHOOL_YEARS).doc(year).collection(root);
 }
 
+function fsTrashCollection_(schoolYear) {
+  const year = String(schoolYear || "").trim();
+  if (!year) throw new Error("A school year is required to access Trash.");
+  return db.collection(FS_SCHOOL_YEARS).doc(year).collection("trash");
+}
+
+export const FS_TRASH_RETENTION_OPTIONS = ["7", "15", "30", "never"];
+export async function fsGetTrashRetention() {
+  const snapshot = await db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles).get();
+  const value = snapshot.exists ? snapshot.data()?.trashConfg : undefined;
+  return FS_TRASH_RETENTION_OPTIONS.includes(value) ? value : "30";
+}
+export async function fsSetTrashRetention(value) {
+  if (!FS_TRASH_RETENTION_OPTIONS.includes(String(value))) throw new Error("Choose a valid Trash retention period.");
+  try {
+    await db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles).set({ trashConfg: String(value) }, { merge: true });
+    return String(value);
+  } catch (error) { throw fsError_("Update Trash retention", error); }
+}
+
+export async function fsGetTrash(schoolYear) {
+  const snapshot = await fsTrashCollection_(schoolYear).orderBy("deletedAt", "desc").get();
+  return snapshot.docs.map((doc) => ({ trashId: doc.id, ...doc.data() }));
+}
+
+async function fsMoveLearnerToTrash_(schoolYear, sourceCollection, learnerId) {
+  const id = String(learnerId || "").trim();
+  if (!id || id.includes("/")) throw new Error("A valid learner ID is required.");
+  const source = db.collection(FS_SCHOOL_YEARS).doc(schoolYear).collection(sourceCollection).doc(id);
+  const snapshot = await source.get();
+  if (!snapshot.exists) throw new Error("This learner record was already removed or could not be found.");
+  const trashRef = fsTrashCollection_(schoolYear).doc();
+  const profile = storedAppProfile() || {};
+  const batch = db.batch();
+  batch.set(trashRef, { learnerId: id, schoolYear, sourceCollection, learner: snapshot.data(), deletedAt: new Date().toISOString(), deletedBy: auth.currentUser?.uid || "", deletedByName: profile.name || auth.currentUser?.email || "" });
+  batch.delete(source);
+  await batch.commit();
+  return { deleted: true, trashId: trashRef.id };
+}
+
+export async function fsRestoreTrashItem(schoolYear, trashId) {
+  const itemRef = fsTrashCollection_(schoolYear).doc(String(trashId || ""));
+  const item = await itemRef.get();
+  if (!item.exists) throw new Error("This Trash item was already removed.");
+  const data = item.data();
+  const collection = [FS_LEARNERS, FS_DROPOUTS, FS_TRANSFERRED_OUT].includes(data.sourceCollection) ? data.sourceCollection : "";
+  if (!collection || !data.learnerId || !data.learner) throw new Error("This Trash item is invalid and cannot be restored.");
+  const targetRef = db.collection(FS_SCHOOL_YEARS).doc(schoolYear).collection(collection).doc(data.learnerId);
+  const restoringAsTeacher = isTeacher() && collection === FS_LEARNERS;
+  await db.runTransaction(async (transaction) => {
+    const currentItem = await transaction.get(itemRef);
+    const currentTarget = await transaction.get(targetRef);
+    if (!currentItem.exists) throw new Error("This Trash item was already removed.");
+    if (currentTarget.exists) throw new Error("A learner with this ID already exists in the original collection. Remove or reconcile that record before restoring.");
+    transaction.set(targetRef, restoringAsTeacher ? { ...data.learner, __trashRestoreId: String(trashId) } : data.learner);
+    transaction.delete(itemRef);
+  });
+  if (restoringAsTeacher) {
+    try {
+      await targetRef.update({ __trashRestoreId: firebase.firestore.FieldValue.delete() });
+    } catch (error) {
+      console.error("Learner was restored, but its temporary Trash restore marker could not be cleared.", error);
+    }
+  }
+  fsInvalidateReadCaches_(schoolYear);
+  fsSchedulePublicStatsRefresh_();
+  return { restored: true };
+}
+
+export async function fsPermanentlyDeleteTrashItem(schoolYear, trashId) {
+  await fsTrashCollection_(schoolYear).doc(String(trashId || "")).delete();
+  return { deleted: true };
+}
+
 function fsGradesCollection_(schoolYear) {
   return db.collection(FS_SCHOOL_YEARS).doc(String(schoolYear || "").trim()).collection(FS_GRADES);
 }
@@ -121,6 +195,7 @@ export function fsError_(context, error) {
 export function fsInvalidateReadCaches_(schoolYear = "") {
   if (typeof LPSCache === "undefined") return;
   LPSCache.clear("firestore_learners_");
+  LPSCache.clear("firestore_teacher_assignments_");
   LPSCache.clear("firestore_sections_");
   LPSCache.clear("firestore_profile_");
   LPSCache.clear("parent_learner_lookup_");
@@ -167,12 +242,12 @@ function fsLiveData_(kind, id) {
   return entry ? entry.data : null;
 }
 
-function fsLiveSet_(key, data, cacheKey) {
+function fsLiveSet_(key, data, cacheKey, cacheTtl = 600000) {
   const entry = fsLiveStores_.get(key);
   if (!entry) return;
   entry.data = data;
   if (cacheKey && typeof LPSCache !== "undefined" && typeof LPSCache.write === "function") {
-    try { LPSCache.write(cacheKey, data, 600000); } catch (error) { /* Seeding the cache is optional. */ }
+    try { LPSCache.write(cacheKey, data, cacheTtl); } catch (error) { /* Seeding the cache is optional. */ }
   }
   entry.listeners.forEach((listener) => {
     try { listener(data); } catch (error) { /* A renderer must never break the store. */ }
@@ -215,28 +290,52 @@ function fsSubscribeLive_(key, startListener, onChange, onError) {
 
 function fsSubscribeLiveLearners_(schoolYear, onChange, onError) {
   if (isTeacher()) {
-    const key = fsLiveKey_("teacher-assigned-learners", schoolYear);
-    let stopped = false;
-    const refresh = async () => {
-      try {
-        const learners = await fsGetTeacherScopedLearners_(schoolYear);
-        if (!stopped) fsLiveSet_(key, learners, `firestore_teacher_assignments_${schoolYear}`);
-      } catch (error) {
-        if (!stopped) fsLiveError_(key, fsError_("Live teacher learner updates", error));
-      }
-    };
-    refresh();
+    const userId = String(auth.currentUser?.uid || storedAppProfile()?.uid || "").trim();
+    const key = fsLiveKey_("teacher-assigned-learners", `${userId}|${schoolYear}`);
     return fsSubscribeLive_(key, () => {
-      // Teachers cannot list the full collection under Firestore rules, so the
-      // live listener reuses the same exact scoped query path as the initial fetch.
-      refresh();
-      return () => { stopped = true; };
+      const assignments = [...new Map(fsTeacherAssignmentPairsForSchoolYear_(schoolYear)
+        .map((assignment) => [
+          `${fsNormalizeValue_(assignment.gradeLevel)}|${fsNormalizeValue_(assignment.section)}`,
+          assignment,
+        ])).values()];
+      if (!assignments.length) {
+        fsLiveSet_(key, [], `firestore_teacher_assignments_${userId}_${schoolYear}`, 1000);
+        return () => {};
+      }
+
+      const learnersByAssignment = new Map();
+      const initialSnapshots = new Set();
+      const unsubscribers = assignments.map((assignment) => {
+        const assignmentKey = `${fsNormalizeValue_(assignment.gradeLevel)}|${fsNormalizeValue_(assignment.section)}`;
+        return fsLearnersCollection_(schoolYear)
+          .where("gradeLevel", "==", assignment.gradeLevel)
+          .where("section", "==", assignment.section)
+          .onSnapshot((snapshot) => {
+            const learners = new Map();
+            snapshot.docs.forEach((doc) => {
+              const learner = { learnerId: doc.id, ...doc.data() };
+              if (fsIsActiveLearner_(learner)) {
+                learners.set(String(learner.learnerId), {
+                  ...learner,
+                  dateAdded: fsLearnerDate_(learner.dateAdded || learner.createdAt || learner.addedAt),
+                });
+              }
+            });
+            learnersByAssignment.set(assignmentKey, learners);
+            initialSnapshots.add(assignmentKey);
+            if (initialSnapshots.size !== assignments.length) return;
+            const merged = new Map();
+            learnersByAssignment.forEach((records) => records.forEach((learner, learnerId) => merged.set(learnerId, learner)));
+            fsLiveSet_(key, [...merged.values()], `firestore_teacher_assignments_${userId}_${schoolYear}`, 1000);
+          }, (error) => fsLiveError_(key, fsError_("Live teacher learner updates", error)));
+      });
+      return () => unsubscribers.forEach((unsubscribe) => unsubscribe());
     }, onChange, onError);
   }
   const key = fsLiveKey_("learners", schoolYear);
   return fsSubscribeLive_(key, () =>
     fsLearnersCollection_(schoolYear).onSnapshot(
-      (snapshot) => fsLiveSet_(key, snapshot.docs.map((doc) => ({ learnerId: doc.id, ...doc.data() })).filter(fsIsActiveLearner_), `firestore_learners_${schoolYear}`),
+      (snapshot) => fsLiveSet_(key, snapshot.docs.map((doc) => ({ learnerId: doc.id, ...doc.data() })).filter(fsIsActiveLearner_), `firestore_learners_${schoolYear}`, 1000),
       (error) => fsLiveError_(key, fsError_("Live learner updates", error))
     ), onChange, onError);
 }
@@ -256,15 +355,16 @@ function fsSubscribeTeacherLearners_(schoolYear, onChange, onError) {
   };
   const rebind = (data) => {
     updateProfile(data || {});
-    const assignment = fsTeacherAssignment_();
-    const path = assignment && assignment.schoolYear === fsNormalizeSchoolYear_(schoolYear)
-      ? `${assignment.schoolYear}|${assignment.gradeKey}|${assignment.sectionKey}|${assignment.teacherKey}` : "unassigned";
+    const assignments = fsTeacherAssignmentPairsForSchoolYear_(schoolYear);
+    const path = assignments.length
+      ? assignments.map((assignment) => `${assignment.gradeLevel}|${assignment.section}`).sort().join(";")
+      : "unassigned";
     if (path === activePath) return;
     activePath = path;
     learnerUnsubscribe?.();
     learnerUnsubscribe = null;
     if (stopped) return;
-    if (!assignment) {
+    if (!assignments.length) {
       if (typeof onChange === "function") onChange([]);
       return;
     }
@@ -698,7 +798,6 @@ export async function fsDeleteUser(userId) {
       await fsSyncTeacherSectionLinks_(userId, { teacherAssignments: [] }, fsTeacherAssignmentsFromProfile_(profile.data()));
     }
     await LPSApi.deleteAuthUsers([userId]);
-    await ref.delete();
 
     fsInvalidateReadCaches_();
     fsAudit_("USER_DELETE", { sheet: "users", recordId: userId });
@@ -1591,13 +1690,74 @@ export async function fsDeleteArchiveRecord(archive, schoolYear, learnerId) {
   try {
     const snapshot = await ref.get();
     if (!snapshot.exists) throw new Error("This archived learner was already removed or could not be found.");
-    await ref.delete();
+    await fsMoveLearnerToTrash_(String(schoolYear || "").trim(), archiveName === "dropout" ? FS_DROPOUTS : FS_TRANSFERRED_OUT, learnerId);
     fsInvalidateReadCaches_(schoolYear);
     await fsRefreshPublicStats();
     fsAudit_("LEARNER_DELETE", { sheet: `${archiveName}_${schoolYear}`, recordId: learnerId, oldValue: JSON.stringify(snapshot.data()) });
     return { deleted: true };
   } catch (error) {
     throw fsError_("Remove archived learner", error);
+  }
+}
+
+export async function fsCancelLearnerMovement(archive, schoolYear, learnerId) {
+  const archiveName = String(archive || "").trim().toLowerCase();
+  const year = String(schoolYear || "").trim();
+  const id = String(learnerId || "").trim();
+  if (!year) throw new Error("A school year is required to restore this learner.");
+  if (!id) throw new Error("A learner ID is required to restore this learner.");
+  if (!["learners", "dropout", "transferredout"].includes(archiveName)) {
+    throw new Error("Unsupported learner movement record.");
+  }
+
+  const learnerRef = fsLearnersCollection_(year).doc(id);
+  const sourceRef = archiveName === "learners"
+    ? learnerRef
+    : fsArchiveCollection_(archiveName, year).doc(id);
+  const resetMovementFields = {
+    enrollmentStatus: "ACTIVE",
+    eosyStatus: "",
+    transferType: "",
+    transferIn: false,
+    transferOut: false,
+    transferSchool: "",
+    transferDate: "",
+    transferReason: "",
+    transferNotes: "",
+    learnerId: id,
+    schoolYear: year,
+  };
+
+  try {
+    const sourceSnapshot = await sourceRef.get();
+    if (!sourceSnapshot.exists) throw new Error("This learner movement record was not found.");
+
+    if (archiveName === "learners") {
+      await learnerRef.set({ ...sourceSnapshot.data(), ...resetMovementFields });
+    } else {
+      const activeSnapshot = await learnerRef.get();
+      const restoredLearner = {
+        ...sourceSnapshot.data(),
+        ...(activeSnapshot.exists ? activeSnapshot.data() : {}),
+        ...resetMovementFields,
+      };
+      const batch = db.batch();
+      batch.set(learnerRef, restoredLearner);
+      batch.delete(sourceRef);
+      await batch.commit();
+    }
+
+    fsInvalidateReadCaches_(year);
+    fsSchedulePublicStatsRefresh_();
+    fsAudit_("LEARNER_MOVEMENT_CANCEL", {
+      sheet: `${archiveName}_${year}`,
+      recordId: id,
+      oldValue: JSON.stringify(sourceSnapshot.data()),
+      newValue: JSON.stringify(resetMovementFields),
+    });
+    return { restored: true, learnerId: id };
+  } catch (error) {
+    throw fsError_("Cancel learner movement", error);
   }
 }
 
@@ -1660,6 +1820,207 @@ export async function fsSetParentAccessEnabled(enabled) {
     return enabled;
   } catch (error) {
     throw fsError_("Update Parent Access", error);
+  }
+}
+
+export async function fsGetPromotionConfiguration() {
+  const doc = await db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles).get();
+  const value = doc.exists ? doc.data()?.canPromoteStudents : undefined;
+  if (value !== undefined && typeof value !== "boolean") {
+    throw new Error("Invalid Promotion setting. The canPromoteStudents value must be true or false.");
+  }
+  return { canPromoteStudents: value ?? false, configured: typeof value === "boolean" };
+}
+
+export async function fsSetCanPromoteStudents(enabled) {
+  if (typeof enabled !== "boolean") throw new Error("Promotion access must be enabled or disabled.");
+  try {
+    await db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles).set({
+      canPromoteStudents: enabled,
+    }, { merge: true });
+    return enabled;
+  } catch (error) {
+    throw fsError_("Update Promotion access", error);
+  }
+}
+
+export async function fsGetRoundType() {
+  const doc = await db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles).get();
+  const value = doc.exists ? doc.data()?.roundType : undefined;
+  if (value !== undefined && !GRADE_ROUND_TYPES.includes(value)) throw new Error("Invalid grade rounding setting.");
+  return value ?? DEFAULT_ROUND_TYPE;
+}
+
+export async function fsSetRoundType(roundType) {
+  if (!GRADE_ROUND_TYPES.includes(roundType)) throw new Error("Choose a valid grade rounding option.");
+  try {
+    await db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles).set({ roundType }, { merge: true });
+    return roundType;
+  } catch (error) {
+    throw fsError_("Update grade rounding", error);
+  }
+}
+
+const DEFAULT_CARD_PRINTING_PREFERENCES = {
+  activeTemplate: "sf9",
+  gradeTemplates: { kinder: "sf9", grade1: "sf9", grade2: "sf9", grade3: "sf9", grade4: "sf9", grade5: "sf9", grade6: "sf9" },
+  attendanceMonths: ["Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr"],
+  attendanceRows: [
+    { id: "classDays", label: "Class days" },
+    { id: "daysPresent", label: "Present" },
+    { id: "daysAbsent", label: "Absent" },
+  ],
+};
+
+export async function fsGetCardPrintingPreferences() {
+  const doc = await db.collection(FS_SETTINGS).doc("cardPrintingPreferences").get();
+  const value = doc.exists ? doc.data() : {};
+  const months = Array.isArray(value.attendanceMonths)
+    ? value.attendanceMonths.map((month) => String(month || "").trim()).filter(Boolean)
+    : DEFAULT_CARD_PRINTING_PREFERENCES.attendanceMonths;
+  const attendanceRowIds = new Set(["classDays", "daysPresent", "daysAbsent"]);
+  const configuredRows = Array.isArray(value.attendanceRows) && value.attendanceRows.length
+    ? value.attendanceRows.filter((row) => row && attendanceRowIds.has(row.id) && typeof row.label === "string")
+    : [];
+  const attendanceRows = configuredRows.length === 3 && new Set(configuredRows.map(({ id }) => id)).size === 3
+    ? configuredRows
+    : DEFAULT_CARD_PRINTING_PREFERENCES.attendanceRows;
+  return {
+    activeTemplate: typeof value.activeTemplate === "string" ? value.activeTemplate : DEFAULT_CARD_PRINTING_PREFERENCES.activeTemplate,
+    gradeTemplates: { ...DEFAULT_CARD_PRINTING_PREFERENCES.gradeTemplates, ...(value.gradeTemplates || {}) },
+    attendanceMonths: months.length ? months : DEFAULT_CARD_PRINTING_PREFERENCES.attendanceMonths,
+    attendanceRows: attendanceRows.length ? attendanceRows : DEFAULT_CARD_PRINTING_PREFERENCES.attendanceRows,
+  };
+}
+
+export async function fsSetCardPrintingPreferences(preferences) {
+  if (!preferences || typeof preferences !== "object") throw new Error("Card Printing preferences are invalid.");
+  const months = [...new Set((preferences.attendanceMonths || []).map((month) => String(month || "").trim()).filter(Boolean))];
+  const attendanceRows = (preferences.attendanceRows || []).map((row) => ({ id: String(row.id || "").trim(), label: String(row.label || "").trim() }))
+    .filter((row) => row.id && row.label);
+  if (!months.length || months.length > 24 || attendanceRows.length !== 3 || new Set(attendanceRows.map(({ id }) => id)).size !== 3) {
+    throw new Error("Use 1–24 unique attendance months and provide all three attendance row labels.");
+  }
+  const value = {
+    activeTemplate: String(preferences.activeTemplate || "sf9"),
+    gradeTemplates: preferences.gradeTemplates && typeof preferences.gradeTemplates === "object" ? preferences.gradeTemplates : {},
+    attendanceMonths: months,
+    attendanceRows,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedBy: auth.currentUser?.uid || "",
+  };
+  try {
+    await db.collection(FS_SETTINGS).doc("cardPrintingPreferences").set(value, { merge: true });
+    return await fsGetCardPrintingPreferences();
+  } catch (error) {
+    throw fsError_("Update Card Printing preferences", error);
+  }
+}
+
+export async function fsGetPromotionCandidates(schoolYear, eosyStatus = "Promoted") {
+  const requestedStatus = String(eosyStatus || "").trim().toLowerCase();
+  if (!["promoted", "retained"].includes(requestedStatus)) throw new Error("Choose Promoted or Retained learners.");
+  const learners = await fsGetLearners(schoolYear);
+  return learners.filter((learner) => String(learner.eosyStatus || "").trim().toLowerCase() === requestedStatus);
+}
+
+export async function fsPromoteLearner(sourceSchoolYear, targetSchoolYear, learnerId, updatedLearner, progressionType = "promotion") {
+  const normalizedProgressionType = String(progressionType || "promotion").trim().toLowerCase();
+  if (!["promotion", "retention"].includes(normalizedProgressionType)) throw new Error("Unsupported learner progression type.");
+  const requiredStatus = normalizedProgressionType === "retention" ? "retained" : "promoted";
+  const statusLabel = normalizedProgressionType === "retention" ? "Retained" : "Promoted";
+  const sourceYear = fsNormalizeSchoolYear_(sourceSchoolYear);
+  const targetYear = fsNormalizeSchoolYear_(targetSchoolYear);
+  const id = String(learnerId || "").trim();
+  if (!/^\d{4}-\d{4}$/.test(sourceYear) || !/^\d{4}-\d{4}$/.test(targetYear)) {
+    throw new Error("Choose valid source and succeeding school years.");
+  }
+  if (Number(targetYear.slice(0, 4)) <= Number(sourceYear.slice(0, 4))) {
+    throw new Error("The target school year must follow the learner's current school year.");
+  }
+  if (!id) throw new Error("A learner ID is required for learner progression.");
+  if (isTeacher()) {
+    const configuration = await fsGetPromotionConfiguration();
+    if (!configuration.canPromoteStudents) throw new Error("Student promotion and retention are disabled for teachers by the school administrator.");
+  }
+
+  try {
+    const sourceRef = fsLearnersCollection_(sourceYear).doc(id);
+    const targetGrade = fsNormalizeGrade_(updatedLearner?.gradeLevel);
+    const targetSection = String(updatedLearner?.section || "").trim();
+    const rawAge = updatedLearner?.age;
+    const ageValue = Number(updatedLearner?.age);
+    if (!targetGrade || !targetSection) throw new Error("Choose a grade and section configured for the target school year.");
+    if (rawAge == null || String(rawAge).trim() === "" || !Number.isInteger(ageValue) || ageValue < 0 || ageValue > 120) {
+      throw new Error("Enter a valid learner age.");
+    }
+    const targetSections = await fsGetSections(targetYear);
+    if (!targetSections.some((section) =>
+      fsNormalizeGrade_(section.gradeLevel) === targetGrade
+      && fsNormalizeValue_(section.section) === fsNormalizeValue_(targetSection))) {
+      throw new Error(`Grade ${targetGrade} · ${targetSection} is not configured for ${targetYear}.`);
+    }
+
+    const targetRef = fsLearnersCollection_(targetYear).doc(id);
+    const learnerData = await db.runTransaction(async (transaction) => {
+      const [sourceSnapshot, existingTarget] = await Promise.all([
+        transaction.get(sourceRef),
+        transaction.get(targetRef),
+      ]);
+      if (!sourceSnapshot.exists) throw new Error("The source learner record could not be found.");
+      if (existingTarget.exists) {
+        throw new Error(`Learner ${id} already has a record in ${targetYear}; no record was overwritten.`);
+      }
+      const sourceLearner = { learnerId: id, ...sourceSnapshot.data() };
+      if (String(sourceLearner.eosyStatus || "").trim().toLowerCase() !== requiredStatus) {
+        throw new Error(`Only learners marked ${statusLabel} in EOSY status can continue through ${normalizedProgressionType}.`);
+      }
+      if (normalizedProgressionType === "retention" && fsNormalizeGrade_(sourceLearner.gradeLevel) !== targetGrade) {
+        throw new Error("A retained learner must stay in the same grade level.");
+      }
+      if (isTeacher() && !fsTeacherAssignmentPairsForSchoolYear_(sourceYear).some((assignment) =>
+        fsNormalizeValue_(assignment.gradeLevel) === fsNormalizeValue_(sourceLearner.gradeLevel)
+        && fsNormalizeValue_(assignment.section) === fsNormalizeValue_(sourceLearner.section))) {
+        throw new Error("You can only promote learners in your assigned sections.");
+      }
+      const promotedRecord = {
+        ...sourceLearner,
+        ...updatedLearner,
+        ...fsCanonicalLearner_(updatedLearner),
+        learnerId: id,
+        name: fsLearnerName_({ ...sourceLearner, ...updatedLearner }),
+        schoolYear: targetYear,
+        gradeLevel: targetGrade,
+        section: targetSection,
+        age: ageValue,
+        dateAdded: firebase.firestore.FieldValue.serverTimestamp(),
+        enrollmentStatus: "ACTIVE",
+        eosyStatus: "",
+        transferType: "",
+        transferIn: false,
+        transferOut: false,
+        transferSchool: "",
+        transferDate: "",
+        transferReason: "",
+        transferNotes: "",
+        progressionSourceSchoolYear: sourceYear,
+        progressionType: normalizedProgressionType,
+      };
+      transaction.set(targetRef, promotedRecord);
+      return { ...promotedRecord, previousYearLearner: sourceLearner };
+    });
+    fsInvalidateReadCaches_(sourceYear);
+    fsInvalidateReadCaches_(targetYear);
+    fsSchedulePublicStatsRefresh_();
+    fsAudit_(normalizedProgressionType === "retention" ? "LEARNER_RETAIN" : "LEARNER_PROMOTE", {
+      sheet: `learners_${targetYear}`,
+      recordId: id,
+      oldValue: JSON.stringify(learnerData.previousYearLearner),
+      newValue: JSON.stringify({ ...learnerData, previousYearLearner: undefined, dateAdded: "" }),
+    });
+    return { learnerId: id, sourceSchoolYear: sourceYear, schoolYear: targetYear };
+  } catch (error) {
+    throw fsError_(normalizedProgressionType === "retention" ? "Retain learner" : "Promote learner", error);
   }
 }
 
@@ -1857,6 +2218,9 @@ if (typeof LPSApi !== "undefined") {
   LPSApi.getArchiveRecords = fsGetArchiveRecords;
   LPSApi.updateArchiveRecord = fsUpdateArchiveRecord;
   LPSApi.deleteArchiveRecord = fsDeleteArchiveRecord;
+  LPSApi.cancelLearnerMovement = fsCancelLearnerMovement;
+  LPSApi.getPromotionCandidates = fsGetPromotionCandidates;
+  LPSApi.promoteLearner = fsPromoteLearner;
 }
 
 /* ---------------------------------------------------------------------------
@@ -1905,9 +2269,12 @@ export async function fsGetTeacherScopedLearners_(schoolYear) {
 
 export async function fsGetLearners(schoolYear) {
   if (isTeacher()) {
+    const userId = String(auth.currentUser?.uid || storedAppProfile()?.uid || "").trim();
+    const live = fsLiveData_("teacher-assigned-learners", `${userId}|${schoolYear}`);
+    if (Array.isArray(live)) return live;
     return typeof LPSCache === "undefined"
       ? fsGetTeacherScopedLearners_(schoolYear)
-      : LPSCache.getOrLoad(`firestore_teacher_assignments_${schoolYear}`, () => fsGetTeacherScopedLearners_(schoolYear), 15000, 60000);
+      : LPSCache.getOrLoad(`firestore_teacher_assignments_${userId}_${schoolYear}`, () => fsGetTeacherScopedLearners_(schoolYear), 1000);
   }
   const live = fsLiveData_("learners", schoolYear);
   if (Array.isArray(live)) return live;
@@ -1915,7 +2282,7 @@ export async function fsGetLearners(schoolYear) {
     const snapshot = await fsLearnersCollection_(schoolYear).get();
     return snapshot.docs.map((doc) => ({ learnerId: doc.id, ...doc.data() })).filter(fsIsActiveLearner_);
   };
-  return typeof LPSCache === "undefined" ? load() : LPSCache.getOrLoad(`firestore_learners_${schoolYear}`, load, 15000, 60000);
+  return typeof LPSCache === "undefined" ? load() : LPSCache.getOrLoad(`firestore_learners_${schoolYear}`, load, 1000);
 }
 
 export function fsIsActiveLearner_(learner) {
@@ -2137,10 +2504,9 @@ export async function fsDeleteLearner(schoolYear, learnerId) {
   if (!targetYear) throw new Error("A school year is required to delete a learner.");
   if (!targetId) throw new Error("A learner ID is required to delete a learner.");
   try {
-    const ref = fsLearnersCollection_(targetYear).doc(targetId);
-    const before = await ref.get();
+    const before = await fsLearnersCollection_(targetYear).doc(targetId).get();
     if (!before.exists) throw new Error("This learner record was already removed or could not be found.");
-    await ref.delete();
+    await fsMoveLearnerToTrash_(targetYear, FS_LEARNERS, targetId);
     fsInvalidateReadCaches_(targetYear);
     fsSchedulePublicStatsRefresh_();
     fsAudit_("LEARNER_DELETE", { sheet: `learners_${targetYear}`, recordId: targetId, oldValue: JSON.stringify(before.data()) });
@@ -2157,23 +2523,7 @@ export async function fsDeleteLearners(schoolYear, learnerIds) {
   if (!targetYear) throw new Error("A school year is required to delete learners.");
   if (!targetIds.length) throw new Error("At least one learner must be selected.");
   try {
-    // Firestore batches cap out at 500 writes; chunk defensively so bulk
-    // removal keeps working even for a very large selection.
-    const maxBatchWrites = 450;
-    let batch = db.batch();
-    let batchWrites = 0;
-    const commitBatch = async () => {
-      if (!batchWrites) return;
-      await batch.commit();
-      batch = db.batch();
-      batchWrites = 0;
-    };
-    for (const learnerId of targetIds) {
-      if (batchWrites >= maxBatchWrites) await commitBatch();
-      batch.delete(fsLearnersCollection_(targetYear).doc(learnerId));
-      batchWrites += 1;
-    }
-    await commitBatch();
+    for (const learnerId of targetIds) await fsMoveLearnerToTrash_(targetYear, FS_LEARNERS, learnerId);
     fsInvalidateReadCaches_(targetYear);
     fsSchedulePublicStatsRefresh_();
     fsAudit_("LEARNER_DELETE", { sheet: `learners_${targetYear}`, recordId: targetIds.join(", ") });

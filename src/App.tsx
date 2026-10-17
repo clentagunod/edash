@@ -31,8 +31,11 @@ const MathProfilePage = lazy(() => import('./pages/MathProfilePage'));
 const NutritionalStatusPage = lazy(() => import('./pages/NutritionalStatusPage'));
 const TransferInfoPage = lazy(() => import('./pages/TransferInfoPage'));
 const DropoutPage = lazy(() => import('./pages/DropoutPage'));
+const PromotionPage = lazy(() => import('./pages/PromotionPage'));
+const RetentionPage = lazy(() => import('./pages/RetentionPage'));
 const AuditLogPage = lazy(() => import('./pages/AuditLogPage'));
 const FeedbackPage = lazy(() => import('./pages/FeedbackPage'));
+const TrashPage = lazy(() => import('./pages/TrashPage'));
 const UtilitiesPage = lazy(() => import('./pages/UtilitiesPage'));
 const BmiCalculatorPage = lazy(() => import('./pages/BmiCalculatorPage'));
 const GradeCalculatorPage = lazy(() => import('./pages/GradeCalculatorPage'));
@@ -251,8 +254,11 @@ export default function App() {
           <Route path="/pages/nutritional-status.html" element={<NutritionalStatusPage />} />
           <Route path="/pages/transfer-info.html" element={<TransferInfoPage />} />
           <Route path="/pages/dropout.html" element={<DropoutPage />} />
+          <Route path="/pages/promotion.html" element={<PromotionPage />} />
+          <Route path="/pages/retention.html" element={<RetentionPage />} />
           <Route path="/pages/audit-log.html" element={<AuditLogPage />} />
           <Route path="/pages/feedback.html" element={<FeedbackPage />} />
+          <Route path="/pages/trash.html" element={<TrashPage />} />
           <Route path="/pages/utilities.html" element={<UtilitiesPage />} />
           <Route path="/pages/bmi-calculator.html" element={<BmiCalculatorPage />} />
           <Route path="/pages/grade-calculator.html" element={<GradeCalculatorPage />} />

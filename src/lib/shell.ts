@@ -1,11 +1,12 @@
 // @ts-nocheck -- ported from the original site; behavior preserved, not yet fully typed.
 import { LPSApi } from './sheets-api';
-import { APP_CONFIG, APP_PAGE_PREFIX, APP_USER_PROFILE, appBrandAssetUrl, canViewGradesProfile, isSchoolAdmin, isVisitorSession, normalizedAppRole, setAppUserProfile, storedAppProfile, updateSchoolFavicon } from './app-config';
+import { APP_CONFIG, APP_PAGE_PREFIX, APP_USER_PROFILE, appBrandAssetUrl, canManageLearners, canViewGradesProfile, isSchoolAdmin, isVisitorSession, normalizedAppRole, setAppUserProfile, storedAppProfile, updateSchoolFavicon } from './app-config';
 import { LPS_SESSION_KEY, displayNameFromEmail, handleLogout, initials } from './auth';
 import { Icon } from './icons';
 import { auth, db } from './firebase';
 import { getStoredSchool } from './school-registry';
 import { appThemeFromId, appThemeId, isAppTheme, isDarkAppTheme } from './themes';
+import { mountGlobalSearch } from './global-search';
 
 /**
  * ============================================================================
@@ -34,12 +35,15 @@ export const NAV_ITEMS = [
   { group: "Profiles", key: "grades", label: "Grades Profile", icon: "graduationCap", href: "grades-profile.html" },
   { group: "Profiles", key: "reading", label: "Reading Profile", icon: "book", href: "reading-profile.html" },
   { group: "Profiles", key: "math", label: "Math Profile", icon: "math", href: "math-profile.html" },
+  { group: "Movement", key: "promotion", label: "Promotion", icon: "graduationCap", href: "promotion.html" },
+  { group: "Movement", key: "retention", label: "Retention", icon: "rotateCcw", href: "retention.html" },
   { group: "Movement", key: "transfer-info", label: "Transfer Info", icon: "transfer", href: "transfer-info.html" },
-  { group: "Movement", key: "dropout", label: "Dropout", icon: "alertTriangle", href: "dropout.html" },
+  { group: "Movement", key: "dropout", label: "Dropout Info", icon: "alertTriangle", href: "dropout.html" },
   { group: "Utilities", key: "data", label: "Data", icon: "download", href: "data.html" },
   { group: "Utilities", key: "grade-calculator", label: "Grade Calculator", icon: "sigma", href: "grade-calculator.html" },
   { group: "Utilities", key: "bmi-calculator", label: "BMI Calculator", icon: "calculator", href: "bmi-calculator.html" },
   { group: "Utilities", key: "eduai", label: "EduAI", icon: "sparkles", href: "eduai.html" },
+  { group: "Feedback", key: "trash", label: "Trash", icon: "trash", href: "trash.html" },
   { group: "Feedback", key: "feedback", label: "Feedback", icon: "message", href: "feedback.html" },
 ];
 
@@ -280,6 +284,7 @@ export function renderShell(activeKey, pageTitleForMobile) {
   const visibleNavItems = NAV_ITEMS.filter((item) => {
     if (isVisitorSession()) return ["dashboard", "enrollment-data"].includes(item.key);
     if (item.key === "users") return isSchoolAdmin();
+    if (item.key === "promotion" || item.key === "retention") return canManageLearners();
     if (item.key === "grades") return canViewGradesProfile();
     return true;
   });
@@ -343,6 +348,21 @@ export function renderShell(activeKey, pageTitleForMobile) {
     <header class="topbar">
       <button class="topbar-menu-btn" id="menuToggle" aria-label="Toggle navigation">${Icon.menu}</button>
       <h2 style="font-size:16px; ${pageTitleForMobile ? "" : "visibility:hidden;"}">${pageTitleForMobile || ""}</h2>
+      <div class="global-search" id="globalSearch">
+        <button class="global-search-trigger" id="globalSearchTrigger" type="button" aria-label="Search pages and tools" aria-haspopup="listbox" aria-expanded="false">
+          ${Icon.search}
+          <span>Search pages and tools…</span>
+          <kbd>Ctrl K</kbd>
+        </button>
+        <div class="global-search-panel" id="globalSearchPanel" role="listbox" aria-label="Search results" hidden>
+          <div class="global-search-input-wrap">
+            ${Icon.search}
+            <input id="globalSearchInput" type="search" placeholder="Search pages and tools…" autocomplete="off" spellcheck="false" aria-label="Search pages and tools" />
+            <kbd>esc</kbd>
+          </div>
+          <div class="global-search-results" id="globalSearchResults"></div>
+        </div>
+      </div>
       <div class="topbar-user">
         <div class="topbar-avatar">${initials(email)}</div>
         <div class="topbar-user-text">
@@ -352,6 +372,7 @@ export function renderShell(activeKey, pageTitleForMobile) {
         <button class="topbar-logout" id="logoutBtn" title="Sign out" aria-label="Sign out">${Icon.logout}</button>
       </div>
     </header>`;
+  mountGlobalSearch(visibleNavItems);
   renderProfileAvatar(document.querySelector(".topbar-avatar"), session?.photoURL || APP_USER_PROFILE?.photoURL, email);
   document.getElementById("logoutBtn").addEventListener("click", handleLogout);
   document.getElementById("logoutBtn").addEventListener("click", handleLogout);

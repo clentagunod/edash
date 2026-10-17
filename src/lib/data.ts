@@ -43,7 +43,7 @@ export function initDataPage() {
   document.getElementById("downloadAllBtn").addEventListener("click", () => downloadData(true, "xls"));
   document.getElementById("downloadCsvBtn").addEventListener("click", () => downloadData(false, "csv"));
   document.getElementById("downloadTransferredOutBtn").addEventListener("click", () => downloadArchive("transferredOut", "Transferred-Out"));
-  document.getElementById("downloadDropoutBtn").addEventListener("click", () => downloadArchive("dropout", "Dropout"));
+  document.getElementById("downloadDropoutBtn").addEventListener("click", () => downloadArchive("dropout", "Dropout Info"));
   document.getElementById("dataExportCancelBtn").addEventListener("click", cancelDataExport);
   initYearSwitcher().then(() => loadDataRecords(getSelectedSchoolYear())).catch((error) => {
     const count = document.getElementById("dataRecordCount");

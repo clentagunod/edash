@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockCreateSchoolYear, mockGetParentAccess, mockSetParentAccess } = vi.hoisted(() => ({
+const { mockCreateSchoolYear, mockGetParentAccess, mockSetParentAccess, mockGetPromotion, mockSetPromotion, mockSetCardPreferences } = vi.hoisted(() => ({
   mockCreateSchoolYear: vi.fn(),
   mockGetParentAccess: vi.fn(),
   mockSetParentAccess: vi.fn(),
+  mockGetPromotion: vi.fn(),
+  mockSetPromotion: vi.fn(),
+  mockSetCardPreferences: vi.fn(),
 }));
 
 vi.mock("./sheets-api", () => ({
@@ -40,11 +43,14 @@ vi.mock("./firestore-api", () => ({
   fsGetGradeLevelGradingConfigurations: vi.fn(),
   fsGetGradeTermCount: vi.fn(),
   fsGetParentAccessConfiguration: mockGetParentAccess,
+  fsGetPromotionConfiguration: mockGetPromotion,
   fsGetPassingThreshold: vi.fn(),
   fsSetGradeLevelGradingConfiguration: vi.fn(),
   fsSetGradeTermCount: vi.fn(),
   fsSetParentAccessEnabled: mockSetParentAccess,
+  fsSetCanPromoteStudents: mockSetPromotion,
   fsSetPassingThreshold: vi.fn(),
+  fsSetCardPrintingPreferences: mockSetCardPreferences,
 }));
 vi.mock("./grading-config", () => ({
   DEFAULT_LETTER_GRADE_SCALE: [],
@@ -54,7 +60,7 @@ vi.mock("./grading-config", () => ({
   normalizePassingThreshold: vi.fn(),
 }));
 
-import { ADMIN_OPTIONS, createAdminYear, initializeSheetsBackupLink, loadAdminParentAccess, saveAdminParentAccessToggle } from "./admin-options";
+import { ADMIN_OPTIONS, createAdminYear, initializeSheetsBackupLink, loadAdminParentAccess, loadAdminPromotionAccess, saveAdminCardPreferences, saveAdminParentAccessToggle, saveAdminPromotionAccessToggle } from "./admin-options";
 import { APP_CONFIG } from "./app-config";
 
 describe("Google Sheets backup link", () => {
@@ -110,6 +116,76 @@ describe("Parent Access toggle", () => {
 
     expect(mockSetParentAccess).toHaveBeenCalledWith(true);
     expect(document.getElementById("adminParentAccessState")?.textContent).toContain("now on");
+  });
+});
+
+describe("Promotion access toggle", () => {
+  beforeEach(() => {
+    document.body.innerHTML = `
+      <input id="adminPromotionAccessToggle" type="checkbox" />
+      <p id="adminPromotionAccessState" role="status"></p>
+    `;
+    ADMIN_OPTIONS.promotionAccessLoaded = false;
+    ADMIN_OPTIONS.promotionAccessSaving = false;
+    ADMIN_OPTIONS.canPromoteStudents = false;
+    mockGetPromotion.mockReset().mockResolvedValue({ canPromoteStudents: false, configured: false });
+    mockSetPromotion.mockReset().mockResolvedValue(undefined);
+  });
+
+  it("loads the configured state and persists changes at the promotion setting", async () => {
+    const toggle = document.getElementById("adminPromotionAccessToggle") as HTMLInputElement;
+    await loadAdminPromotionAccess();
+    expect(toggle.checked).toBe(false);
+    expect(toggle.disabled).toBe(false);
+    expect(document.getElementById("adminPromotionAccessState")?.textContent).toContain("settings/toggles/canPromoteStudents");
+
+    toggle.checked = true;
+    await saveAdminPromotionAccessToggle({ currentTarget: toggle });
+    expect(mockSetPromotion).toHaveBeenCalledWith(true);
+    expect(document.getElementById("adminPromotionAccessState")?.textContent).toContain("now on");
+  });
+});
+
+describe("Card Printing preferences save", () => {
+  beforeEach(() => {
+    document.body.innerHTML = `
+      <select id="adminCardTemplate"><option value="sf9">SF9</option></select>
+      <div id="adminCardGradeTemplates"></div>
+      <textarea id="adminCardAttendanceMonths">Jun, Jul</textarea>
+      <input id="adminCardClassDaysLabel" value="Class days" />
+      <input id="adminCardPresentLabel" value="Present" />
+      <input id="adminCardAbsentLabel" value="Absent" />
+      <p id="adminCardPreferencesState" role="status"></p>
+      <button id="saveAdminCardPreferencesBtn" type="button">Save preferences</button>
+    `;
+    mockSetCardPreferences.mockReset().mockResolvedValue({ attendanceMonths: ["Jun", "Jul"] });
+  });
+
+  it("shows a success indicator when preferences save", async () => {
+    await saveAdminCardPreferences();
+
+    const state = document.getElementById("adminCardPreferencesState");
+    const button = document.getElementById("saveAdminCardPreferencesBtn") as HTMLButtonElement;
+    expect(state?.textContent).toBe("Card Printing preferences saved.");
+    expect(state?.classList.contains("is-success")).toBe(true);
+    expect(state?.classList.contains("is-saving")).toBe(false);
+    expect(button.disabled).toBe(false);
+    expect(button.textContent).toBe("Save preferences");
+    expect(button.hasAttribute("aria-busy")).toBe(false);
+  });
+
+  it("shows an error indicator and restores the button when saving fails", async () => {
+    mockSetCardPreferences.mockRejectedValue(new Error("Network unavailable"));
+    await saveAdminCardPreferences();
+
+    const state = document.getElementById("adminCardPreferencesState");
+    const button = document.getElementById("saveAdminCardPreferencesBtn") as HTMLButtonElement;
+    expect(state?.textContent).toContain("Unable to save Card Printing preferences: Network unavailable");
+    expect(state?.classList.contains("is-error")).toBe(true);
+    expect(state?.classList.contains("is-saving")).toBe(false);
+    expect(button.disabled).toBe(false);
+    expect(button.textContent).toBe("Save preferences");
+    expect(button.hasAttribute("aria-busy")).toBe(false);
   });
 });
 

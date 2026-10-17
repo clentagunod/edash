@@ -35,6 +35,48 @@ service cloud.firestore {
     function isRegistrar() { return myRole() == "Registrar"; }
     function isTeacher() { return myRole() == "Teacher"; }
     function isStaff() { return myRole() in ["School Admin", "Registrar", "Teacher"]; }
+    function teacherPromotionEnabled() {
+      let togglesPath = /databases/$(database)/documents/settings/toggles;
+      return exists(togglesPath)
+        && get(togglesPath).data.get("canPromoteStudents", false) == true;
+    }
+    function validTeacherProgression(learnerId) {
+      let learner = request.resource.data;
+      let sourceYearValue = learner.get("progressionSourceSchoolYear", "");
+      let sourceYear = sourceYearValue is string
+        && sourceYearValue.matches("^\\d{4}-\\d{4}$")
+        ? sourceYearValue
+        : "__invalid__";
+      let sourcePath = /databases/$(database)/documents/schoolYears/$(sourceYear)/learners/$(learnerId);
+      let sourceExists = exists(sourcePath);
+      let source = sourceExists ? get(sourcePath).data : {};
+      let progressionType = learner.get("progressionType", "");
+      return !learner.keys().hasAny(["progressionSourceSchoolYear"])
+        || (teacherPromotionEnabled()
+          && sourceYearValue is string
+          && sourceYearValue.matches("^\\d{4}-\\d{4}$")
+          && progressionType in ["promotion", "retention"]
+          && sourceExists
+          && ((progressionType == "promotion" && source.get("eosyStatus", "") == "Promoted")
+            || (progressionType == "retention"
+              && source.get("eosyStatus", "") == "Retained"
+              && learner.get("gradeLevel", "") == source.get("gradeLevel", ""))));
+    }
+    function validTeacherTrashRestore(yearId, learnerId) {
+      let trashId = request.resource.data.get("__trashRestoreId", "");
+      let safeTrashId = trashId is string && trashId.size() > 0 ? trashId : "__invalid__";
+      let trashPath = /databases/$(database)/documents/schoolYears/$(yearId)/trash/$(safeTrashId);
+      let trashItem = exists(trashPath) ? get(trashPath).data : {};
+      let originalLearner = trashItem.get("learner", {});
+      return trashId is string
+        && trashId.size() > 0
+        && exists(trashPath)
+        && trashItem.get("sourceCollection", "") == "learners"
+        && trashItem.get("learnerId", "") == learnerId
+        && originalLearner is map
+        && request.resource.data.diff(originalLearner).affectedKeys().hasOnly(["__trashRestoreId"])
+        && request.resource.data.diff(originalLearner).addedKeys().hasOnly(["__trashRestoreId"]);
+    }
     function parentAccessEnabled() {
       let togglesPath = /databases/$(database)/documents/settings/toggles;
       return !exists(togglesPath)
@@ -85,7 +127,10 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isAdmin();
       match /learners/{learnerId} {
-        allow read, write: if isStaff();
+        allow read: if isStaff();
+        allow create: if isStaff()
+          && (!isTeacher() || validTeacherProgression(learnerId) || validTeacherTrashRestore(yearId, learnerId));
+        allow update, delete: if isStaff();
         allow get: if isAnonymous()
           && parentAccessEnabled()
           && resource.data.get("enrollmentStatus", "") != "TRANSFERRED_OUT"
@@ -98,6 +143,10 @@ service cloud.firestore {
       }
       match /transferredOut/{learnerId} {
         allow read, write: if isStaff();
+      }
+      match /trash/{trashId} {
+        allow read: if isAdmin() || isRegistrar() || isTeacher();
+        allow create, update, delete: if isAdmin() || isRegistrar() || isTeacher();
       }
       match /grades/{gradeKey} {
         allow read: if isStaff();

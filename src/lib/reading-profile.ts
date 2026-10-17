@@ -5,7 +5,7 @@ import { requireAuth } from './auth';
 import { APP_CONFIG, appSchoolFilePrefix, paginationPageNumbers } from './app-config';
 import { getSelectedSchoolYear, initYearSwitcher } from './school-year';
 import { debounce } from './learner-list';
-import { CRLA_CATEGORIES, initProfileSectionTabs, normalizeProfileCategory, PHIL_IRI_CATEGORIES, renderProfileDistributionCharts } from './profile-charts';
+import { CRLA_CATEGORIES, initProfileSectionTabs, matchesProfileAssessmentFilters, normalizeProfileGender, normalizeProfileGrade, PHIL_IRI_CATEGORIES, renderProfileDistributionCharts } from './profile-charts';
 import { initGraphEnhancements } from './graph-enhancements';
 import { compareLearnersBySurname } from './learner-sorting';
 
@@ -16,7 +16,9 @@ export let readingGrade = "";
 export const READING_PAGE_SIZE = 10;
 
 export function readingClassificationOptions(grade = "") {
-  const isCrla = /^Grade [1-3]$/.test(String(grade || ""));
+  const normalizedGrade = normalizeProfileGrade(grade);
+  if (!normalizedGrade) return [...new Set([...CRLA_CATEGORIES, ...PHIL_IRI_CATEGORIES].map(({ label }) => label))];
+  const isCrla = ["grade1", "grade2", "grade3"].includes(normalizedGrade);
   return isCrla
     ? CRLA_CATEGORIES.map(({ label }) => label)
     : PHIL_IRI_CATEGORIES.map(({ label }) => label);
@@ -65,10 +67,10 @@ export function renderFilteredReading() {
   const grade = document.getElementById("readingGradeFilter")?.value || "";
   const sex = document.getElementById("readingSexFilter")?.value || "";
   const status = document.getElementById("readingStatusFilter")?.value || "";
-  const chartCohort = readingProfiles.filter((record) => { const text = `${record.name || ""} ${record.learnerId || ""} ${record.gradeLevel || ""}`.toLowerCase(); return (!readingSearch || text.includes(readingSearch)) && (!sex || record.gender === sex); });
-  const cohort = chartCohort.filter((record) => !grade || record.gradeLevel === grade);
-  const records = cohort.filter((record) => (!period || record[period]) && (!status || normalizeProfileCategory(record[period]) === normalizeProfileCategory(status)));
-  renderReadingCharts(chartCohort);
+  const chartCohort = readingProfiles.filter((record) => { const text = `${record.name || ""} ${record.learnerId || ""} ${record.gradeLevel || ""}`.toLowerCase(); return (!readingSearch || text.includes(readingSearch)) && (!sex || normalizeProfileGender(record.gender) === normalizeProfileGender(sex)); });
+  const cohort = chartCohort.filter((record) => !grade || normalizeProfileGrade(record.gradeLevel) === normalizeProfileGrade(grade));
+  const records = cohort.filter((record) => matchesProfileAssessmentFilters(record, period, status));
+  renderReadingCharts(records);
   renderReadingSummary(records);
   records.sort(compareLearnersBySurname);
   renderReadingTable(records.slice((readingPage - 1) * READING_PAGE_SIZE, readingPage * READING_PAGE_SIZE));
@@ -76,8 +78,8 @@ export function renderFilteredReading() {
 }
 
 export function renderReadingCharts(records = []) {
-  const crlaRecords = records.filter((record) => /^Grade [1-3]$/.test(String(record?.gradeLevel || "").trim()));
-  const philIriRecords = records.filter((record) => /^Grade [4-6]$/.test(String(record?.gradeLevel || "").trim()));
+  const crlaRecords = records.filter((record) => ["grade1", "grade2", "grade3"].includes(normalizeProfileGrade(record?.gradeLevel)));
+  const philIriRecords = records.filter((record) => ["grade4", "grade5", "grade6"].includes(normalizeProfileGrade(record?.gradeLevel)));
   renderProfileDistributionCharts(
     "readingProfileCharts",
     crlaRecords,

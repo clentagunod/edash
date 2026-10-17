@@ -5,7 +5,7 @@ import { APP_CONFIG, confirmDiscardChanges, formSnapshot, isSchoolAdmin, normali
 import { requireAuth } from './auth';
 import { DEMO_USERS, isSheetsApiConfigured } from './demo-data';
 import { Icon } from './icons';
-import { fsGetUsers, fsSubscribeUsers } from './firestore-api';
+import { fsGetTrashRetention, fsSetTrashRetention, fsGetUsers, fsSubscribeUsers } from './firestore-api';
 
 export let MU = { users: [], editingId: null, deletingId: null, deletingName: "", selectedIds: new Set() };
 export let usersLoadRequest = 0;
@@ -26,36 +26,41 @@ export function debounce(fn, delay) {
 export function initAdminSectionTabs() {
   const tabs = [
     document.getElementById("adminStructureTab"),
+    document.getElementById("adminCardPreferencesTab"),
     document.getElementById("adminAccessTab"),
     document.getElementById("adminBackupTab"),
     document.getElementById("adminAuditTab"),
   ];
   const panels = [
     document.getElementById("adminStructurePanel"),
+    document.getElementById("adminCardPreferencesPanel"),
     document.getElementById("adminAccessPanel"),
     document.getElementById("adminBackupPanel"),
     document.getElementById("adminAuditPanel"),
   ];
-  if (tabs.some((tab) => !tab) || panels.some((panel) => !panel)) return;
+  const validPairs = tabs.map((tab, index) => ({ tab, panel: panels[index] })).filter(({ tab, panel }) => tab && panel);
+  const activeTabs = validPairs.map(({ tab }) => tab);
+  const activePanels = validPairs.map(({ panel }) => panel);
+  if (!activeTabs.length) return;
 
   const activate = (index, moveFocus = false) => {
-    tabs.forEach((tab, tabIndex) => {
+    activeTabs.forEach((tab, tabIndex) => {
       const isActive = tabIndex === index;
       tab.setAttribute("aria-selected", String(isActive));
       tab.tabIndex = isActive ? 0 : -1;
-      panels[tabIndex].hidden = !isActive;
+      activePanels[tabIndex].hidden = !isActive;
     });
-    if (moveFocus) tabs[index].focus();
+    if (moveFocus) activeTabs[index].focus();
   };
 
-  tabs.forEach((tab, index) => {
+  activeTabs.forEach((tab, index) => {
     tab.addEventListener("click", () => activate(index));
     tab.addEventListener("keydown", (event) => {
       let nextIndex;
-      if (event.key === "ArrowRight") nextIndex = (index + 1) % tabs.length;
-      if (event.key === "ArrowLeft") nextIndex = (index + tabs.length - 1) % tabs.length;
+      if (event.key === "ArrowRight") nextIndex = (index + 1) % activeTabs.length;
+      if (event.key === "ArrowLeft") nextIndex = (index + activeTabs.length - 1) % activeTabs.length;
       if (event.key === "Home") nextIndex = 0;
-      if (event.key === "End") nextIndex = tabs.length - 1;
+      if (event.key === "End") nextIndex = activeTabs.length - 1;
       if (nextIndex === undefined) return;
       event.preventDefault();
       activate(nextIndex, true);
@@ -70,6 +75,7 @@ export async function initManageUsers() {
   }
   renderShell("users", "Admin Console");
   initAdminSectionTabs();
+  void initTrashRetentionControl();
   ensureUserBulkControls();
   document.getElementById("searchInput").addEventListener("input", debounce((e) => renderUsersTable(filterUsers(e.target.value)), 250));
   wireUserModal();
@@ -85,6 +91,29 @@ export async function initManageUsers() {
     MU.users = users;
     renderUsersTable(filterUsers(document.getElementById("searchInput")?.value || ""));
   }, () => {}) : null;
+}
+
+export async function initTrashRetentionControl() {
+  const select = document.getElementById("adminTrashRetentionSelect");
+  const state = document.getElementById("adminTrashRetentionState");
+  if (!select || !state || typeof fsGetTrashRetention !== "function") return;
+  try {
+    select.value = await fsGetTrashRetention();
+    select.disabled = false;
+    select.addEventListener("change", async () => {
+      select.disabled = true;
+      state.textContent = "Saving Trash retention setting…";
+      try {
+        await fsSetTrashRetention(select.value);
+        state.textContent = select.value === "never" ? "Trash items will be kept until permanently deleted." : `Trash items will be permanently deleted after ${select.value} days.`;
+      } catch (error) {
+        state.textContent = error.message || "Couldn't save Trash retention setting.";
+      } finally { select.disabled = false; }
+    });
+    state.textContent = select.value === "never" ? "Trash items will be kept until permanently deleted." : `Trash items will be permanently deleted after ${select.value} days.`;
+  } catch (error) {
+    state.textContent = error.message || "Couldn't load Trash retention setting.";
+  }
 }
 
 export async function loadUsers() {

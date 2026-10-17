@@ -1,0 +1,13 @@
+.promotion-modal { width: min(880px, calc(100vw - 28px)); max-height: min(92vh, 900px); overflow: auto; }
+.promotion-learner-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.promotion-learner-heading strong { color: var(--ink-900); font-size: 16px; }
+.promotion-learner-heading span { color: var(--ink-500); font-size: 11px; }
+.promotion-details { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line-200); }
+.promotion-details summary { color: var(--ink-800); cursor: pointer; font-size: 12px; font-weight: 700; }
+.promotion-details .field-hint { margin: 8px 0 14px; color: var(--ink-500); font-size: 11px; }
+.promotion-check-field { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.promotion-check-field input { width: 18px; height: 18px; accent-color: var(--blue-600); }
+.promotion-modal textarea { resize: vertical; }
+@media (max-width: 680px) {
+  .promotion-learner-heading { align-items: flex-start; flex-direction: column; }
+}

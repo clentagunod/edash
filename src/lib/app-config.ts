@@ -44,8 +44,17 @@ export const APP_CONFIG = Object.freeze({
       isCurrent: false,
     }),
     settingsDefaults: Object.freeze({
+      cardPrintingPreferences: Object.freeze({
+        activeTemplate: "sf9",
+        gradeTemplates: Object.freeze({ kinder: "sf9", grade1: "sf9", grade2: "sf9", grade3: "sf9", grade4: "sf9", grade5: "sf9", grade6: "sf9" }),
+        attendanceMonths: Object.freeze(["Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr"]),
+        attendanceRows: Object.freeze([{ id: "classDays", label: "Class days" }, { id: "daysPresent", label: "Present" }, { id: "daysAbsent", label: "Absent" }]),
+      }),
       toggles: Object.freeze({
         canParentAccess: true,
+        canPromoteStudents: false,
+        trashConfg: "30",
+        roundType: "nearest_integer",
       }),
     }),
     userDefaults: Object.freeze({
@@ -91,8 +100,8 @@ export const APP_CONFIG = Object.freeze({
       "filipino", "english", "math", "science", "aralPan", "esp", "music", "arts", "pe", "health", "epp", "motherTongue",
       "literacyLanguageCommunication", "socioEmotionalDevelopment", "valuesDevelopment", "physicalHealthMotorDevelopment",
       "aestheticCreativeDevelopment", "cognitiveDevelopment", "gmrc", "language", "readingLiteracy", "makabansa", "eppTle",
-      "tle", "valuesEducation", "mapeh", "gradesByTerm",
-      "transferType", "transferIn", "transferOut", "transferSchool", "transferDate", "transferReason", "transferNotes", "extra",
+      "tle", "valuesEducation", "mapeh", "musicAndArts", "physicalEducationAndHealth", "gradesByTerm",
+      "transferType", "transferIn", "transferOut", "transferSchool", "transferDate", "transferReason", "transferNotes", "progressionSourceSchoolYear", "progressionType", "extra",
     ]),
   }),
 });

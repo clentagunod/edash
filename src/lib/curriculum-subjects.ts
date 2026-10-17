@@ -27,17 +27,21 @@ export const CURRICULUM_SUBJECTS = [
   { id: 'eppTle', label: 'EPP/TLE' },
   { id: 'tle', label: 'TLE' },
   { id: 'valuesEducation', label: 'Values Education' },
-  { id: 'mapeh', label: 'MAPEH' },
   { id: 'esp', label: 'ESP' },
-  { id: 'music', label: 'Music' },
-  { id: 'arts', label: 'Arts' },
-  { id: 'pe', label: 'Physical Education' },
-  { id: 'health', label: 'Health' },
+  { id: 'musicAndArts', label: 'Music & Arts' },
+  { id: 'physicalEducationAndHealth', label: 'Physical Education & Health' },
   { id: 'epp', label: 'EPP' },
   { id: 'motherTongue', label: 'Mother Tongue' },
 ] as const;
 
 const BUILT_IN_CURRICULUM_SUBJECT_IDS = new Set<string>(CURRICULUM_SUBJECTS.map(({ id }) => id));
+const RETIRED_CURRICULUM_SUBJECT_IDS = new Set(['mapeh', 'music', 'arts', 'pe', 'health']);
+const LEGACY_CURRICULUM_SUBJECT_ALIASES: Record<string, string> = {
+  music: 'musicAndArts',
+  arts: 'musicAndArts',
+  pe: 'physicalEducationAndHealth',
+  health: 'physicalEducationAndHealth',
+};
 
 export function isCustomCurriculumSubjectId(value: unknown): value is string {
   return typeof value === 'string' && /^[a-z][a-zA-Z0-9]{0,63}$/.test(value) && !BUILT_IN_CURRICULUM_SUBJECT_IDS.has(value);
@@ -50,7 +54,7 @@ export function normalizeCurriculumSubjectPool(values: unknown) {
     if (!subject || typeof subject !== 'object') return;
     const id = String(subject.id || '').trim();
     const label = String(subject.label || '').trim();
-    if (!/^[a-z][a-zA-Z0-9]{0,63}$/.test(id) || !label) return;
+    if (!/^[a-z][a-zA-Z0-9]{0,63}$/.test(id) || !label || RETIRED_CURRICULUM_SUBJECT_IDS.has(id)) return;
     if (!subjects.has(id)) subjects.set(id, { id, label });
   });
   return [...subjects.values()];
@@ -71,10 +75,8 @@ export const LEGACY_CURRICULUM_SUBJECT_IDS = [
   'science',
   'aralPan',
   'esp',
-  'music',
-  'arts',
-  'pe',
-  'health',
+  'musicAndArts',
+  'physicalEducationAndHealth',
   'epp',
   'motherTongue',
 ] as const;
@@ -89,9 +91,11 @@ export function normalizeCurriculumGrade(value: unknown) {
 export function normalizeCurriculumSubjectIds(values: unknown, subjects: readonly { id: string }[] = CURRICULUM_SUBJECTS) {
   if (!Array.isArray(values)) return [];
   const allowedIds = new Set<string>(subjects.map(({ id }) => id));
-  return [...new Set(values.filter((value): value is string => (
-    typeof value === 'string' && allowedIds.has(value)
-  )))];
+  return [...new Set(values.flatMap((value) => {
+    if (typeof value !== 'string') return [];
+    const id = LEGACY_CURRICULUM_SUBJECT_ALIASES[value] || value;
+    return allowedIds.has(id) ? [id] : [];
+  }))];
 }
 
 export function curriculumSubjectIdsForGrade(
@@ -100,7 +104,7 @@ export function curriculumSubjectIdsForGrade(
   useLegacyFallback = false,
   subjects: readonly { id: string }[] = CURRICULUM_SUBJECTS,
 ) {
-  if (useLegacyFallback) return [...LEGACY_CURRICULUM_SUBJECT_IDS];
+  if (useLegacyFallback) return normalizeCurriculumSubjectIds(LEGACY_CURRICULUM_SUBJECT_IDS, subjects);
   const assignment = assignments?.[normalizeCurriculumGrade(gradeLevel)];
   return assignment?.configured === true ? normalizeCurriculumSubjectIds(assignment.subjectIds, subjects) : [];
 }

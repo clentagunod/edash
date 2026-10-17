@@ -1,0 +1,26 @@
+.trash-retention-info {
+  margin: 0 0 18px;
+  padding: 13px 16px;
+  border: 1px solid var(--blue-200, #bfdbfe);
+  border-radius: var(--radius-md, 10px);
+  background: var(--blue-50, #eff6ff);
+  color: var(--blue-800, #1e40af);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.trash-retention-info::before {
+  content: "ⓘ";
+  margin-right: 9px;
+  font-weight: 800;
+}
+
+#trashRows .icon-btn {
+  width: 36px;
+  height: 36px;
+}
+
+#trashRows .icon-btn svg {
+  width: 17px;
+  height: 17px;
+}

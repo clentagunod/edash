@@ -25,6 +25,16 @@ export const GRADE_TERMS = gradeTermsForCount(MAX_GRADE_TERM_COUNT);
 export const DEFAULT_GRADE_TERM = "quarter1";
 export const FINAL_GRADE_TERM = "final";
 
+export const DEFAULT_ROUND_TYPE = "nearest_integer";
+export const GRADE_ROUND_TYPES = Object.freeze(["nearest_integer", "none"]);
+
+export function roundGradeResult(value, roundType = DEFAULT_ROUND_TYPE) {
+  if (value == null || String(value).trim() === "" || !Number.isFinite(Number(value))) return value ?? "";
+  const numeric = Number(value);
+  if (roundType === "none") return String(numeric);
+  return String(Math.floor(numeric + 0.5));
+}
+
 export function gradesForTerm(learner, term = FINAL_GRADE_TERM, subjectIds = []) {
   const termGrades = learner?.gradesByTerm?.[term];
   if (term !== FINAL_GRADE_TERM) {

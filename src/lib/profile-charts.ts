@@ -36,6 +36,34 @@ export function normalizeProfileCategory(value: unknown) {
   return normalized === 'highlyproficient' ? 'highproficient' : normalized;
 }
 
+export function normalizeProfileGrade(value: unknown) {
+  const grade = String(value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
+  if (['k', 'kg', 'kinder', 'kindergarten'].includes(grade)) return 'kinder';
+  const match = grade.match(/^(?:grade\s*)?(\d+)$/);
+  return match ? `grade${Number(match[1])}` : grade.replace(/[^a-z0-9]/g, '');
+}
+
+export function normalizeProfileGender(value: unknown) {
+  const gender = String(value ?? '').trim().toLowerCase();
+  if (['m', 'male', 'man', 'men'].includes(gender)) return 'male';
+  if (['f', 'female', 'woman', 'women'].includes(gender)) return 'female';
+  return gender.replace(/[^a-z0-9]/g, '');
+}
+
+export function matchesProfileAssessmentFilters(
+  record: Record<string, unknown>,
+  period = '',
+  status = '',
+) {
+  const periods = period ? [period] : PROFILE_PERIODS.map(({ key }) => key);
+  if (!period && !status) return true;
+  return periods.some((key) => {
+    const value = String(record?.[key] ?? '').trim();
+    if (!value) return false;
+    return !status || normalizeProfileCategory(value) === normalizeProfileCategory(status);
+  });
+}
+
 export function initProfileSectionTabs(prefix: 'reading' | 'math' | 'nutrition') {
   const tabs = [
     document.getElementById(`${prefix}GraphsTab`),
@@ -82,8 +110,8 @@ export function buildProfileProgressData(
   const counts = new Map<string, number>();
 
   records.forEach((record) => {
-    const grade = String(record?.gradeLevel ?? '').trim();
-    if (!gradeLevels.includes(grade)) return;
+    const grade = gradeLevels.find((level) => normalizeProfileGrade(level) === normalizeProfileGrade(record?.gradeLevel));
+    if (!grade) return;
     PROFILE_PERIODS.forEach(({ key, label }) => {
       const category = categoryByKey.get(normalizeProfileCategory(record?.[key]));
       if (!category) return;

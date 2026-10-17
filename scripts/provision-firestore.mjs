@@ -479,6 +479,28 @@ async function main() {
       updatedBy: "provisioning",
     }, { merge: true });
   }
+  const togglesRef = db.collection("settings").doc("toggles");
+  const existingToggles = await togglesRef.get();
+  const toggleDefaults = {};
+  if (!existingToggles.exists || typeof existingToggles.data()?.trashConfg !== "string") toggleDefaults.trashConfg = "30";
+  if (!existingToggles.exists || typeof existingToggles.data()?.roundType !== "string") toggleDefaults.roundType = "nearest_integer";
+  if (Object.keys(toggleDefaults).length) batch.set(togglesRef, toggleDefaults, { merge: true });
+  const cardPreferencesRef = db.collection("settings").doc("cardPrintingPreferences");
+  const existingCardPreferences = await cardPreferencesRef.get();
+  if (!existingCardPreferences.exists) {
+    batch.set(cardPreferencesRef, {
+      activeTemplate: "sf9",
+      gradeTemplates: { kinder: "sf9", grade1: "sf9", grade2: "sf9", grade3: "sf9", grade4: "sf9", grade5: "sf9", grade6: "sf9" },
+      attendanceMonths: ["Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr"],
+      attendanceRows: [
+        { id: "classDays", label: "Class days" },
+        { id: "daysPresent", label: "Present" },
+        { id: "daysAbsent", label: "Absent" },
+      ],
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedBy: "provisioning",
+    }, { merge: true });
+  }
   if (schoolYear) {
     const yearGradeTermsRef = gradeTermsRef.collection("years").doc(schoolYear);
     const existingYearGradeTerms = await yearGradeTermsRef.get();
@@ -518,6 +540,7 @@ async function main() {
       years.docs.forEach((doc) => batch.set(doc.ref, { isCurrent: doc.id === schoolYear }, { merge: true }));
     }
     batch.set(db.collection("schoolYears").doc(schoolYear), { schoolYear, isCurrent: makeCurrent }, { merge: true });
+    batch.set(db.collection("schoolYears").doc(schoolYear).collection("trash").doc("_schema"), { schemaVersion: 1 }, { merge: true });
     batch.set(db.collection("settings").doc("currentSchoolYear"), { value: schoolYear }, { merge: true });
   }
 

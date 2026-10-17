@@ -6,16 +6,15 @@ import { getSelectedSchoolYear, initYearSwitcher } from './school-year';
 import { Icon } from './icons';
 import { escapeHtml, formatAppDate, renderShell } from './shell';
 import { debounce } from './learner-list';
-import { deleteArchiveRecord } from './archive-editor';
-import { openArchiveEditor } from './archive-editor';
-import { compareLearnersBySurname, formatLearnerName } from './learner-sorting';
+import { cancelLearnerMovement, deleteArchiveRecord, openArchiveEditor } from './archive-editor';
+import { compareLearnersBySurname, formatLearnerNameSurnameFirst } from './learner-sorting';
 
 export let dropoutRecords = [];
 export let dropoutPage = 1;
 export const DROPOUT_PAGE_SIZE = 15;
 
 export async function initDropout() {
-  renderShell("dropout", "Dropout");
+  renderShell("dropout", "Dropout Info");
   window.dropoutSearch = "";
   const searchInput = document.getElementById("dropoutSearch");
   const gradeFilter = document.getElementById("dropoutGradeFilter");
@@ -59,7 +58,7 @@ export function renderDropout() {
   const grade = String(document.getElementById("dropoutGradeFilter")?.value || "").trim().toLowerCase();
   const gender = String(document.getElementById("dropoutGenderFilter")?.value || "").trim().toLowerCase();
   const records = dropoutRecords.filter((record) => {
-    const name = formatLearnerName(record);
+    const name = formatLearnerNameSurnameFirst(record);
     const text = `${record.learnerId || ""} ${name} ${record.gradeLevel || ""} ${record.section || ""} ${record.gender || ""} ${record.eosyStatus || ""} ${record.dateAdded || ""}`.toLowerCase();
     return (!query || text.includes(query)) && (!grade || String(record.gradeLevel || "").trim().toLowerCase() === grade) && (!gender || String(record.gender || "").trim().toLowerCase() === gender);
   });
@@ -76,12 +75,12 @@ export function renderDropout() {
   body.innerHTML = pageRecords.map((record) => `
     <tr>
       <td>${escapeHtml(record?.learnerId || "—")}</td>
-      <td class="cell-name">${escapeHtml(formatLearnerName(record, "—"))}</td>
+      <td class="cell-name">${escapeHtml(formatLearnerNameSurnameFirst(record, "—"))}</td>
       <td>${escapeHtml([record?.gradeLevel, record?.section].filter(Boolean).join(" · ") || "—")}</td>
       <td>${escapeHtml(record?.gender || "—")}</td>
       <td><strong>${escapeHtml(record?.eosyStatus || record?.enrollmentStatus || "Dropped Out")}</strong></td>
       <td>${escapeHtml(formatAppDate(record?.dateAdded))}</td>
-      <td><div class="row-actions"><button class="icon-btn" type="button" title="Edit" aria-label="Edit dropout record" data-archive-edit="${escapeHtml(record.learnerId)}">${Icon.edit}</button><button class="icon-btn danger" type="button" title="Delete" aria-label="Delete" data-archive-delete="${escapeHtml(record.learnerId)}">${Icon.trash}</button></div></td>
+      <td><div class="row-actions"><button class="icon-btn" type="button" title="Edit" aria-label="Edit dropout record" data-archive-edit="${escapeHtml(record.learnerId)}">${Icon.edit}</button><button class="icon-btn" type="button" title="Cancel dropout and return to masterlist" aria-label="Cancel dropout and return to masterlist" data-dropout-cancel="${escapeHtml(record.learnerId)}">${Icon.x}</button><button class="icon-btn danger" type="button" title="Delete" aria-label="Delete" data-archive-delete="${escapeHtml(record.learnerId)}">${Icon.trash}</button></div></td>
     </tr>
   `).join("");
   body.querySelectorAll("[data-archive-edit]").forEach((button) => button.addEventListener("click", () => {
@@ -89,6 +88,10 @@ export function renderDropout() {
     if (record) openArchiveEditor(record._archiveCollection || "dropout", getSelectedSchoolYear(), record, () => loadDropout(getSelectedSchoolYear()));
   }));
   body.querySelectorAll("[data-archive-delete]").forEach((button) => button.addEventListener("click", () => { const record = dropoutRecords.find((item) => item.learnerId === button.dataset.archiveDelete); if (record) deleteArchiveRecord(record._archiveCollection || "dropout", getSelectedSchoolYear(), record, () => loadDropout(getSelectedSchoolYear())); }));
+  body.querySelectorAll("[data-dropout-cancel]").forEach((button) => button.addEventListener("click", () => {
+    const record = dropoutRecords.find((item) => item.learnerId === button.dataset.dropoutCancel);
+    if (record) cancelLearnerMovement(record._archiveCollection || "dropout", getSelectedSchoolYear(), record, () => loadDropout(getSelectedSchoolYear()), button);
+  }));
   renderDropoutPagination(records.length, pageCount);
 }
 

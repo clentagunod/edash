@@ -25,6 +25,23 @@ export function formatLearnerName(learner: LearnerNameRecord, fallback = ''): st
   return nameParts.join(' ') || text(learner.name) || fallback;
 }
 
+/**
+ * Surname-first convention (e.g. "Dela Cruz, Juan Santos").
+ * Used for archived/movement learner lists (dropout, transfer, promotion, retention).
+ */
+export function formatLearnerNameSurnameFirst(learner: LearnerNameRecord, fallback = ''): string {
+  const firstName = text(learner.firstName);
+  const middleName = text(learner.middleName);
+  const lastName = text(learner.lastName);
+  const suffix = text(learner.suffix);
+  if (lastName || firstName) {
+    const givenName = [firstName, middleName].filter(Boolean).join(' ');
+    const core = givenName ? `${lastName}, ${givenName}` : lastName;
+    return suffix ? `${core}, ${suffix}` : core;
+  }
+  return text(learner.name) || fallback;
+}
+
 export function compareLearnersBySurname(first: LearnerNameRecord, second: LearnerNameRecord): number {
   return learnerSurname(first).localeCompare(learnerSurname(second), undefined, { numeric: true, sensitivity: 'base' })
     || text(first.firstName).localeCompare(text(second.firstName), undefined, { numeric: true, sensitivity: 'base' })

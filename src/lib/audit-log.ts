@@ -7,6 +7,14 @@ import { appPageHref, escapeHtml, renderShell } from './shell';
 
 export let auditRecords = [];
 
+function auditLoadErrorMessage(error) {
+  const message = String(error?.message || "Unable to load the audit log.");
+  if (/^firebase authentication failed\.?$/i.test(message.trim())) {
+    return "The Audit Log service could not authenticate this school. Redeploy the latest apps-script/AuditLog.gs and verify its FIREBASE_WEB_API_KEY and FIRESTORE_PROJECT_ID match this school's Firebase project, then sign out and sign in again.";
+  }
+  return message;
+}
+
 export async function initAuditLog({ renderNavigation = true } = {}) {
   if (!isSchoolAdmin()) {
     window.location.replace(appPageHref("dashboard.html"));
@@ -29,7 +37,7 @@ export async function loadAuditLog() {
     renderFilteredAuditLog();
   } catch (error) {
     auditRecords = [];
-    if (body) body.innerHTML = `<tr><td colspan="8" class="state-row error">${escapeHtml(error.message || "Unable to load the audit log.")}</td></tr>`;
+    if (body) body.innerHTML = `<tr><td colspan="8" class="state-row error">${escapeHtml(auditLoadErrorMessage(error))}</td></tr>`;
     if (meta) meta.textContent = "Audit log unavailable";
   }
 }

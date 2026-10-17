@@ -20,6 +20,7 @@ const mockDb = {
   enablePersistence: vi.fn().mockResolvedValue(undefined),
   collection: vi.fn(() => ({ doc: vi.fn(() => ({ get: vi.fn() })) })),
   batch: vi.fn(),
+  runTransaction: vi.fn(),
 };
 const mockFunctions = { httpsCallable: vi.fn() };
 
@@ -69,7 +70,7 @@ describe('shared application configuration', () => {
     expect(APP_CONFIG.firestore.documents.currentSchoolYear).toBe('currentSchoolYear');
     expect(APP_CONFIG.firestore.documents.gradeTerms).toBe('gradeTerms');
     expect(APP_CONFIG.firestore.documents.toggles).toBe('toggles');
-    expect(APP_CONFIG.firestore.settingsDefaults.toggles).toEqual({ canParentAccess: true });
+    expect(APP_CONFIG.firestore.settingsDefaults.toggles).toEqual({ canParentAccess: true, canPromoteStudents: false });
     expect(APP_CONFIG.firestore.schoolDefaults.gradeTerms).toEqual({ termCount: 3, passingThreshold: 75, gradeLevels: {} });
     expect(APP_CONFIG.firestore.schoolYearDefaults).toEqual({ gradeTerms: { termCount: 3, passingThreshold: 75, gradeLevels: {} }, isCurrent: false });
     expect(APP_CONFIG.firestore.userDefaults.teacherPrefs).toEqual({
@@ -276,6 +277,299 @@ describe('Parent Access setting', () => {
       expect(togglesRef.set).toHaveBeenCalledWith({ canParentAccess: false }, { merge: true });
       await expect(firestoreApi.fsSetParentAccessEnabled('false')).rejects.toThrow('must be enabled or disabled');
     } finally {
+      collectionSpy.mockRestore();
+    }
+  });
+});
+
+describe('Promotion access setting', () => {
+  it('defaults teacher promotion to disabled and reads/writes canPromoteStudents', async () => {
+    const togglesRef = {
+      get: vi.fn().mockResolvedValue({ exists: false, data: () => undefined }),
+      set: vi.fn().mockResolvedValue(undefined),
+    };
+    const collectionSpy = vi.spyOn(mockDb, 'collection').mockImplementation((name) => {
+      if (name === 'settings') return { doc: vi.fn((id) => {
+        expect(id).toBe('toggles');
+        return togglesRef;
+      }) };
+      throw new Error(`Unexpected collection ${name}`);
+    });
+
+    try {
+      await expect(firestoreApi.fsGetPromotionConfiguration()).resolves.toEqual({
+        canPromoteStudents: false,
+        configured: false,
+      });
+      togglesRef.get.mockResolvedValue({ exists: true, data: () => ({ canPromoteStudents: true }) });
+      await expect(firestoreApi.fsGetPromotionConfiguration()).resolves.toEqual({
+        canPromoteStudents: true,
+        configured: true,
+      });
+      await expect(firestoreApi.fsSetCanPromoteStudents(false)).resolves.toBe(false);
+      expect(togglesRef.set).toHaveBeenCalledWith({ canPromoteStudents: false }, { merge: true });
+      await expect(firestoreApi.fsSetCanPromoteStudents('false')).rejects.toThrow('must be enabled or disabled');
+    } finally {
+      collectionSpy.mockRestore();
+    }
+  });
+
+  it('creates a new succeeding-year learner record and leaves the source year unchanged', async () => {
+    const sourceLearner = {
+      firstName: 'Avery',
+      lastName: 'Learner',
+      learnerId: '123456789012',
+      gradeLevel: 'Grade 1',
+      section: 'A',
+      age: 7,
+      eosyStatus: 'Promoted',
+      guardian: 'Parent',
+      unrelatedField: 'preserved',
+    };
+    const sourceRef = {
+      get: vi.fn().mockResolvedValue({ exists: true, data: () => sourceLearner }),
+      set: vi.fn(),
+    };
+    const targetRef = {
+      get: vi.fn().mockResolvedValue({ exists: false }),
+      set: vi.fn().mockResolvedValue(undefined),
+    };
+    let targetExists = false;
+    const transaction = {
+      get: vi.fn((ref) => Promise.resolve(ref === sourceRef
+        ? { exists: true, data: () => sourceLearner }
+        : { exists: targetExists })),
+      set: vi.fn(),
+    };
+    const transactionSpy = vi.spyOn(mockDb, 'runTransaction').mockImplementation((callback) => callback(transaction));
+    const sectionRef = {
+      collection: vi.fn(() => ({ get: vi.fn().mockResolvedValue({ docs: [] }) })),
+    };
+    const sectionDoc = {
+      id: 'a',
+      data: () => ({ schoolYear: '2031-2032', gradeLevel: 'Grade 2', section: 'A' }),
+      ref: sectionRef,
+    };
+    const gradeOneSectionDoc = {
+      id: 'b',
+      data: () => ({ schoolYear: '2031-2032', gradeLevel: 'Grade 1', section: 'A' }),
+      ref: sectionRef,
+    };
+    const gradeDoc = {
+      data: () => ({ gradeLevel: 'Grade 2' }),
+      ref: { collection: vi.fn(() => ({ get: vi.fn().mockResolvedValue({ docs: [sectionDoc, gradeOneSectionDoc] }) })) },
+    };
+    const collectionSpy = vi.spyOn(mockDb, 'collection').mockImplementation((name) => {
+      if (name === 'schoolYears') return {
+        doc: vi.fn((year) => ({
+          collection: vi.fn((path) => path === 'learners'
+            ? { doc: vi.fn(() => year === '2030-2031' ? sourceRef : targetRef) }
+            : { get: vi.fn().mockResolvedValue({ docs: [gradeDoc] }) }),
+        })),
+      };
+      throw new Error(`Unexpected collection ${name}`);
+    });
+    const auditSpy = vi.spyOn(LPSApi, 'recordAuditEvent').mockResolvedValue({});
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    setAppUserProfile({ uid: 'admin-promotion-test', role: 'School Admin' });
+    vi.useFakeTimers();
+
+    try {
+      await expect(firestoreApi.fsPromoteLearner('2030-2031', '2031-2032', sourceLearner.learnerId, {
+        ...sourceLearner,
+        gradeLevel: 'Grade 2',
+        section: 'A',
+        age: 8,
+      })).resolves.toEqual({
+        learnerId: sourceLearner.learnerId,
+        sourceSchoolYear: '2030-2031',
+        schoolYear: '2031-2032',
+      });
+      expect(sourceRef.set).not.toHaveBeenCalled();
+      expect(transaction.set).toHaveBeenCalledWith(targetRef, expect.objectContaining({
+        learnerId: sourceLearner.learnerId,
+        schoolYear: '2031-2032',
+        gradeLevel: 'Grade 2',
+        section: 'A',
+        age: 8,
+        guardian: 'Parent',
+        unrelatedField: 'preserved',
+        enrollmentStatus: 'ACTIVE',
+        eosyStatus: '',
+        transferOut: false,
+        progressionSourceSchoolYear: '2030-2031',
+        progressionType: 'promotion',
+      }));
+      expect(auditSpy).toHaveBeenCalledWith('LEARNER_PROMOTE', expect.anything());
+      targetExists = true;
+      await expect(firestoreApi.fsPromoteLearner('2030-2031', '2031-2032', sourceLearner.learnerId, {
+        ...sourceLearner,
+        gradeLevel: 'Grade 2',
+        section: 'A',
+        age: 8,
+      })).rejects.toThrow('no record was overwritten');
+      expect(transaction.set).toHaveBeenCalledOnce();
+
+      targetExists = false;
+      sourceLearner.gradeLevel = 'Grade 2';
+      sourceLearner.eosyStatus = 'Retained';
+      await expect(firestoreApi.fsPromoteLearner('2030-2031', '2031-2032', sourceLearner.learnerId, {
+        ...sourceLearner,
+        gradeLevel: 'Grade 2',
+        section: 'A',
+        age: 8,
+      }, 'retention')).resolves.toEqual({
+        learnerId: sourceLearner.learnerId,
+        sourceSchoolYear: '2030-2031',
+        schoolYear: '2031-2032',
+      });
+      expect(transaction.set).toHaveBeenLastCalledWith(targetRef, expect.objectContaining({
+        gradeLevel: 'Grade 2',
+        progressionType: 'retention',
+        progressionSourceSchoolYear: '2030-2031',
+      }));
+      expect(auditSpy).toHaveBeenCalledWith('LEARNER_RETAIN', expect.anything());
+      await expect(firestoreApi.fsPromoteLearner('2030-2031', '2031-2032', sourceLearner.learnerId, {
+        ...sourceLearner,
+        gradeLevel: 'Grade 1',
+        section: 'A',
+        age: 8,
+      }, 'retention')).rejects.toThrow('must stay in the same grade level');
+      expect(transaction.set).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+      setAppUserProfile(null);
+      auditSpy.mockRestore();
+      consoleError.mockRestore();
+      transactionSpy.mockRestore();
+      collectionSpy.mockRestore();
+    }
+  });
+
+  it('blocks teacher promotions when canPromoteStudents is absent or disabled', async () => {
+    const togglesRef = { get: vi.fn().mockResolvedValue({ exists: false }) };
+    const collectionSpy = vi.spyOn(mockDb, 'collection').mockImplementation((name) => {
+      if (name === 'settings') return { doc: vi.fn(() => togglesRef) };
+      throw new Error(`Unexpected collection ${name}`);
+    });
+    setAppUserProfile({ uid: 'teacher-promotion-test', role: 'Teacher' });
+    try {
+      await expect(firestoreApi.fsPromoteLearner('2030-2031', '2031-2032', '123456789012', {}))
+        .rejects.toThrow('disabled for teachers');
+      expect(togglesRef.get).toHaveBeenCalledOnce();
+    } finally {
+      setAppUserProfile(null);
+      collectionSpy.mockRestore();
+    }
+  });
+});
+
+describe('teacher live learner updates', () => {
+  it('streams changes from each assigned grade-section query without a refresh', () => {
+    const userId = 'teacher-live-test';
+    const assignments = [
+      { schoolYear: '2026-2027', gradeLevel: 'Grade 1', section: 'A' },
+      { schoolYear: '2026-2027', gradeLevel: 'Grade 2', section: 'B' },
+      { schoolYear: '2025-2026', gradeLevel: 'Grade 3', section: 'C' },
+    ];
+    const queryListeners = [];
+    const queryUnsubscribers = [];
+    let profileListener;
+    const userRef = {
+      onSnapshot: vi.fn((next) => {
+        profileListener = next;
+        next({ exists: true, data: () => ({ role: 'Teacher', teacherAssignments: assignments }) });
+        return vi.fn();
+      }),
+    };
+    const collectionSpy = vi.spyOn(mockDb, 'collection').mockImplementation((name) => {
+      if (name === 'users') return { doc: vi.fn(() => userRef) };
+      if (name === 'schoolYears') return {
+        doc: vi.fn((year) => ({
+          collection: vi.fn(() => {
+            let filters = [];
+            const query = {
+              where: vi.fn((field, operator, value) => {
+                filters = [...filters, [field, operator, value]];
+                return query;
+              }),
+              onSnapshot: vi.fn((next, error) => {
+                queryListeners.push({ filters, next, error });
+                const unsubscribe = vi.fn();
+                queryUnsubscribers.push(unsubscribe);
+                return unsubscribe;
+              }),
+            };
+            expect(year).toBe('2026-2027');
+            return query;
+          }),
+        })),
+      };
+      throw new Error(`Unexpected collection ${name}`);
+    });
+    const userProfile = { uid: userId, userId, role: 'Teacher', teacherAssignments: assignments };
+    mockAuth.currentUser = { uid: userId };
+    setAppUserProfile(userProfile);
+    const onChange = vi.fn();
+    const onError = vi.fn();
+    const unsubscribe = firestoreApi.fsSubscribeLearners('2026-2027', onChange, onError);
+    const documents = (items) => ({
+      docs: items.map(([id, data]) => ({ id, data: () => data })),
+    });
+
+    try {
+      expect(queryListeners).toHaveLength(2);
+      expect(queryListeners.map(({ filters }) => filters)).toEqual(expect.arrayContaining([
+        [['gradeLevel', '==', 'Grade 1'], ['section', '==', 'A']],
+        [['gradeLevel', '==', 'Grade 2'], ['section', '==', 'B']],
+      ]));
+      queryListeners[0].next(documents([['learner-a', { gradeLevel: 'Grade 1', section: 'A' }]]));
+      queryListeners[1].next(documents([['learner-b', { gradeLevel: 'Grade 2', section: 'B' }]]));
+      expect(onChange).toHaveBeenLastCalledWith(expect.arrayContaining([
+        expect.objectContaining({ learnerId: 'learner-a' }),
+        expect.objectContaining({ learnerId: 'learner-b' }),
+      ]));
+
+      queryListeners[0].next(documents([
+        ['learner-a', { gradeLevel: 'Grade 1', section: 'A' }],
+        ['learner-c', { gradeLevel: 'Grade 1', section: 'A' }],
+        ['inactive', { gradeLevel: 'Grade 1', section: 'A', enrollmentStatus: 'DROPPED_OUT' }],
+      ]));
+      expect(onChange).toHaveBeenLastCalledWith(expect.arrayContaining([
+        expect.objectContaining({ learnerId: 'learner-a' }),
+        expect.objectContaining({ learnerId: 'learner-b' }),
+        expect.objectContaining({ learnerId: 'learner-c' }),
+      ]));
+      expect(onChange.mock.lastCall[0].some((learner) => learner.learnerId === 'inactive')).toBe(false);
+
+      profileListener({
+        exists: true,
+        data: () => ({
+          role: 'Teacher',
+          teacherAssignments: [
+            assignments[0],
+            { schoolYear: '2026-2027', gradeLevel: 'Grade 3', section: 'C' },
+          ],
+        }),
+      });
+      expect(queryUnsubscribers.slice(0, 2).every((stop) => stop.mock.calls.length === 1)).toBe(true);
+      expect(queryListeners).toHaveLength(4);
+      queryListeners[2].next(documents([['learner-a', { gradeLevel: 'Grade 1', section: 'A' }]]));
+      queryListeners[3].next(documents([['learner-c', { gradeLevel: 'Grade 3', section: 'C' }]]));
+      expect(onChange).toHaveBeenLastCalledWith(expect.arrayContaining([
+        expect.objectContaining({ learnerId: 'learner-a' }),
+        expect.objectContaining({ learnerId: 'learner-c' }),
+      ]));
+      expect(onChange.mock.lastCall[0].some((learner) => learner.learnerId === 'learner-b')).toBe(false);
+
+      unsubscribe();
+      expect(queryUnsubscribers).toHaveLength(4);
+      queryUnsubscribers.forEach((stop) => expect(stop).toHaveBeenCalledOnce());
+      expect(profileListener).toBeTypeOf('function');
+    } finally {
+      setAppUserProfile(null);
+      mockAuth.currentUser = null;
       collectionSpy.mockRestore();
     }
   });
@@ -956,6 +1250,173 @@ describe('visitor session handling', () => {
       expect(collectionNames).toContain('schoolYears');
       expect(records.some((record) => record.learnerId === 'lrn-0002')).toBe(true);
     });
+
+    it('atomically restores an archived learner and clears movement fields', async () => {
+      const archivedData = {
+        learnerId: 'lrn-0003',
+        firstName: 'Alex',
+        gradeLevel: 'Grade 2',
+        transferType: 'Transfer Out',
+        transferOut: true,
+        transferSchool: 'Other School',
+        enrollmentStatus: 'TRANSFERRED_OUT',
+        unrelatedField: 'preserved',
+      };
+      const archivedRef = {
+        get: vi.fn().mockResolvedValue({ exists: true, data: () => archivedData }),
+      };
+      const learnerRef = {
+        get: vi.fn().mockResolvedValue({ exists: false }),
+      };
+      const writes = [];
+      const batch = {
+        set: vi.fn((ref, data) => { writes.push({ type: 'set', ref, data }); return batch; }),
+        delete: vi.fn((ref) => { writes.push({ type: 'delete', ref }); return batch; }),
+        commit: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.spyOn(mockDb, 'collection').mockReturnValue({
+        doc: vi.fn(() => ({
+          collection: vi.fn((name) => ({
+            doc: vi.fn(() => name === 'learners' ? learnerRef : archivedRef),
+          })),
+        })),
+      });
+      vi.spyOn(mockDb, 'batch').mockReturnValue(batch);
+      vi.spyOn(LPSApi, 'recordAuditEvent').mockResolvedValue({});
+      vi.useFakeTimers();
+
+      try {
+        const result = await firestoreApi.fsCancelLearnerMovement('transferredOut', '2026-2027', 'lrn-0003');
+
+        expect(result).toEqual({ restored: true, learnerId: 'lrn-0003' });
+        expect(writes).toEqual([
+          {
+            type: 'set',
+            ref: learnerRef,
+            data: expect.objectContaining({
+              learnerId: 'lrn-0003',
+              schoolYear: '2026-2027',
+              gradeLevel: 'Grade 2',
+              unrelatedField: 'preserved',
+              enrollmentStatus: 'ACTIVE',
+              eosyStatus: '',
+              transferType: '',
+              transferIn: false,
+              transferOut: false,
+              transferSchool: '',
+              transferDate: '',
+              transferReason: '',
+              transferNotes: '',
+            }),
+          },
+          { type: 'delete', ref: archivedRef },
+        ]);
+        expect(batch.commit).toHaveBeenCalledOnce();
+      } finally {
+        vi.clearAllTimers();
+        vi.useRealTimers();
+      }
+    });
+
+    it('clears a legacy dropout in place without removing the learner document', async () => {
+      const learnerData = {
+        learnerId: 'lrn-0004',
+        firstName: 'Sam',
+        enrollmentStatus: 'DROPPED_OUT',
+        eosyStatus: 'Dropped Out',
+        transferOut: true,
+        transferNotes: 'old note',
+        unrelatedField: 'preserved',
+      };
+      const learnerRef = {
+        get: vi.fn().mockResolvedValue({ exists: true, data: () => learnerData }),
+        set: vi.fn().mockResolvedValue(undefined),
+      };
+      vi.spyOn(mockDb, 'collection').mockReturnValue({
+        doc: vi.fn(() => ({
+          collection: vi.fn(() => ({ doc: vi.fn(() => learnerRef) })),
+        })),
+      });
+      vi.spyOn(LPSApi, 'recordAuditEvent').mockResolvedValue({});
+      mockDb.batch.mockClear();
+      vi.useFakeTimers();
+
+      try {
+        await firestoreApi.fsCancelLearnerMovement('learners', '2026-2027', 'lrn-0004');
+
+        expect(learnerRef.set).toHaveBeenCalledWith(expect.objectContaining({
+          learnerId: 'lrn-0004',
+          schoolYear: '2026-2027',
+          enrollmentStatus: 'ACTIVE',
+          eosyStatus: '',
+          transferOut: false,
+          transferNotes: '',
+          unrelatedField: 'preserved',
+        }));
+        expect(mockDb.batch).not.toHaveBeenCalled();
+      } finally {
+        vi.clearAllTimers();
+        vi.useRealTimers();
+      }
+    });
+
+    it('renders cancellation actions for transfer and dropout records', async () => {
+      const { renderTransferTable } = await import('./transfer-info');
+      const { dropoutRecords, renderDropout } = await import('./dropout');
+      document.body.innerHTML = '<table><tbody id="transferTableBody"></tbody></table><span id="transferPageInfo"></span><div id="transferPagerBtns"></div>';
+
+      renderTransferTable([{
+        learnerId: 'lrn-0005',
+        firstName: 'Taylor',
+        lastName: 'Learner',
+        transferType: 'Transfer Out',
+      }]);
+      expect(document.querySelector('[data-transfer-cancel="lrn-0005"]')).not.toBeNull();
+
+      document.body.innerHTML = '<div id="dropoutSearch"></div><div id="dropoutGradeFilter"></div><div id="dropoutGenderFilter"></div><div id="dropoutSummary"></div><table><tbody id="dropoutTableBody"></tbody></table><span id="dropoutPageInfo"></span><div id="dropoutPagerBtns"></div>';
+      dropoutRecords.splice(0, dropoutRecords.length, {
+        learnerId: 'lrn-0006',
+        firstName: 'Morgan',
+        lastName: 'Learner',
+        eosyStatus: 'Dropped Out',
+      });
+      window.dropoutSearch = '';
+      renderDropout();
+      expect(document.querySelector('[data-dropout-cancel="lrn-0006"]')).not.toBeNull();
+      dropoutRecords.length = 0;
+    });
+
+    it('paginates transfer and promotion lists with the shared page-number controls', async () => {
+      const transfer = await import('./transfer-info');
+      const promotion = await import('./promotion');
+      document.body.innerHTML = '<table><tbody id="transferTableBody"></tbody></table><span id="transferPageInfo"></span><div id="transferPagerBtns"></div>';
+      transfer.transferRecords.splice(0, transfer.transferRecords.length, ...Array.from({ length: 20 }, (_, index) => ({
+        learnerId: `transfer-${index}`,
+        firstName: `Learner${index}`,
+        transferType: 'Transfer In',
+      })));
+      transfer.renderTransferTable(transfer.filterTransferRecords(transfer.transferRecords));
+      expect(document.querySelectorAll('#transferTableBody tr')).toHaveLength(15);
+      expect(document.getElementById('transferPageInfo')?.textContent).toBe('1-15 of 20');
+      document.querySelector<HTMLButtonElement>('#transferPagerBtns button[aria-label="Next page"]')?.click();
+      expect(document.querySelectorAll('#transferTableBody tr')).toHaveLength(5);
+      expect(document.getElementById('transferPageInfo')?.textContent).toBe('16-20 of 20');
+
+      document.body.innerHTML = '<div id="promotionSummary"></div><span id="promotionResultCount"></span><table><tbody id="promotionTableBody"></tbody></table><span id="promotionPageInfo"></span><div id="promotionPagerBtns"></div>';
+      promotion.promotionRecords.splice(0, promotion.promotionRecords.length, ...Array.from({ length: 20 }, (_, index) => ({
+        learnerId: `promoted-${index}`,
+        firstName: `Learner${index}`,
+        eosyStatus: 'Promoted',
+      })));
+      promotion.renderPromotion();
+      expect(document.querySelectorAll('#promotionTableBody tr')).toHaveLength(15);
+      expect(document.querySelector('[data-promotion-select="promoted-0"]')).not.toBeNull();
+      document.querySelector<HTMLButtonElement>('#promotionPagerBtns button[aria-label="Next page"]')?.click();
+      expect(document.querySelectorAll('#promotionTableBody tr')).toHaveLength(5);
+      expect(document.getElementById('promotionPageInfo')?.textContent).toBe('16-20 of 20');
+      transfer.transferRecords.length = 0;
+      promotion.promotionRecords.length = 0;
+    });
   });
 
   it('rejects duplicate user records before creating a second Firebase auth account', async () => {
@@ -1192,7 +1653,10 @@ describe('visitor session handling', () => {
       expect.stringContaining('Utilities'),
     ]);
     expect(document.querySelector('.nav-category[data-nav-category] a[href="pages/data.html"]')?.textContent).toContain('Data');
-    expect(document.querySelector('.nav-category[data-nav-category] a[href="pages/transfer-info.html"]')?.closest('.nav-category')?.querySelector('.nav-category-trigger')?.textContent).toContain('Movement');
+    const movementLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>('.nav-category[data-nav-category] a[href="pages/promotion.html"], .nav-category[data-nav-category] a[href="pages/retention.html"], .nav-category[data-nav-category] a[href="pages/transfer-info.html"], .nav-category[data-nav-category] a[href="pages/dropout.html"]'));
+    expect(movementLinks.map((link) => link.textContent?.trim())).toEqual(["Promotion", "Retention", "Transfer Info", "Dropout Info"]);
+    expect(movementLinks.map((link) => link.getAttribute("href"))).toEqual(["pages/promotion.html", "pages/retention.html", "pages/transfer-info.html", "pages/dropout.html"]);
+    expect(movementLinks[0]?.closest('.nav-category')?.querySelector('.nav-category-trigger')?.textContent).toContain('Movement');
     expect(document.querySelector('.nav-feedback a[href="pages/feedback.html"]')?.textContent).toContain('Feedback');
 
     document.getElementById('menuToggle')?.click();

@@ -1,4 +1,4 @@
-# E-Dash Setup and New-School Registration
+﻿# E-Dash Setup and New-School Registration
 
 This guide covers a complete deployment: central school directory, public school registration requests, a new school's Firebase project and Firestore schema, shared rules, optional Apps Script endpoints for audit logs and feedback, and the web app configuration.
 
@@ -77,7 +77,8 @@ schoolYears/{schoolYear}
 settings/currentSchoolYear
 settings/gradeTerms                              # legacy fallback
 settings/curriculumSubjectPool
-settings/toggles                                # manually create for Parent Access
+settings/toggles                                # optional access flags
+settings/cardPrintingPreferences             # card template, per-grade assignments, attendance months/rows
 settings/gradeTerms/years/{schoolYear}
 publicStats/summary
 ```
@@ -90,7 +91,7 @@ users/{uid}/assignmentHistory/{schoolYear}
 schoolYears/{schoolYear}
 settings/{settingId}
 settings/currentSchoolYear
-settings/toggles                                # { canParentAccess: true | false }
+settings/toggles                                # { canParentAccess: true | false, canPromoteStudents: true | false, roundType: "nearest_integer" | "none" }
 settings/gradeTerms/years/{schoolYear}
 schoolYears/{schoolYear}/learners/{learnerId}
 schoolYears/{schoolYear}/dropouts/{learnerId}
@@ -101,7 +102,15 @@ schoolYears/{schoolYear}/grades/{gradeKey}/sections/{sectionKey}/teachers/{uid}
 publicStats/summary
 ```
 
-`settings/toggles` controls parent access and stores a boolean `canParentAccess`. Create this document manually in each tenant project; bootstrap scripts intentionally do not create it. Set the value to `true` to allow Parent Portal learner lookups or `false` to disable them. Until the document or field is configured, the app keeps existing behavior and treats Parent Access as enabled. The default is also declared in `APP_CONFIG.firestore.settingsDefaults.toggles`. Publish the current `firestore.rules` to enforce the setting on anonymous learner reads as well as in the Parent Portal UI.
+`settings/toggles` controls Parent Portal access, teacher promotion/retention, and card grade rounding. `canParentAccess` defaults to `true`; `canPromoteStudents` defaults to `false`; `roundType` defaults to `"nearest_integer"` (nearest whole number, with .5 rounded up) and may be set to `"none"` to preserve decimals. Grade rounding is configured in Admin Console, School Structure, Grade Configuration and applies to Final Grades and General Average in Card Printing. Toggle updates merge their field so other settings are preserved. The Admin Console → Access Management switches create/update these fields while preserving the other toggle values. Bootstrap scripts intentionally do not create `settings/toggles`; it can also be created manually. Publish the current `firestore.rules` to enforce Parent Portal access on anonymous learner reads and teacher progression writes.
+
+Firestore indexes are declared in `firebase.index.json`, which is configured in `firebase.json`. The composite `learners` index on `gradeLevel` and `section` supports teacher-scoped live learner listeners and other assignment-scoped queries. Deploy it from the Firebase CLI with `firebase deploy --only firestore:indexes`; index creation can take several minutes to finish.
+
+The **Promotion** section lists learners whose source-year EOSY status is `Promoted`. It retains that source record and creates a separate learner record in a configured succeeding year. The target grade and section must exist in that year’s school structure. School Admins and Registrars may promote; teachers can promote only while `settings/toggles.canPromoteStudents` is `true`. Promotion copies learner details to the new record, lets staff update those details, resets enrollment/movement status, and rejects an existing learner ID in the target year rather than overwriting it.
+
+The **Retention** section lists learners whose source-year EOSY status is `Retained`. It likewise keeps the source-year record and creates a separate succeeding-year record, but fixes the learner's grade to their current grade; only the configured section may be selected for placement. Other learner details may be updated. The same `canPromoteStudents` teacher-access toggle controls both sections, and the Firestore rules require retained learners to remain in the source grade.
+
+`settings/cardPrintingPreferences` stores the active card template (`activeTemplate`), grade-level template assignments (`gradeTemplates`), and editable attendance month and row structures (`attendanceMonths`, `attendanceRows`). New tenant provisioning initializes these fields with the current learner card template and the default June through April attendance layout. The Admin Console Card Preferences section edits this document.
 
 The year-specific `settings/gradeTerms/years/{schoolYear}` document stores `{ schoolYear, termCount, passingThreshold, gradeLevels, updatedAt, updatedBy }`. `termCount` defaults to 3 and supports 1–4; **Final Grade** is always available. `passingThreshold` defaults to 75 and is adjustable from 0 to 100 in **Admin Console → Grade configuration**. The Student Card shows a subject's Passed/Failed remark only when the final grade is numeric and all configured term grades for that subject are present; it compares the final grade against this threshold (equal to or above passes). The overall General Average remark also remains blank until all subjects have complete configured terms and final grades. `gradeLevels` is an optional map keyed by normalized grade level, for example `gradeLevels.grade3: { gradeLevel: "Grade 3", gradingType: "numerical", finalGradeMode: "automatic", letterScale: [...] }`. `finalGradeMode` is `"automatic"` by default for Numerical Grade levels, or `"manual"` to let teachers enter Final Grade. Automatic mode writes the mean of available configured-term numeric grades into the learner's `gradesByTerm.final` and legacy subject fields; terms with blank grades are excluded from the mean. Letter Grade levels do not use this setting. Unconfigured grade levels default to Numerical Grade with automatic final computation. Letter Grade defaults to ABCDF ranges A=90–100, B=80–89, C=70–79, D=60–69, F=0–59; these equivalencies are editable and support additional rows. Teachers enter letter grades directly; ranges are reference equivalencies. Creating a school year copies saved grade-level grading settings and the passing threshold from the source year, so later edits remain scoped to their own year. The Admin Console reads and edits the configuration for its selected inspection year. Existing deployments can still use the legacy `settings/gradeTerms` document as a fallback for the current year's term count until its year-specific setting is saved or provisioned; historical years without a saved setting use the default. When the term count is reduced, hidden-term values remain in learner `gradesByTerm`; they are not deleted.
 
@@ -212,6 +221,14 @@ npm run firestore:provision -- --project SCHOOL_FIREBASE_PROJECT_ID --school-yea
 
 That command uses Firebase CLI authentication for rules and Admin SDK credentials for Firestore writes. Do not deploy `school-registry.rules` to a tenant project or `firestore.rules` to the central registry project. Do not replace the production rules with permissive test rules.
 
+To enable automatic Trash cleanup for a tenant, deploy its scheduled function after provisioning:
+
+```powershell
+npx --yes firebase-tools deploy --only functions:purgeExpiredTrash --project SCHOOL_FIREBASE_PROJECT_ID --config firebase.json
+```
+
+Trash retention is configured in Admin Console → Access management and defaults to 30 days. The scheduled function reads `settings/toggles.trashConfg` and permanently removes expired records from `schoolYears/{schoolYear}/trash` once daily. Choose **Never** to disable automatic cleanup; users can still permanently delete items manually.
+
 ### Firebase Authentication account deletion (Spark plan)
 
 Account deletion uses the tenant's AuditLog Apps Script Web App; Firebase Cloud Functions and a Blaze plan are not required. Complete the **Audit log** setup in Section 8 for each school, then set that school's `auditLogApiUrl` to the deployed Web App `/exec` URL. Redeploy the web app after changing its code or Script Properties.
@@ -321,7 +338,7 @@ The school-selection form collects school name, DepEd school ID, contact person,
 3. Grant the service account **Firebase Authentication Admin** (`roles/firebaseauth.admin`) for Auth account deletion and **Cloud Datastore Viewer** (`roles/datastore.viewer`) to read the caller's Firestore profile. These roles do not require a Blaze plan.
 4. Deploy as a Web App that executes as the script owner, allow access to **Anyone**, and copy its `/exec` URL to `auditLogApiUrl`. The endpoint validates the caller's Firebase ID token and admin role itself; do not restrict the Web App to a Google account sign-in, which would prevent browser calls.
 
-The app sends Firebase ID tokens to this endpoint. If the endpoint reports Firebase authentication failure, check its response code: make sure `FIREBASE_WEB_API_KEY` is the `apiKey` from this school's Firebase Web App and that it matches the project in `FIRESTORE_PROJECT_ID`; if the error is `API_KEY_SERVICE_BLOCKED`, allow Identity Toolkit API requests for that key. A rejected `INVALID_ID_TOKEN` may be resolved by signing out and back in. Audit rows contain controlled event metadata/allowlisted status fields, not learner profiles. Protect the spreadsheet and Apps Script editor access.
+The app sends Firebase ID tokens to this endpoint. Whenever `AuditLog.gs` is changed, deploy a new Web App version; saving the script alone does not update the live endpoint. If the endpoint reports Firebase authentication failure, check its response code: make sure `FIREBASE_WEB_API_KEY` is the `apiKey` from this school's Firebase Web App and that it matches the project in `FIRESTORE_PROJECT_ID`; if the error is `API_KEY_SERVICE_BLOCKED`, allow Identity Toolkit API requests for that key. A rejected `INVALID_ID_TOKEN` may be resolved by signing out and back in. Audit rows contain controlled event metadata/allowlisted status fields, not learner profiles. Protect the spreadsheet and Apps Script editor access.
 
 The read-only Parent Portal uses a separate Firebase app instance with **Anonymous** Authentication to request a single learner document by its 12-digit LRN. Enable **Authentication → Sign-in method → Anonymous** for the tenant project and deploy the latest `firestore.rules`. The rule permits anonymous `get` requests only for learner documents not marked dropped or transferred; optional status fields omitted from older/imported documents are treated as unset. It does not permit anonymous collection queries, archive reads, or writes.
 

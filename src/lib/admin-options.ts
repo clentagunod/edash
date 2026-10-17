@@ -1,18 +1,18 @@
 // @ts-nocheck -- ported from the original site; behavior preserved, not yet fully typed.
 import { LPSApi } from './sheets-api';
 import { requireAuth } from './auth';
-import { isSchoolAdmin } from './app-config';
+import { APP_CONFIG, isSchoolAdmin } from './app-config';
 import { clearButtonLoading, escapeHtml, setButtonLoading, showToast } from './shell';
 import { Icon } from './icons';
 import { downloadFirestoreBackup, importFirestoreBackupFile, updateFirestoreBackupModeWarning } from './firestore-backup';
-import { CURRICULUM_GRADE_LEVELS, CURRICULUM_SUBJECTS, isCustomCurriculumSubjectId, normalizeCurriculumSubjectPool } from './curriculum-subjects';
+import { CURRICULUM_GRADE_LEVELS, CURRICULUM_SUBJECTS, isCustomCurriculumSubjectId, normalizeCurriculumSubjectIds, normalizeCurriculumSubjectPool } from './curriculum-subjects';
 import { DEFAULT_GRADE_TERM_COUNT, MAX_GRADE_TERM_COUNT, MIN_GRADE_TERM_COUNT } from './academic-grades';
-import { fsGetGradeLevelGradingConfigurations, fsGetGradeTermCount, fsGetParentAccessConfiguration, fsGetPassingThreshold, fsSetGradeLevelGradingConfiguration, fsSetGradeTermCount, fsSetParentAccessEnabled, fsSetPassingThreshold } from './firestore-api';
+import { fsGetCardPrintingPreferences, fsGetGradeLevelGradingConfigurations, fsGetGradeTermCount, fsGetParentAccessConfiguration, fsGetPassingThreshold, fsGetPromotionConfiguration, fsGetRoundType, fsSetCanPromoteStudents, fsSetCardPrintingPreferences, fsSetGradeLevelGradingConfiguration, fsSetGradeTermCount, fsSetParentAccessEnabled, fsSetPassingThreshold, fsSetRoundType } from './firestore-api';
 import { DEFAULT_LETTER_GRADE_SCALE, DEFAULT_PASSING_THRESHOLD, gradeLevelConfigKey, normalizeGradeLevelGrading, normalizePassingThreshold } from './grading-config';
 
 /* Admin Console: school years and dynamic section directory. */
 
-export const ADMIN_OPTIONS = { years: [], sections: [], selectedYear: "", gradeTermCount: DEFAULT_GRADE_TERM_COUNT, passingThreshold: DEFAULT_PASSING_THRESHOLD, gradeTermsSaving: false, gradeTermsRequestId: 0, passingThresholdSaving: false, parentAccessEnabled: true, parentAccessLoaded: false, parentAccessSaving: false, parentAccessRequestId: 0, gradingByGrade: {}, gradingRequestId: 0, gradingSaving: false, editingSection: null, curricula: {}, curriculumDrafts: {}, curriculumSubjects: [...CURRICULUM_SUBJECTS], curriculumRequestId: 0, curriculumSaving: false, curriculumLoadError: false, addingCurriculumSubject: false, deletingCurriculumSubject: false };
+export const ADMIN_OPTIONS = { years: [], sections: [], selectedYear: "", gradeTermCount: DEFAULT_GRADE_TERM_COUNT, passingThreshold: DEFAULT_PASSING_THRESHOLD, gradeTermsSaving: false, gradeTermsRequestId: 0, passingThresholdSaving: false, parentAccessEnabled: true, parentAccessLoaded: false, parentAccessSaving: false, parentAccessRequestId: 0, canPromoteStudents: false, promotionAccessLoaded: false, promotionAccessSaving: false, promotionAccessRequestId: 0, gradingByGrade: {}, gradingRequestId: 0, gradingSaving: false, editingSection: null, curricula: {}, curriculumDrafts: {}, curriculumSubjects: [...CURRICULUM_SUBJECTS], curriculumRequestId: 0, curriculumSaving: false, curriculumLoadError: false, addingCurriculumSubject: false, deletingCurriculumSubject: false };
 
 export function adminOptionEscape(value) {
   return typeof escapeHtml === "function" ? escapeHtml(String(value ?? "")) : String(value ?? "").replace(/[&<>\"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '\"': "&quot;" }[char]));
@@ -73,6 +73,7 @@ export async function initAdminOptions() {
   document.getElementById("addLetterScaleRowBtn")?.addEventListener("click", addAdminLetterScaleRow);
   document.getElementById("adminLetterScaleRows")?.addEventListener("click", removeAdminLetterScaleRow);
   document.getElementById("saveGradeGradingBtn")?.addEventListener("click", saveAdminGradeGrading);
+  document.getElementById("saveAdminCardPreferencesBtn")?.addEventListener("click", saveAdminCardPreferences);
   document.getElementById("adminCurriculumGrade")?.addEventListener("change", renderAdminCurriculumEditor);
   document.getElementById("saveCurriculumSubjectsBtn")?.addEventListener("click", saveAdminCurriculumSubjects);
   document.getElementById("addCurriculumSubjectBtn")?.addEventListener("click", addAdminCurriculumSubject);
@@ -84,8 +85,10 @@ export async function initAdminOptions() {
   });
   document.getElementById("makeCurrentYearBtn")?.addEventListener("click", makeAdminYearCurrent);
   document.getElementById("adminGradeTermCount")?.addEventListener("change", saveAdminGradeTermCount);
+  document.getElementById("adminRoundType")?.addEventListener("change", saveAdminRoundType);
   document.getElementById("savePassingThresholdBtn")?.addEventListener("click", saveAdminPassingThreshold);
   document.getElementById("adminParentAccessToggle")?.addEventListener("change", saveAdminParentAccessToggle);
+  document.getElementById("adminPromotionAccessToggle")?.addEventListener("change", saveAdminPromotionAccessToggle);
   document.getElementById("downloadFirestoreBackupBtn")?.addEventListener("click", () => { void downloadFirestoreBackup(); });
   const importMode = document.getElementById("firestoreBackupMode");
   if (importMode) {
@@ -101,8 +104,164 @@ export async function initAdminOptions() {
     if (file) await importFirestoreBackupFile(file, importMode?.value || "replace");
     input.value = "";
   });
-  await Promise.all([loadAdminStructure(), loadAdminParentAccess()]);
+  await Promise.all([loadAdminStructure(), loadAdminParentAccess(), loadAdminPromotionAccess(), loadAdminRoundType(), loadAdminCardPreferences()]);
   ensureAdminModals();
+}
+
+export async function loadAdminCardPreferences() {
+  const state = document.getElementById("adminCardPreferencesState");
+  if (!state) return;
+  state.classList.remove("is-error", "is-success", "is-saving");
+  try {
+    const preferences = await fsGetCardPrintingPreferences();
+    const template = document.getElementById("adminCardTemplate");
+    if (template) template.value = preferences.activeTemplate;
+    const monthInput = document.getElementById("adminCardAttendanceMonths");
+    if (monthInput) monthInput.value = preferences.attendanceMonths.join(", ");
+    const labelFields = { classDays: "adminCardClassDaysLabel", daysPresent: "adminCardPresentLabel", daysAbsent: "adminCardAbsentLabel" };
+    preferences.attendanceRows.forEach(({ id, label }) => {
+      const input = document.getElementById(labelFields[id]);
+      if (input) input.value = label;
+    });
+    const gradeAssignments = document.getElementById("adminCardGradeTemplates");
+    if (gradeAssignments) gradeAssignments.innerHTML = CURRICULUM_GRADE_LEVELS.map((grade) => {
+      const key = gradeLevelConfigKey(grade);
+      return `<label class="admin-card-grade-template"><span>${adminOptionEscape(grade)}</span><select data-card-grade-template="${adminOptionEscape(key)}" aria-label="Card template for ${adminOptionEscape(grade)}"><option value="sf9">Current learner card template</option></select></label>`;
+    }).join("");
+    gradeAssignments?.querySelectorAll("[data-card-grade-template]").forEach((select) => { select.value = preferences.gradeTemplates[select.dataset.cardGradeTemplate] || preferences.activeTemplate; });
+    state.textContent = "Card Printing preferences loaded.";
+    state.classList.remove("is-error");
+  } catch (error) {
+    state.textContent = `Unable to load Card Printing preferences: ${error.message || "Unknown error"}`;
+    state.classList.add("is-error");
+  }
+}
+
+export async function saveAdminCardPreferences() {
+  const state = document.getElementById("adminCardPreferencesState");
+  const button = document.getElementById("saveAdminCardPreferencesBtn");
+  const monthInput = document.getElementById("adminCardAttendanceMonths");
+  if (!state || !button || !monthInput) return;
+  const originalButtonText = button.textContent;
+  button.disabled = true;
+  button.textContent = "Saving…";
+  button.setAttribute("aria-busy", "true");
+  state.classList.remove("is-error", "is-success");
+  state.classList.add("is-saving");
+  state.textContent = "Saving Card Printing preferences…";
+  try {
+    const gradeTemplates = Object.fromEntries([...document.querySelectorAll("[data-card-grade-template]")].map((select) => [select.dataset.cardGradeTemplate, select.value]));
+    const labelFields = { classDays: "adminCardClassDaysLabel", daysPresent: "adminCardPresentLabel", daysAbsent: "adminCardAbsentLabel" };
+    const attendanceRows = Object.entries(labelFields).map(([id, fieldId]) => ({ id, label: document.getElementById(fieldId)?.value.trim() || "" }));
+    const attendanceMonths = monthInput.value.split(/[\n,]/).map((month) => month.trim()).filter(Boolean);
+    const preferences = await fsSetCardPrintingPreferences({
+      activeTemplate: document.getElementById("adminCardTemplate")?.value || "sf9",
+      gradeTemplates,
+      attendanceMonths,
+      attendanceRows,
+    });
+    monthInput.value = preferences.attendanceMonths.join(", ");
+    state.textContent = "Card Printing preferences saved.";
+    state.classList.remove("is-saving");
+    state.classList.add("is-success");
+  } catch (error) {
+    state.textContent = `Unable to save Card Printing preferences: ${error.message || "Unknown error"}`;
+    state.classList.remove("is-saving", "is-success");
+    state.classList.add("is-error");
+    showToast(error.message || "Unable to save Card Printing preferences.", "error");
+  } finally {
+    button.disabled = false;
+    button.textContent = originalButtonText;
+    button.removeAttribute("aria-busy");
+  }
+}
+
+export async function loadAdminRoundType() {
+  const select = document.getElementById("adminRoundType");
+  const state = document.getElementById("adminRoundTypeState");
+  if (!select || !state) return;
+  select.disabled = true;
+  try {
+    const roundType = await fsGetRoundType();
+    select.value = roundType;
+    state.textContent = `Saved setting: ${roundType === "none" ? "decimal results are preserved" : "nearest whole number, with .5 rounded up"}.`;
+    state.classList.remove("is-error");
+  } catch (error) {
+    state.textContent = `Unable to load rounding settings: ${error.message || "Unknown error"}`;
+    state.classList.add("is-error");
+  } finally {
+    select.disabled = false;
+  }
+}
+
+export async function saveAdminRoundType(event) {
+  const select = event?.currentTarget || document.getElementById("adminRoundType");
+  const state = document.getElementById("adminRoundTypeState");
+  if (!select || !state) return;
+  select.disabled = true;
+  try {
+    const roundType = await fsSetRoundType(select.value);
+    state.textContent = `Saved: ${roundType === "none" ? "decimal results are preserved" : "nearest whole number, with .5 rounded up"}.`;
+    state.classList.remove("is-error");
+  } catch (error) {
+    state.textContent = `Unable to save rounding settings: ${error.message || "Unknown error"}`;
+    state.classList.add("is-error");
+    showToast(error.message || "Unable to save rounding settings.", "error");
+    await loadAdminRoundType();
+  } finally {
+    select.disabled = false;
+  }
+}
+
+export async function loadAdminPromotionAccess() {
+  const toggle = document.getElementById("adminPromotionAccessToggle");
+  const state = document.getElementById("adminPromotionAccessState");
+  if (!toggle || !state) return;
+  const requestId = ++ADMIN_OPTIONS.promotionAccessRequestId;
+  toggle.disabled = true;
+  state.classList.remove("is-error");
+  state.textContent = "Loading Promotion & Retention setting…";
+  ADMIN_OPTIONS.promotionAccessLoaded = false;
+  try {
+    const configuration = await fsGetPromotionConfiguration();
+    if (requestId !== ADMIN_OPTIONS.promotionAccessRequestId) return;
+    ADMIN_OPTIONS.canPromoteStudents = configuration.canPromoteStudents;
+    ADMIN_OPTIONS.promotionAccessLoaded = true;
+    toggle.checked = configuration.canPromoteStudents;
+    state.textContent = configuration.configured
+      ? `Teacher promotion and retention are ${configuration.canPromoteStudents ? "on" : "off"}.`
+      : "Teacher promotion and retention are off by default. Save the switch to create settings/toggles/canPromoteStudents.";
+  } catch (error) {
+    if (requestId !== ADMIN_OPTIONS.promotionAccessRequestId) return;
+    state.textContent = `Unable to load Promotion & Retention setting: ${error.message || "Unknown error"}`;
+    state.classList.add("is-error");
+  } finally {
+    if (requestId === ADMIN_OPTIONS.promotionAccessRequestId) toggle.disabled = !ADMIN_OPTIONS.promotionAccessLoaded;
+  }
+}
+
+export async function saveAdminPromotionAccessToggle(event) {
+  const toggle = event?.currentTarget || document.getElementById("adminPromotionAccessToggle");
+  const state = document.getElementById("adminPromotionAccessState");
+  if (!toggle || !state || !ADMIN_OPTIONS.promotionAccessLoaded || ADMIN_OPTIONS.promotionAccessSaving) return;
+  const nextValue = toggle.checked;
+  ADMIN_OPTIONS.promotionAccessSaving = true;
+  toggle.disabled = true;
+  state.classList.remove("is-error");
+  state.textContent = "Saving Promotion & Retention setting…";
+  try {
+    await fsSetCanPromoteStudents(nextValue);
+    ADMIN_OPTIONS.canPromoteStudents = nextValue;
+    state.textContent = `Teacher promotion and retention are now ${nextValue ? "on" : "off"}.`;
+  } catch (error) {
+    toggle.checked = ADMIN_OPTIONS.canPromoteStudents;
+    state.textContent = `Unable to save Promotion & Retention setting: ${error.message || "Unknown error"}`;
+    state.classList.add("is-error");
+    showToast(error.message || "Unable to update Promotion & Retention access.", "error");
+  } finally {
+    ADMIN_OPTIONS.promotionAccessSaving = false;
+    toggle.disabled = false;
+  }
 }
 
 export async function loadAdminParentAccess() {
@@ -552,7 +711,7 @@ export function renderAdminCurriculumEditor() {
   if (!container || !summary || !saveButton) return;
   const assignment = ADMIN_OPTIONS.curricula[grade];
   const draftKey = adminCurriculumDraftKey(ADMIN_OPTIONS.selectedYear, grade);
-  const selectedIds = new Set(ADMIN_OPTIONS.curriculumDrafts[draftKey] || assignment?.subjectIds || []);
+  const selectedIds = new Set(normalizeCurriculumSubjectIds(ADMIN_OPTIONS.curriculumDrafts[draftKey] || assignment?.subjectIds || [], ADMIN_OPTIONS.curriculumSubjects));
   container.innerHTML = ADMIN_OPTIONS.curriculumSubjects.map(({ id, label }) => `
     <div class="admin-subject-option">
       <label class="admin-subject-option-label">

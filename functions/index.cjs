@@ -2,6 +2,7 @@ const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
 const { HttpsError, onCall } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 
 initializeApp();
 
@@ -76,5 +77,32 @@ exports.deleteAuthUsers = onCall({ region: "us-central1" }, async (request) => {
       "internal",
       "Firebase Authentication could not remove the selected accounts. Check the deleteAuthUsers Cloud Function logs.",
     );
+  }
+});
+
+exports.purgeExpiredTrash = onSchedule("every day 03:00", async () => {
+  const db = getFirestore();
+  const toggles = await db.collection("settings").doc("toggles").get();
+  const configured = toggles.exists ? String(toggles.data()?.trashConfg || "30") : "30";
+  if (configured === "never") return;
+  const retentionDays = ["7", "15", "30"].includes(configured) ? Number(configured) : 30;
+  const expiresBefore = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+  const years = await db.collection("schoolYears").get();
+  for (const year of years.docs) {
+    const entries = await year.ref.collection("trash").get();
+    let batch = db.batch();
+    let writes = 0;
+    for (const entry of entries.docs) {
+      const deletedAt = Date.parse(entry.data()?.deletedAt || "");
+      if (!Number.isFinite(deletedAt) || deletedAt > expiresBefore) continue;
+      batch.delete(entry.ref);
+      writes += 1;
+      if (writes === 450) {
+        await batch.commit();
+        batch = db.batch();
+        writes = 0;
+      }
+    }
+    if (writes) await batch.commit();
   }
 });

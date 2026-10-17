@@ -44,8 +44,17 @@ export function makeDefaultCardLayouts(
   paperWidth: number,
   paperHeight: number,
   side: 'front' | 'back' = 'front',
+  oneCardPerSheet = false,
 ): CardLayout[] {
   if (!count) return [];
+  if (oneCardPerSheet) {
+    return [{
+      x: DEFAULT_SHEET_MARGIN,
+      y: DEFAULT_SHEET_MARGIN,
+      width: paperWidth - DEFAULT_SHEET_MARGIN * 2,
+      height: paperHeight - DEFAULT_SHEET_MARGIN * 2,
+    }];
+  }
   const slotCount = Math.max(count, 2);
   const slotWidth = paperWidth / slotCount;
   const width = slotWidth - DEFAULT_SHEET_MARGIN * 2;

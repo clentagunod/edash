@@ -6,7 +6,7 @@ import { APP_CONFIG, appSchoolFilePrefix, paginationPageNumbers } from './app-co
 import { getSelectedSchoolYear, initYearSwitcher } from './school-year';
 import { debounce } from './learner-list';
 import { isTeacher } from './app-config';
-import { initProfileSectionTabs, normalizeProfileCategory, renderProfileDistributionCharts, RMA_CATEGORIES } from './profile-charts';
+import { initProfileSectionTabs, matchesProfileAssessmentFilters, normalizeProfileGender, normalizeProfileGrade, renderProfileDistributionCharts, RMA_CATEGORIES } from './profile-charts';
 import { initGraphEnhancements } from './graph-enhancements';
 import { compareLearnersBySurname } from './learner-sorting';
 
@@ -51,10 +51,10 @@ export function renderFilteredMath() {
   const sex = document.getElementById("mathSexFilter")?.value || "";
   const status = document.getElementById("mathStatusFilter")?.value || "";
   const grade = document.getElementById("mathGradeFilter")?.value || "";
-  const chartCohort = mathProfiles.filter((record) => { const text = `${record.name || ""} ${record.learnerId || ""} ${record.gradeLevel || ""}`.toLowerCase(); return (!mathSearch || text.includes(mathSearch)) && (!sex || record.gender === sex); });
-  const cohort = chartCohort.filter((record) => !grade || record.gradeLevel === grade);
-  const records = cohort.filter((record) => (!period || record[period]) && (!status || normalizeProfileCategory(record[period]) === normalizeProfileCategory(status)));
-  renderMathCharts(chartCohort);
+  const chartCohort = mathProfiles.filter((record) => { const text = `${record.name || ""} ${record.learnerId || ""} ${record.gradeLevel || ""}`.toLowerCase(); return (!mathSearch || text.includes(mathSearch)) && (!sex || normalizeProfileGender(record.gender) === normalizeProfileGender(sex)); });
+  const cohort = chartCohort.filter((record) => !grade || normalizeProfileGrade(record.gradeLevel) === normalizeProfileGrade(grade));
+  const records = cohort.filter((record) => matchesProfileAssessmentFilters(record, period, status));
+  renderMathCharts(records);
   renderMathSummary(records);
   records.sort(compareLearnersBySurname);
   renderMathTable(records.slice((mathPage - 1) * MATH_PAGE_SIZE, mathPage * MATH_PAGE_SIZE));

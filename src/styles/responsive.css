@@ -28,6 +28,19 @@
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
   .field-grid, .checkbox-grid { grid-template-columns: 1fr; }
   .topbar-user-text { display: none; }
+
+  /* Global search collapses to an icon-only trigger on small screens. */
+  .global-search { flex: 0 0 auto; max-width: none; margin-left: auto; margin-right: 0; }
+  .global-search-trigger { width: 38px; padding: 0; justify-content: center; }
+  .global-search-trigger span, .global-search-trigger kbd { display: none; }
+  .global-search-panel {
+    position: fixed;
+    top: calc(var(--topbar-h) + 8px);
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: min(560px, calc(100vw - 24px));
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

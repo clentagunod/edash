@@ -7,7 +7,7 @@ export default function DropoutPage() {
   return (
     <LegacyPage
       html={html}
-      title="Dropout"
+      title="Dropout Info"
       onMount={async () => {
         await requireAuth();
     await initDropout();

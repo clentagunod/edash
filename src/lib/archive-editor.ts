@@ -42,7 +42,7 @@ export function ensureArchiveEditor() {
 export function openArchiveEditor(archive, schoolYear, record, reload) {
   ensureArchiveEditor();
   archiveEditorState = { archive, schoolYear, record, reload };
-  document.getElementById("archiveEditorTitle").textContent = archive === "dropout" ? "Edit dropout record" : "Edit transfer record";
+  document.getElementById("archiveEditorTitle").textContent = archive === "dropout" ? "Edit Dropout Info record" : "Edit transfer record";
   document.getElementById("archiveFirstName").value = record.firstName || "";
   document.getElementById("archiveMiddleName").value = record.middleName || "";
   document.getElementById("archiveLastName").value = record.lastName || "";
@@ -78,4 +78,21 @@ export async function deleteArchiveRecord(archive, schoolYear, record, reload) {
   try { await LPSApi.deleteArchiveRecord(archive, schoolYear, record.learnerId); await reload(); showToast("Archived learner deleted.", "success"); }
   catch (error) { showToast(error.message || "The archived learner could not be deleted.", "error"); }
   finally { clearButtonLoading(button); }
+}
+
+export async function cancelLearnerMovement(archive, schoolYear, record, reload, button) {
+  const learnerName = [record.firstName, record.middleName, record.lastName].filter(Boolean).join(" ") || record.learnerId || "this learner";
+  const movement = archive === "dropout" ? "dropout" : "transfer";
+  if (!window.confirm(`Cancel this ${movement} for ${learnerName}?\n\nThe learner will return to the masterlist, and the movement/status fields will be reset.`)) return;
+
+  setButtonLoading(button, "Restoring…");
+  try {
+    await LPSApi.cancelLearnerMovement(archive, schoolYear, record.learnerId);
+    await reload();
+    showToast(`${learnerName} returned to the learner masterlist.`, "success");
+  } catch (error) {
+    showToast(error.message || `Unable to cancel this ${movement}.`, "error");
+  } finally {
+    clearButtonLoading(button);
+  }
 }
