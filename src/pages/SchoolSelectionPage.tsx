@@ -33,6 +33,7 @@ export default function SchoolSelectionPage() {
 
   useEffect(() => {
     forceLoginPageLightTheme();
+    document.documentElement.classList.add('school-selection-document');
     const container = containerRef.current;
     const pickerSelect = container?.querySelector<HTMLSelectElement>('#schoolSelect');
     const directoryLoading = container?.querySelector<HTMLElement>('#schoolDirectoryLoading');
@@ -287,6 +288,7 @@ export default function SchoolSelectionPage() {
     return () => {
       disposed = true;
       cleanupVideo();
+      document.documentElement.classList.remove('school-selection-document');
       mobileViewport.removeEventListener('change', renderMedia);
       continueButton?.removeEventListener('click', onContinue);
       retryButton?.removeEventListener('click', onRetry);

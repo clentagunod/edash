@@ -43,6 +43,7 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ManageUsersPage = lazy(() => import('./pages/ManageUsersPage'));
 const EduaiPage = lazy(() => import('./pages/EduaiPage'));
 const PreferencesPage = lazy(() => import('./pages/PreferencesPage'));
+const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
 
 function SchoolRegistrationGate({ children }: { children: ReactNode }) {
   const location = useLocation();
@@ -51,7 +52,8 @@ function SchoolRegistrationGate({ children }: { children: ReactNode }) {
   const [verifiedPath, setVerifiedPath] = useState<string | null>(null);
   const isPublicRoute = location.pathname === '/' ||
     location.pathname === '/index.html' ||
-    location.pathname === '/select-school';
+    location.pathname === '/select-school' ||
+    location.pathname === '/privacy-policy';
 
   useEffect(() => {
     if (isPublicRoute) {
@@ -233,6 +235,7 @@ export default function App() {
           <Route path="/" element={<Navigate to="/select-school" replace />} />
           <Route path="/index.html" element={<Navigate to="/select-school" replace />} />
           <Route path="/select-school" element={<SchoolSelectionPage />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/parent.html" element={<ParentPortalPage />} />
 

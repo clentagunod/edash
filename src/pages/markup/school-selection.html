@@ -1,4 +1,5 @@
-<div class="login-shell" data-login-stage="school-selection">
+<div class="school-selection-page">
+  <div class="login-shell" data-login-stage="school-selection">
   <main class="school-directory-loading" id="schoolDirectoryLoading" role="status" aria-live="polite" aria-busy="true">
     <section class="school-access-card" aria-labelledby="schoolAccessTitle">
       <header class="school-access-brand">
@@ -59,16 +60,79 @@
         <div class="form-alert" id="schoolPickerAlert" role="alert" aria-live="polite"></div>
         <button type="button" class="btn btn-primary" id="schoolContinueBtn" disabled>Continue to sign in</button>
         <button type="button" class="school-retry-button" id="schoolRetryBtn" hidden>Retry loading schools</button>
+        <p class="school-privacy-note">By continuing, you acknowledge E-Dash’s <a href="/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</p>
         <div class="school-registration-cta">
           <p>Your school is not registered yet?</p>
           <button type="button" class="school-registration-open" id="schoolRegistrationOpen">Register your school</button>
         </div>
       </section>
     </div>
-    <footer class="site-footer">
-      <p>© 2026 E-Dash · Courtesy of <a href="https://clentindustries.vercel.app/" target="_blank" rel="noopener noreferrer">ClentIndustries</a></p>
-    </footer>
   </section>
+  </div>
+  <main class="school-information" id="about-edash">
+    <section class="school-story" aria-labelledby="schoolStoryTitle">
+      <div class="school-information-inner">
+        <p class="school-information-eyebrow">The E-Dash story</p>
+        <h2 id="schoolStoryTitle">A clearer view of every learner journey.</h2>
+        <p class="school-story-lead">E-Dash has grown from a real-time enrollment dashboard into a connected workspace for school information, learner records, reporting, and day-to-day school workflows.</p>
+        <div class="school-story-grid">
+          <article class="school-story-card">
+            <span class="school-story-number" aria-hidden="true">01</span>
+            <h3>Start with reliable school data</h3>
+            <p>Bring enrollment information and learner records into a school-managed workspace instead of relying on disconnected reports.</p>
+          </article>
+          <article class="school-story-card">
+            <span class="school-story-number" aria-hidden="true">02</span>
+            <h3>Make everyday work more connected</h3>
+            <p>Use one platform for school profiles, learner monitoring, reports, and tools such as the learner card workflow.</p>
+          </article>
+          <article class="school-story-card">
+            <span class="school-story-number" aria-hidden="true">03</span>
+            <h3>Keep improving with schools</h3>
+            <p>E-Dash continues to evolve around practical school needs, with access organized by each registered school workspace.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+    <section class="school-about" aria-labelledby="schoolAboutTitle">
+      <div class="school-information-inner school-about-layout">
+        <div>
+          <p class="school-information-eyebrow">Purpose-built for school work</p>
+          <h2 id="schoolAboutTitle">A practical home for the information schools use every day.</h2>
+          <p>E-Dash helps authorized school users organize and review enrollment data, learner profiles, school reports, and related workflows. Each active school selects its own workspace before signing in.</p>
+        </div>
+        <ul class="school-about-list">
+          <li><span aria-hidden="true">✓</span><div><strong>School-specific workspaces</strong><p>Choose an active school directory entry to reach its configured E-Dash environment.</p></div></li>
+          <li><span aria-hidden="true">✓</span><div><strong>Connected learner workflows</strong><p>Support common tasks such as learner records, enrollment monitoring, reports, and card printing.</p></div></li>
+          <li><span aria-hidden="true">✓</span><div><strong>Clear access boundaries</strong><p>School accounts and roles determine which parts of the workspace a signed-in user can use.</p></div></li>
+        </ul>
+      </div>
+    </section>
+    <section class="school-faq" aria-labelledby="schoolFaqTitle">
+      <div class="school-information-inner">
+        <p class="school-information-eyebrow">Helpful answers</p>
+        <h2 id="schoolFaqTitle">Frequently asked questions</h2>
+        <div class="school-faq-list">
+          <details>
+            <summary>What is E-Dash used for?</summary>
+            <p>E-Dash is a school-focused platform for organizing enrollment information and learner records, reviewing school data, preparing reports, and supporting related workflows such as learner cards.</p>
+          </details>
+          <details>
+            <summary>Who can access a school’s E-Dash workspace?</summary>
+            <p>Users sign in through the selected school workspace. Available information and actions depend on that school’s account setup and assigned access role. Contact your school administrator if you need access or help with your account.</p>
+          </details>
+          <details>
+            <summary>What should I do if my school is not listed?</summary>
+            <p>Use “Register your school” to send the E-Dash team the school and contact details needed for review. A request is not an approval; the team will review it and follow up using the contact information you provide.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer class="school-selection-footer">
+    <p>© 2026 E-Dash <span aria-hidden="true">·</span> Courtesy of <a href="https://clentindustries.vercel.app/" target="_blank" rel="noopener noreferrer">ClentIndustries</a></p>
+    <a href="/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+  </footer>
   <dialog class="school-registration-dialog" id="schoolRegistrationDialog" aria-labelledby="schoolRegistrationTitle">
     <form class="school-registration-form" id="schoolRegistrationForm">
       <header class="school-registration-header">
@@ -109,6 +173,7 @@
           <input id="registrationWebsite" name="website" type="text" tabindex="-1" autocomplete="off" />
         </div>
       </div>
+      <p class="school-privacy-note school-registration-privacy-note">By continuing, you acknowledge E-Dash’ <a href="/privacy-policy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</p>
       <p class="school-registration-status" id="schoolRegistrationStatus" role="status" aria-live="polite" hidden></p>
       <footer class="school-registration-actions">
         <button type="button" class="school-registration-cancel" id="schoolRegistrationCancel">Cancel</button>
