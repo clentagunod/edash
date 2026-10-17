@@ -114,8 +114,11 @@ export async function loadAdminCardPreferences() {
   state.classList.remove("is-error", "is-success", "is-saving");
   try {
     const preferences = await fsGetCardPrintingPreferences();
-    const template = document.getElementById("adminCardTemplate");
-    if (template) template.value = preferences.activeTemplate;
+    const template = document.getElementById("adminCardTemplate") as HTMLInputElement | null;
+    if (template) {
+      template.checked = template.value === preferences.activeTemplate;
+      if (!template.checked) template.checked = true;
+    }
     const monthInput = document.getElementById("adminCardAttendanceMonths");
     if (monthInput) monthInput.value = preferences.attendanceMonths.join(", ");
     const labelFields = { classDays: "adminCardClassDaysLabel", daysPresent: "adminCardPresentLabel", daysAbsent: "adminCardAbsentLabel" };
@@ -126,7 +129,7 @@ export async function loadAdminCardPreferences() {
     const gradeAssignments = document.getElementById("adminCardGradeTemplates");
     if (gradeAssignments) gradeAssignments.innerHTML = CURRICULUM_GRADE_LEVELS.map((grade) => {
       const key = gradeLevelConfigKey(grade);
-      return `<label class="admin-card-grade-template"><span>${adminOptionEscape(grade)}</span><select data-card-grade-template="${adminOptionEscape(key)}" aria-label="Card template for ${adminOptionEscape(grade)}"><option value="sf9">Current learner card template</option></select></label>`;
+      return `<label class="admin-card-grade-template"><span>${adminOptionEscape(grade)}</span><select data-card-grade-template="${adminOptionEscape(key)}" aria-label="Card template for ${adminOptionEscape(grade)}"><option value="sf9">Original numerical template (SF9)</option></select></label>`;
     }).join("");
     gradeAssignments?.querySelectorAll("[data-card-grade-template]").forEach((select) => { select.value = preferences.gradeTemplates[select.dataset.cardGradeTemplate] || preferences.activeTemplate; });
     state.textContent = "Card Printing preferences loaded.";
@@ -155,7 +158,7 @@ export async function saveAdminCardPreferences() {
     const attendanceRows = Object.entries(labelFields).map(([id, fieldId]) => ({ id, label: document.getElementById(fieldId)?.value.trim() || "" }));
     const attendanceMonths = monthInput.value.split(/[\n,]/).map((month) => month.trim()).filter(Boolean);
     const preferences = await fsSetCardPrintingPreferences({
-      activeTemplate: document.getElementById("adminCardTemplate")?.value || "sf9",
+      activeTemplate: document.querySelector('input[name="adminCardTemplate"]:checked')?.value || document.getElementById("adminCardTemplate")?.value || "sf9",
       gradeTemplates,
       attendanceMonths,
       attendanceRows,

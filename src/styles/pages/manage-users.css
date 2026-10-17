@@ -44,21 +44,59 @@
 .admin-nav-copy small { overflow: hidden; color: var(--ink-500); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .admin-nav-indicator { position: absolute; top: 12px; bottom: 12px; left: 0; width: 3px; border-radius: 0 4px 4px 0; background: var(--blue-600); opacity: 0; transform: scaleY(.5); transition: opacity .16s ease, transform .16s ease; }
 .admin-section-tabs button[aria-selected="true"] .admin-nav-indicator { opacity: 1; transform: scaleY(1); }
-.admin-card-preferences-panel { display: grid; gap: 22px; padding-bottom: 20px; }
-.admin-card-preferences-panel > .panel-header { align-items: flex-start; padding-bottom: 14px; border-bottom: 1px solid var(--line-100); }
-.admin-card-preferences-panel > .panel-header h3 { margin: 0 0 5px; color: var(--ink-900); font-size: 17px; }
+.admin-card-preferences-panel { display: grid; gap: 22px; padding-bottom: 20px; overflow: hidden; }
+.admin-card-preferences-panel > .panel-header { align-items: flex-start; padding-bottom: 16px; border-bottom: 1px solid var(--line-100); }
+.admin-card-preferences-panel > .panel-header h3 { margin: 0 0 5px; color: var(--ink-900); font-size: 19px; }
 .admin-card-preferences-panel > .panel-header .panel-helper { max-width: 720px; margin: 0; }
-.admin-card-preference-grid { display: grid; min-width: 0; gap: 22px; padding: 0 20px; }
-.admin-card-active-template { display: grid; width: min(100%, 420px); min-width: 0; gap: 7px; color: var(--ink-700); font-size: 12px; font-weight: 700; }
-.admin-card-active-template span { color: var(--ink-500); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.admin-card-active-template select { width: 100%; min-width: 0; min-height: 42px; padding: 9px 12px; border: 1px solid var(--line-200); border-radius: 9px; background: var(--bg-card); color: var(--ink-900); font: inherit; font-size: 13px; }
-.admin-card-active-template select:focus-visible, .admin-card-grade-template select:focus-visible, .admin-card-attendance-labels input:focus-visible, .admin-card-months-field textarea:focus-visible { outline: 3px solid var(--blue-100); outline-offset: 2px; }
-.admin-card-assignment-field { display: grid; min-width: 0; gap: 11px; }
-.admin-card-assignment-field h4 { margin: 0; color: var(--ink-900); font-size: 14px; }
+.admin-card-preferences-eyebrow { display: block; margin-bottom: 6px; color: var(--blue-600); font-size: 9px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.admin-card-preference-grid { display: grid; min-width: 0; gap: 18px; padding: 0 20px; }
+.admin-card-preference-accordion { margin: 0; box-shadow: none; }
+.admin-card-preference-accordion > .admin-accordion-summary { min-height: 68px; padding: 12px 14px; }
+.admin-card-preference-accordion > .admin-accordion-content { padding: 0 14px 14px; }
+.admin-card-template-section, .admin-card-assignment-field, .admin-card-attendance-section { display: grid; min-width: 0; gap: 14px; padding: 18px; border: 1px solid var(--line-200); border-radius: 13px; background: var(--bg-page); }
+.admin-card-section-heading { display: grid; gap: 4px; }
+.admin-card-step { color: var(--blue-600); font-size: 9px; font-weight: 850; letter-spacing: .1em; }
+.admin-card-section-heading h4 { margin: 0; color: var(--ink-900); font-size: 14px; }
+.admin-card-section-heading p { margin: 0; color: var(--ink-500); font-size: 11px; line-height: 1.5; }
+.admin-card-template-choice { display: block; cursor: pointer; }
+.admin-card-template-choice > input { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; }
+.admin-card-template-choice-content { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(180px, .8fr) auto; align-items: center; gap: 18px; min-width: 0; padding: 14px; border: 1px solid var(--line-200); border-radius: 11px; background: var(--bg-card); transition: border-color .16s ease, box-shadow .16s ease, background .16s ease; }
+.admin-card-template-choice > input:checked + .admin-card-template-choice-content { border-color: var(--blue-600); box-shadow: 0 0 0 2px color-mix(in srgb, var(--blue-600) 16%, transparent); }
+.admin-card-template-choice > input:focus-visible + .admin-card-template-choice-content { outline: 3px solid var(--blue-100); outline-offset: 2px; }
+.admin-card-template-preview { position: relative; display: block; width: 100%; min-width: 0; aspect-ratio: 990 / 900; overflow: hidden; border: 1px solid var(--line-200); border-radius: 6px; background: #edf1f6; }
+.admin-card-live-preview .sf9-report-card { pointer-events: none; }
+.admin-card-template-copy { display: grid; gap: 6px; min-width: 0; }
+.admin-card-template-tag { color: var(--success-600); font-size: 9px; font-weight: 800; letter-spacing: .08em; }
+.admin-card-template-copy strong { color: var(--ink-900); font-size: 13px; line-height: 1.4; }
+.admin-card-template-copy small { color: var(--ink-500); font-size: 11px; line-height: 1.5; }
+.admin-card-template-selected { display: grid; width: 25px; height: 25px; place-items: center; border: 1px solid var(--line-200); border-radius: 50%; color: transparent; font-size: 14px; font-weight: 800; }
+.admin-card-template-choice > input:checked + .admin-card-template-choice-content .admin-card-template-selected { border-color: var(--blue-600); background: var(--blue-600); color: #fff; }
+.admin-card-inspect-button { display: inline-flex; align-items: center; gap: 7px; justify-self: start; padding: 8px 11px; border: 1px solid var(--line-200); border-radius: 8px; background: var(--bg-card); color: var(--blue-600); font: inherit; font-size: 11px; font-weight: 750; cursor: pointer; }
+.admin-card-inspect-button:hover { border-color: var(--blue-600); background: var(--blue-100); }
+.admin-card-inspect-button:focus-visible, .admin-card-inspector button:focus-visible { outline: 3px solid var(--blue-100); outline-offset: 2px; }
+.admin-card-inspector { position: fixed; inset: 16px; width: auto; height: auto; max-width: none; max-height: none; margin: auto; padding: 0; overflow: hidden; border: 1px solid var(--line-200); border-radius: 14px; background: var(--bg-card); color: var(--ink-900); box-shadow: 0 24px 80px rgba(0, 0, 0, .3); }
+.admin-card-inspector[open] { display: flex; flex-direction: column; }
+.admin-card-inspector::backdrop { background: rgba(10, 18, 32, .72); backdrop-filter: blur(4px); }
+.admin-card-inspector--fullscreen { inset: 0; border: 0; border-radius: 0; }
+.admin-card-inspector-header { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 22px; border-bottom: 1px solid var(--line-100); }
+.admin-card-inspector-header h3 { margin: 4px 0; color: var(--ink-900); font-size: 16px; }
+.admin-card-inspector-header p { margin: 0; color: var(--ink-500); font-size: 11px; }
+.admin-card-inspector-actions { display: flex; align-items: center; gap: 8px; }
+.admin-card-inspector-actions button { min-height: 36px; padding: 7px 11px; border: 1px solid var(--line-200); border-radius: 8px; background: var(--bg-card); color: var(--ink-700); font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.admin-card-inspector-actions button:hover { border-color: var(--blue-600); color: var(--blue-600); }
+.admin-card-inspector-actions .admin-card-inspector-close { width: 36px; padding: 0; font-size: 22px; line-height: 1; }
+.admin-card-inspector-canvas { display: grid; min-height: 0; flex: 1; place-items: center; overflow: auto; padding: 18px; background: var(--bg-page); }
+.admin-card-inspector-stage { position: relative; width: min(100%, calc((100dvh - 180px) * 1.1)); aspect-ratio: 990 / 900; flex: 0 0 auto; overflow: hidden; border-radius: 4px; }
+.admin-card-inspector-stage .sf9-report-card { box-shadow: 0 10px 36px rgba(0, 0, 0, .22); }
+.admin-card-inspector--fullscreen .admin-card-inspector-stage { width: min(100%, calc((100dvh - 116px) * 1.1)); }
+.admin-card-inspector--fullscreen .admin-card-inspector-header { padding-top: 12px; padding-bottom: 12px; }
+.admin-card-inspector--fullscreen .admin-card-inspector-canvas { padding: 12px; }
+.admin-card-assignment-field { background: var(--bg-card); }
 .admin-card-grade-templates { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 12px; }
 .admin-card-grade-template { display: grid; min-width: 0; align-content: start; gap: 9px; padding: 14px; border: 1px solid var(--line-200); border-radius: 11px; background: var(--bg-page); color: var(--ink-700); font-size: 12px; font-weight: 700; transition: border-color .16s ease, background .16s ease, box-shadow .16s ease; }
 .admin-card-grade-template:focus-within { border-color: color-mix(in srgb, var(--blue-600) 45%, var(--line-200)); background: var(--bg-card); box-shadow: 0 0 0 3px var(--blue-100); }
-.admin-card-attendance-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 14px; }
+.admin-card-attendance-section { background: var(--bg-card); }
+.admin-card-attendance-settings { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); align-items: start; gap: 14px; }
 .admin-card-months-field, .admin-card-attendance-labels { display: grid; min-width: 0; align-content: start; gap: 10px; padding: 16px; border: 1px solid var(--line-200); border-radius: 11px; background: var(--bg-page); }
 .admin-card-months-field { color: var(--ink-700); font-size: 12px; font-weight: 700; }
 .admin-card-months-field textarea { width: 100%; min-width: 0; min-height: 96px; padding: 10px 12px; border: 1px solid var(--line-200); border-radius: 8px; background: var(--bg-card); color: var(--ink-900); font: inherit; font-size: 13px; line-height: 1.5; resize: vertical; }
@@ -79,9 +117,11 @@
 .admin-card-preferences-state.is-saving::before { content: ""; border: 2px solid var(--blue-100); border-top-color: var(--blue-600); animation: admin-card-save-spin .7s linear infinite; }
 @keyframes admin-card-save-spin { to { transform: rotate(360deg); } }
 .admin-card-preferences-panel > .admin-final-grade-footer .btn { width: auto; min-width: 164px; max-width: 100%; justify-self: end; white-space: nowrap; }
-body.dark-mode .admin-card-grade-template, body.dark-mode .admin-card-months-field, body.dark-mode .admin-card-attendance-labels { background: #202020; }
+body.dark-mode .admin-card-template-section, body.dark-mode .admin-card-grade-template, body.dark-mode .admin-card-months-field, body.dark-mode .admin-card-attendance-labels { background: #202020; }
+body.dark-mode .admin-card-template-choice-content, body.dark-mode .admin-card-assignment-field, body.dark-mode .admin-card-attendance-section, body.dark-mode .admin-card-inspector { border-color: #343434; background: #191919; }
 body.dark-mode .admin-card-grade-template:focus-within { background: #252525; }
-body.dark-mode .admin-card-active-template select, body.dark-mode .admin-card-grade-template select, body.dark-mode .admin-card-attendance-labels input, body.dark-mode .admin-card-months-field textarea { border-color: #3a3a3a; background: #191919; color: #eee; }
+body.dark-mode .admin-card-grade-template select, body.dark-mode .admin-card-attendance-labels input, body.dark-mode .admin-card-months-field textarea { border-color: #3a3a3a; background: #191919; color: #eee; }
+body.dark-mode .admin-card-inspector-canvas { background: #111; }
 .admin-nav-note { display: flex; align-items: center; gap: 8px; margin: 14px 8px 2px; padding-top: 12px; border-top: 1px solid var(--line-100); color: var(--ink-500); font-size: 9px; font-weight: 650; }
 .admin-nav-status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success-600); box-shadow: 0 0 0 3px rgba(32, 133, 90, .1); }
 .admin-section-content { min-width: 0; }
@@ -244,6 +284,14 @@ body.dark-mode .admin-curriculum-add-subject input { background: #101010; border
 .admin-section-label:not(.access-management-label) > div { display: flex; min-width: 0; flex-direction: column; gap: 3px; }
 .access-management-label { align-items: center; }
 .access-management-label > div { display: flex; align-items: baseline; gap: 14px; }
+.admin-access-accordion { margin-bottom: 14px; }
+.admin-access-settings { grid-template-columns: minmax(0, 1fr); }
+.admin-access-settings > .admin-parent-access-panel:last-child { margin-bottom: 0; }
+.admin-user-management-content { gap: 14px; }
+.admin-user-management-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+.admin-user-management-heading h3 { margin: 0 0 4px; color: var(--ink-900); font-size: 15px; }
+.admin-user-management-heading p { margin: 0; color: var(--ink-500); font-size: 11px; }
+.admin-user-management-heading .btn { width: auto; flex: 0 0 auto; }
 .admin-users-panel { margin-top: 0; }
 .admin-backup-panel { overflow: hidden; }
 .admin-backup-content { display: flex; align-items: center; gap: 16px; padding: 20px; background: linear-gradient(135deg, var(--bg-card), var(--blue-100)); }
@@ -344,10 +392,20 @@ body.dark-mode .admin-backup-warning { border-color: #6b5421; color: #f2d98c; ba
 }
 
 @media (max-width: 760px) {
-  .admin-card-preference-grid, .admin-card-grade-templates, .admin-card-attendance-labels { grid-template-columns: minmax(0, 1fr); }
+  .admin-card-grade-templates, .admin-card-attendance-labels { grid-template-columns: minmax(0, 1fr); }
   .admin-card-preferences-panel > .panel-header { padding: 16px 16px 12px; }
   .admin-card-preference-grid { gap: 18px; padding: 0 16px; }
-  .admin-card-active-template { width: 100%; }
+  .admin-card-preference-accordion > .admin-accordion-summary { min-height: 62px; padding: 10px; }
+  .admin-card-preference-accordion > .admin-accordion-content { padding: 0 10px 10px; }
+  .admin-card-template-choice-content { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
+  .admin-card-template-preview { grid-column: 1 / -1; }
+  .admin-card-template-selected { grid-column: 2; grid-row: 2; }
+  .admin-card-inspector { inset: 8px; }
+  .admin-card-inspector-header { align-items: flex-start; padding: 14px; }
+  .admin-card-inspector-header h3 { font-size: 14px; }
+  .admin-card-inspector-canvas { padding: 10px; }
+  .admin-card-inspector-stage { width: min(100%, calc((100dvh - 150px) * 1.1)); }
+  .admin-card-inspector--fullscreen .admin-card-inspector-stage { width: min(100%, calc((100dvh - 105px) * 1.1)); }
   .admin-card-attendance-settings { grid-template-columns: minmax(0, 1fr); gap: 12px; }
   .admin-card-months-field, .admin-card-attendance-labels { padding: 13px; }
   .admin-card-preferences-panel > .admin-final-grade-footer { grid-template-columns: minmax(0, 1fr); align-items: stretch; margin: 0 16px; }
@@ -378,7 +436,14 @@ body.dark-mode .admin-backup-warning { border-color: #6b5421; color: #f2d98c; ba
   .admin-curriculum-grade, .admin-curriculum-grade select { width: 100%; }
   .admin-passing-threshold-panel { grid-template-columns: minmax(0, 1fr); }
   .admin-passing-threshold-panel .btn { width: 100%; }
+  .admin-user-management-heading { align-items: stretch; flex-direction: column; }
+  .admin-user-management-heading .btn { width: 100%; }
   .admin-letter-scale-heading { align-items: flex-start; flex-direction: column; }
   .admin-curriculum-add-subject > div { align-items: stretch; flex-direction: column; }
   .admin-curriculum-add-subject input, .admin-curriculum-add-subject .btn { width: 100%; }
+}
+
+@media (max-width: 420px) {
+  .admin-card-template-choice-content { padding: 10px; }
+  .admin-card-template-copy strong { font-size: 12px; }
 }

@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockCreateSchoolYear, mockGetParentAccess, mockSetParentAccess, mockGetPromotion, mockSetPromotion, mockSetCardPreferences } = vi.hoisted(() => ({
+const { mockCreateSchoolYear, mockGetParentAccess, mockSetParentAccess, mockGetPromotion, mockSetPromotion, mockGetCardPreferences, mockSetCardPreferences } = vi.hoisted(() => ({
   mockCreateSchoolYear: vi.fn(),
   mockGetParentAccess: vi.fn(),
   mockSetParentAccess: vi.fn(),
   mockGetPromotion: vi.fn(),
   mockSetPromotion: vi.fn(),
+  mockGetCardPreferences: vi.fn(),
   mockSetCardPreferences: vi.fn(),
 }));
 
@@ -50,6 +51,7 @@ vi.mock("./firestore-api", () => ({
   fsSetParentAccessEnabled: mockSetParentAccess,
   fsSetCanPromoteStudents: mockSetPromotion,
   fsSetPassingThreshold: vi.fn(),
+  fsGetCardPrintingPreferences: mockGetCardPreferences,
   fsSetCardPrintingPreferences: mockSetCardPreferences,
 }));
 vi.mock("./grading-config", () => ({
@@ -60,7 +62,7 @@ vi.mock("./grading-config", () => ({
   normalizePassingThreshold: vi.fn(),
 }));
 
-import { ADMIN_OPTIONS, createAdminYear, initializeSheetsBackupLink, loadAdminParentAccess, loadAdminPromotionAccess, saveAdminCardPreferences, saveAdminParentAccessToggle, saveAdminPromotionAccessToggle } from "./admin-options";
+import { ADMIN_OPTIONS, createAdminYear, initializeSheetsBackupLink, loadAdminCardPreferences, loadAdminParentAccess, loadAdminPromotionAccess, saveAdminCardPreferences, saveAdminParentAccessToggle, saveAdminPromotionAccessToggle } from "./admin-options";
 import { APP_CONFIG } from "./app-config";
 
 describe("Google Sheets backup link", () => {
@@ -149,7 +151,7 @@ describe("Promotion access toggle", () => {
 describe("Card Printing preferences save", () => {
   beforeEach(() => {
     document.body.innerHTML = `
-      <select id="adminCardTemplate"><option value="sf9">SF9</option></select>
+      <input id="adminCardTemplate" type="radio" name="adminCardTemplate" value="sf9" checked />
       <div id="adminCardGradeTemplates"></div>
       <textarea id="adminCardAttendanceMonths">Jun, Jul</textarea>
       <input id="adminCardClassDaysLabel" value="Class days" />
@@ -158,7 +160,26 @@ describe("Card Printing preferences save", () => {
       <p id="adminCardPreferencesState" role="status"></p>
       <button id="saveAdminCardPreferencesBtn" type="button">Save preferences</button>
     `;
+    mockGetCardPreferences.mockReset().mockResolvedValue({
+      activeTemplate: "sf9",
+      gradeTemplates: {},
+      attendanceMonths: ["Jun", "Jul"],
+      attendanceRows: [
+        { id: "classDays", label: "Class days" },
+        { id: "daysPresent", label: "Present" },
+        { id: "daysAbsent", label: "Absent" },
+      ],
+    });
     mockSetCardPreferences.mockReset().mockResolvedValue({ attendanceMonths: ["Jun", "Jul"] });
+  });
+
+  it("loads the saved template selection and attendance preferences", async () => {
+    await loadAdminCardPreferences();
+
+    expect((document.getElementById("adminCardTemplate") as HTMLInputElement).checked).toBe(true);
+    expect((document.getElementById("adminCardAttendanceMonths") as HTMLTextAreaElement).value).toBe("Jun, Jul");
+    expect((document.getElementById("adminCardClassDaysLabel") as HTMLInputElement).value).toBe("Class days");
+    expect(document.getElementById("adminCardPreferencesState")?.textContent).toBe("Card Printing preferences loaded.");
   });
 
   it("shows a success indicator when preferences save", async () => {
@@ -169,6 +190,7 @@ describe("Card Printing preferences save", () => {
     expect(state?.textContent).toBe("Card Printing preferences saved.");
     expect(state?.classList.contains("is-success")).toBe(true);
     expect(state?.classList.contains("is-saving")).toBe(false);
+    expect(mockSetCardPreferences).toHaveBeenCalledWith(expect.objectContaining({ activeTemplate: "sf9" }));
     expect(button.disabled).toBe(false);
     expect(button.textContent).toBe("Save preferences");
     expect(button.hasAttribute("aria-busy")).toBe(false);

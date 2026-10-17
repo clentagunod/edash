@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import type { CSSProperties } from 'react';
-import { requireAuth } from '../lib/auth';
+import { loginPageUrl, requireAuth } from '../lib/auth';
+import { auth } from '../lib/firebase';
 import {
   fsGetGradeLevelGradingConfigurations,
   fsGetCardPrintingPreferences,
@@ -38,6 +39,7 @@ import {
 } from '../lib/student-card-layout';
 import { APP_CONFIG, appBrandAssetUrl } from '../lib/app-config';
 import { gradeLevelConfigKey } from '../lib/grading-config';
+import '../styles/components/student-card-template.css';
 import '../styles/pages/print-card.css';
 
 const DEFAULT_MONTHS = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'];
@@ -298,6 +300,165 @@ function downloadBlob(blob: Blob, fileName: string): void {
 
 type TermColumn = { id: string; label: string };
 type SheetSide = 'front' | 'back';
+
+const TEMPLATE_PREVIEW_MONTHS = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'];
+const TEMPLATE_PREVIEW_SUBJECTS: Subject[] = [
+  { id: 'filipino', label: 'Filipino' },
+  { id: 'english', label: 'English' },
+  { id: 'math', label: 'Mathematics' },
+  { id: 'science', label: 'Science' },
+  { id: 'aralingPanlipunan', label: 'Araling Panlipunan' },
+  { id: 'eppTle', label: 'EPP/TLE' },
+  { id: 'gmrc', label: 'GMRC' },
+];
+const TEMPLATE_PREVIEW_TERM_COLUMNS = gradeTermsForCount(3).filter(({ id }) => id !== 'final');
+const TEMPLATE_PREVIEW_LEARNER: LearnerRecord = {
+  learnerId: '0000-0000-0000',
+  gradeLevel: 'Grade 4',
+  gradesByTerm: Object.fromEntries(TEMPLATE_PREVIEW_TERM_COLUMNS.map(({ id }, termIndex) => [
+    id,
+    Object.fromEntries(TEMPLATE_PREVIEW_SUBJECTS.map((subject, subjectIndex) => [
+      subject.id,
+      String(87 + ((subjectIndex + termIndex) % 9)),
+    ])),
+  ])),
+};
+const TEMPLATE_PREVIEW_MANUAL: ManualCardFields = {
+  studentName: 'Alex Sample',
+  learnerId: '0000-0000-0000',
+  age: '10',
+  gender: 'Female',
+  gradeLevel: '4',
+  section: 'Sampaguita',
+  schoolName: APP_CONFIG.branding.schoolName || 'School Name',
+  schoolYear: '2026-2027',
+  schoolHead: 'Jordan Reyes',
+  adviser: 'Taylor Santos',
+  region: 'Region III',
+  division: 'Sample Schools Division',
+  district: 'Central District',
+  locality: 'Sample Municipality',
+  track: '',
+  comments: '',
+  termComments: ['Making steady progress.', '', ''],
+  admittedGrade: 'Grade 5',
+  eligibleGrade: 'Grade 5',
+  transferAdmittedIn: '',
+  transferDate: '',
+  cancellationSchoolHead: '',
+  attendance: {
+    classDays: Object.fromEntries(TEMPLATE_PREVIEW_MONTHS.map((month) => [month, '20'])),
+    daysPresent: Object.fromEntries(TEMPLATE_PREVIEW_MONTHS.map((month) => [month, '19'])),
+    daysAbsent: Object.fromEntries(TEMPLATE_PREVIEW_MONTHS.map((month) => [month, '1'])),
+  },
+};
+
+function previewScaleFor(stage: HTMLDivElement | null): number | null {
+  if (!stage) return null;
+  const { width, height } = stage.getBoundingClientRect();
+  return width && height ? Math.min(width / 990, height / 900) : null;
+}
+
+export function AdminCardTemplateChooser() {
+  const previewStageRef = useRef<HTMLDivElement>(null);
+  const inspectorStageRef = useRef<HTMLDivElement>(null);
+  const inspectorRef = useRef<HTMLDialogElement>(null);
+  const [previewScale, setPreviewScale] = useState(0.2);
+  const [inspectorScale, setInspectorScale] = useState(0.5);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const updateScales = () => {
+      const nextPreviewScale = previewScaleFor(previewStageRef.current);
+      const nextInspectorScale = previewScaleFor(inspectorStageRef.current);
+      if (nextPreviewScale != null) setPreviewScale(nextPreviewScale);
+      if (nextInspectorScale != null) setInspectorScale(nextInspectorScale);
+    };
+    const observer = new ResizeObserver(updateScales);
+    if (previewStageRef.current) observer.observe(previewStageRef.current);
+    if (inspectorStageRef.current) observer.observe(inspectorStageRef.current);
+    updateScales();
+    return () => observer.disconnect();
+  }, []);
+
+  function openInspector() {
+    inspectorRef.current?.showModal();
+    window.requestAnimationFrame(() => {
+      const scale = previewScaleFor(inspectorStageRef.current);
+      if (scale != null) setInspectorScale(scale);
+    });
+  }
+
+  const card = (scale: number) => (
+    <StudentCardReport
+      learner={TEMPLATE_PREVIEW_LEARNER}
+      manual={TEMPLATE_PREVIEW_MANUAL}
+      subjects={TEMPLATE_PREVIEW_SUBJECTS}
+      termColumns={TEMPLATE_PREVIEW_TERM_COLUMNS}
+      termCount={TEMPLATE_PREVIEW_TERM_COLUMNS.length}
+      autoCalculateFinalGrades
+      passingThreshold={75}
+      roundType={DEFAULT_ROUND_TYPE}
+      templateId="sf9"
+      attendanceMonths={TEMPLATE_PREVIEW_MONTHS}
+      attendanceRows={[...DEFAULT_ATTENDANCE_ROWS]}
+      schoolLogoUrl={appBrandAssetUrl(APP_CONFIG.branding.schoolLogoUrl)}
+      schoolYear={TEMPLATE_PREVIEW_MANUAL.schoolYear}
+      transform={`scale(${scale})`}
+      className="admin-card-real-template"
+    />
+  );
+
+  return (
+    <>
+      <label className="admin-card-template-choice">
+        <input id="adminCardTemplate" type="radio" name="adminCardTemplate" value="sf9" defaultChecked />
+        <div className="admin-card-template-choice-content">
+          <div className="admin-card-template-preview admin-card-live-preview" ref={previewStageRef} aria-hidden="true">
+            {card(previewScale)}
+          </div>
+          <span className="admin-card-template-copy">
+            <span className="admin-card-template-tag">CURRENT TEMPLATE</span>
+            <strong>Original numerical template (SF9)</strong>
+            <small>Numerical grades · learner performance report</small>
+          </span>
+          <span className="admin-card-template-selected" aria-hidden="true">✓</span>
+        </div>
+      </label>
+      <button className="admin-card-inspect-button" type="button" onClick={openInspector}>
+        <span aria-hidden="true">↗</span> Inspect front and back
+      </button>
+      <dialog
+        className={`admin-card-inspector${isFullscreen ? ' admin-card-inspector--fullscreen' : ''}`}
+        ref={inspectorRef}
+        aria-labelledby="adminCardInspectorTitle"
+        onClose={() => setIsFullscreen(false)}
+        onClick={(event) => {
+          if (event.target === inspectorRef.current) inspectorRef.current?.close();
+        }}
+      >
+        <header className="admin-card-inspector-header">
+          <div>
+            <span className="admin-card-step">TEMPLATE INSPECTOR</span>
+            <h3 id="adminCardInspectorTitle">Original numerical template (SF9)</h3>
+            <p>Front and back · sample content preview</p>
+          </div>
+          <div className="admin-card-inspector-actions">
+            <button type="button" onClick={() => setIsFullscreen((fullscreen) => !fullscreen)}>
+              {isFullscreen ? 'Exit full screen' : 'Full screen'}
+            </button>
+            <button type="button" className="admin-card-inspector-close" aria-label="Close template inspector" onClick={() => inspectorRef.current?.close()}>×</button>
+          </div>
+        </header>
+        <div className="admin-card-inspector-canvas">
+          <div className="admin-card-inspector-stage" ref={inspectorStageRef}>
+            {card(inspectorScale)}
+          </div>
+        </div>
+      </dialog>
+    </>
+  );
+}
 
 function StudentCardReport({
   learner,
@@ -570,9 +731,16 @@ export default function PrintCardPage() {
 
   useEffect(() => {
     let active = true;
+    let unsubscribeAuth: (() => void) | undefined;
     async function loadInitialData() {
       try {
         await requireAuth();
+        if (!active) return;
+        unsubscribeAuth = auth.onAuthStateChanged((user) => {
+          if (!active || (user && !user.isAnonymous)) return;
+          sessionStorage.removeItem('lps_user_profile');
+          window.location.replace(loginPageUrl('?auth=required'));
+        });
         const [years, registeredSchools] = await Promise.all([
           fsGetSchoolYears(),
           getRegisteredSchools().catch((directoryLoadError: unknown) => {
@@ -602,7 +770,10 @@ export default function PrintCardPage() {
     }
     const activeGuard = () => active;
     void loadInitialData();
-    return () => { active = false; };
+    return () => {
+      active = false;
+      unsubscribeAuth?.();
+    };
   }, []);
 
   async function loadYear(year: string, isActive: () => boolean = () => true) {
@@ -1140,7 +1311,8 @@ export default function PrintCardPage() {
                 </fieldset>
                 <fieldset className="student-card-attendance-fields student-card-field--wide">
                   <legend>Attendance record · enter each month</legend>
-                  <div className="student-card-attendance-inputs" style={{ gridTemplateColumns: `minmax(126px, 1.2fr) repeat(${cardPreferences.attendanceMonths.length}, minmax(42px, 1fr))` }}>
+                  <div className="student-card-attendance-inputs" style={{ gridTemplateColumns: `minmax(126px, 1.2fr) repeat(${cardPreferences.attendanceMonths.length}, minmax(48px, 1fr))` }}>
+                    <span className="student-card-attendance-label-heading" aria-hidden="true">Attendance</span>
                     {cardPreferences.attendanceMonths.map((month) => <span key={month}>{month}</span>)}
                     {cardPreferences.attendanceRows.map(({ id, label }) => {
                       const row = id as keyof ManualCardFields['attendance'];

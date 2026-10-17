@@ -1,0 +1,489 @@
+.sf9-report-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  width: 990px;
+  height: 900px;
+  grid-template-columns: 470px 470px;
+  gap: 50px;
+  overflow: hidden;
+  padding: 8px 0;
+  transform-origin: top left;
+  background: linear-gradient(to right, #fff 0, #fff 494.5px, #444 494.5px, #444 495.5px, #fff 495.5px, #fff 100%);
+  box-shadow: 0 8px 24px rgba(25, 43, 70, .15);
+  color: #111;
+}
+
+.sf9-report-card .sf9-card-side,
+.sf9-report-card .sf9-card-side * {
+  font-family: "Bookman Old Style", Bookman, serif;
+}
+
+.sf9-report-card h1,
+.sf9-report-card h2 {
+  color: #111;
+}
+
+.sf9-card-side {
+  display: flex;
+  box-sizing: border-box;
+  width: 470px;
+  height: 884px;
+  flex-direction: column;
+  gap: 5px;
+  overflow: hidden;
+  background: #fff;
+  color: #111;
+  font-family: "Bookman Old Style", Bookman, serif;
+  font-size: 10px;
+  line-height: 1.18;
+}
+
+.sf9-card-front { padding: 0 2px 0 0; }
+.sf9-card-back { padding: 0 0 0 2px; }
+
+.sf9-letterhead {
+  display: grid;
+  min-height: 83px;
+  grid-template-columns: 110px 1fr 110px;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.sf9-letterhead img {
+  width: 68px;
+  height: 68px;
+  justify-self: center;
+  object-fit: contain;
+}
+
+.sf9-letterhead-copy p {
+  margin: 0 0 3px;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.sf9-letterhead-copy .sf9-division-name {
+  font-weight: 700;
+}
+
+.sf9-letterhead-copy h2 {
+  margin: 9px 0 0;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.sf9-report-title {
+  border-top: 1px solid #333;
+  padding: 5px 0 4px;
+  text-align: center;
+}
+
+.sf9-report-title h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.sf9-report-title p {
+  margin: 2px 0 0;
+  font-size: 11px;
+}
+
+.sf9-identity-table,
+.sf9-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.sf9-identity-table col.sf9-identity-label-column { width: 10%; }
+.sf9-identity-table col.sf9-identity-name-column { width: 31%; }
+.sf9-identity-table col.sf9-identity-age-label-column { width: 9%; }
+.sf9-identity-table col.sf9-identity-age-column { width: 12%; }
+.sf9-identity-table col.sf9-identity-sex-label-column { width: 11%; }
+.sf9-identity-table col.sf9-identity-sex-column { width: 27%; }
+
+.sf9-identity-table th,
+.sf9-identity-table td {
+  height: 21px;
+  border: 0;
+  padding: 3px 3px;
+  text-align: left;
+}
+
+.sf9-identity-table th {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.sf9-identity-table td {
+  border-bottom: 1px solid #444;
+}
+
+.sf9-identity-table .sf9-track-row td {
+  position: relative;
+  border-bottom: 0;
+}
+
+.sf9-identity-table .sf9-track-row td::after {
+  position: absolute;
+  right: 0;
+  bottom: 3px;
+  left: 0;
+  width: 48%;
+  border-bottom: 1px solid #444;
+  content: "";
+}
+
+.sf9-greeting {
+  margin: 2px 0;
+  font-size: 9.5px;
+  line-height: 1.2;
+}
+
+.sf9-front-signatures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 3px 0 5px;
+  text-align: center;
+}
+
+.sf9-front-signatures > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.sf9-front-signatures strong {
+  text-decoration: underline;
+}
+
+.sf9-front-signatures > div:nth-child(2) strong {
+  text-transform: uppercase;
+}
+
+.sf9-front-signatures span {
+  font-size: 9px;
+}
+
+.sf9-section h2,
+.sf9-descriptor-section h2,
+.sf9-attendance-section h2,
+.sf9-comments-section h2,
+.sf9-parent-signature-section h2,
+.sf9-transfer-section h2,
+.sf9-cancellation-section h2 {
+  margin: 2px 0 3px;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.sf9-data-table th,
+.sf9-data-table td {
+  height: 17px;
+  border: 1px solid #555;
+  padding: 2px 4px;
+  text-align: center;
+}
+
+.sf9-grade-table thead th {
+  height: 16px;
+  font-weight: 700;
+}
+
+.sf9-grade-table tbody tr:not(.sf9-general-average) > th,
+.sf9-grade-table tbody tr:not(.sf9-general-average) > td {
+  height: var(--sf9-grade-row-height, 17px);
+}
+
+.sf9-grade-table tbody th {
+  width: 31%;
+  font-weight: 400;
+  text-align: left;
+}
+
+.sf9-grade-table .sf9-grade-row--mapeh > th,
+.sf9-grade-table .sf9-grade-row--mapeh > td {
+  font-weight: 400;
+}
+
+.sf9-grade-table .sf9-grade-row--mapeh-component > th {
+  padding-left: 1.4em;
+}
+
+.sf9-no-subjects {
+  height: 30px !important;
+  color: #444;
+  font-style: italic;
+  text-align: center !important;
+}
+
+.sf9-general-average th,
+.sf9-general-average td {
+  font-weight: 700 !important;
+}
+
+.sf9-general-average th[colspan] {
+  font-style: italic;
+  text-align: right;
+}
+
+.sf9-grade-table {
+  font-size: 9px;
+}
+
+.sf9-descriptor-section {
+  display: block;
+}
+
+.sf9-descriptor-section h2 {
+  padding-top: 0;
+}
+
+.sf9-descriptor-table th,
+.sf9-descriptor-table td {
+  border: 0;
+}
+
+.sf9-descriptor-table th,
+.sf9-descriptor-table td {
+  height: 14px;
+  padding: 1px 4px;
+  font-size: 8.5px;
+}
+
+.sf9-attendance-table th,
+.sf9-attendance-table td {
+  height: 15px;
+  padding: 1px 3px;
+  font-size: 8px;
+}
+
+.sf9-attendance-table th:first-child {
+  width: 120px;
+  text-align: left;
+}
+
+.sf9-attendance-table th:last-child,
+.sf9-attendance-table td:last-child {
+  width: 48px;
+}
+
+.sf9-descriptor-continuation { margin-top: 0; }
+.sf9-descriptor-continuation .sf9-descriptor-table td { height: 14px; }
+
+.sf9-comments-section h2,
+.sf9-parent-signature-section h2 { margin: 1px 0 4px; }
+
+.sf9-comment-box {
+  min-height: 66px;
+  border: 1px solid #555;
+  padding: 5px 7px;
+}
+
+.sf9-comment-box + .sf9-comment-box { border-top: 0; }
+.sf9-comment-box strong { font-size: 10px; }
+.sf9-comment-box p { min-height: 42px; margin: 3px 0 0; }
+
+.sf9-signature-line {
+  display: flex;
+  min-height: 14px;
+  justify-content: space-between;
+  border-bottom: 1px solid #999;
+  font-size: 8px;
+  line-height: 1.2;
+}
+
+.sf9-transfer-section,
+.sf9-cancellation-section {
+  border-top: 1px solid #777;
+  padding-top: 4px;
+}
+
+.sf9-transfer-section > p {
+  margin: 3px 0 5px;
+}
+
+.sf9-transfer-fields {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.sf9-transfer-fields span {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 38%;
+  padding-bottom: 2px;
+}
+
+.sf9-transfer-fields span::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  width: 78%;
+  border-bottom: 1px solid #777;
+  content: "";
+}
+
+.sf9-transfer-fields strong,
+.sf9-cancellation-section strong {
+  display: inline-block;
+  min-width: 90px;
+  text-align: center;
+}
+
+.sf9-approval {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas:
+    "label label"
+    "school-head adviser";
+  align-items: center;
+  row-gap: 5px;
+  margin-top: 5px;
+  text-align: left;
+}
+
+.sf9-approval-label {
+  grid-area: label;
+  align-self: start;
+  font-weight: 700;
+}
+
+.sf9-approval-adviser {
+  grid-area: adviser;
+}
+
+.sf9-approval-school-head {
+  grid-area: school-head;
+}
+
+.sf9-approval-adviser strong,
+.sf9-approval-school-head strong {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.sf9-approval-adviser strong {
+  text-transform: uppercase;
+}
+
+.sf9-approval > div,
+.sf9-cancellation-signature {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.sf9-approval > div {
+  min-height: 44px;
+  justify-content: flex-end;
+}
+
+.sf9-cancellation-signature strong {
+  width: 90%;
+  min-width: 0;
+  min-height: 17px;
+  border-bottom: 1px solid #444;
+  text-decoration: none;
+}
+
+.sf9-cancellation-signature {
+  transform: translateY(calc(2mm + 3px));
+}
+
+.sf9-approval small,
+.sf9-cancellation-signature small {
+  font-size: 8px;
+}
+
+.sf9-cancellation-section > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: end;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.sf9-cancellation-field {
+  display: grid;
+  grid-template-columns: auto minmax(20px, 1fr);
+  align-items: end;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.sf9-cancellation-field strong {
+  width: 100%;
+  min-width: 0;
+  min-height: 17px;
+  border-bottom: 1px solid #444;
+  text-decoration: none;
+}
+
+.sf9-card-back .sf9-parent-signature-section {
+  display: block;
+}
+
+.sf9-card-back .sf9-signature-line {
+  min-height: 30px;
+  align-items: flex-end;
+  padding-bottom: 1px;
+}
+
+.sf9-card-back .sf9-transfer-section,
+.sf9-card-back .sf9-cancellation-section {
+  padding-top: 5px;
+}
+
+.sf9-card-back .sf9-transfer-section {
+  margin-bottom: 60px;
+}
+
+.sf9-card-back .sf9-transfer-section > p {
+  margin: 4px 0 6px;
+  line-height: 1.28;
+}
+
+.sf9-card-back .sf9-transfer-fields span {
+  padding-bottom: 3px;
+}
+
+.sf9-card-back .sf9-approval {
+  margin-top: 8px;
+  row-gap: 5px;
+}
+
+.sf9-card-back .sf9-approval > div,
+.sf9-card-back .sf9-cancellation-signature {
+  gap: 2px;
+}
+
+.sf9-card-back .sf9-cancellation-section > div {
+  grid-template-columns: 1fr 1fr;
+  margin-top: 4px;
+}
+
+.student-card-empty-preview {
+  display: grid;
+  min-height: 440px;
+  place-items: center;
+  color: var(--ink-500);
+  font-size: 14px;
+  text-align: center;
+}
+
+.grades-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}

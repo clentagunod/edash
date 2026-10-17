@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { appDocumentTitle } from '../lib/app-config';
 
 /**
@@ -14,6 +15,8 @@ import { appDocumentTitle } from '../lib/app-config';
 export interface LegacyPageProps {
   html: string;
   title: string;
+  portalSelector?: string;
+  children?: ReactNode;
   /** Runs after the markup is in the DOM. May return a cleanup function
    *  (e.g. to unsubscribe Firestore listeners) that runs on unmount. */
   onMount: () => void | (() => void) | Promise<void | (() => void)>;
@@ -25,9 +28,15 @@ export function sectionTitle(title: string) {
     .trim();
 }
 
-export default function LegacyPage({ html, title, onMount }: LegacyPageProps) {
+export default function LegacyPage({ html, title, portalSelector, children, onMount }: LegacyPageProps) {
   const onMountRef = useRef(onMount);
+  const markupRef = useRef<HTMLDivElement>(null);
+  const [portalTarget, setPortalTarget] = useState<Element | null>(null);
   onMountRef.current = onMount;
+
+  useLayoutEffect(() => {
+    setPortalTarget(portalSelector ? markupRef.current?.querySelector(portalSelector) || null : null);
+  }, [html, portalSelector]);
 
   useEffect(() => {
     document.title = appDocumentTitle(sectionTitle(title));
@@ -47,5 +56,10 @@ export default function LegacyPage({ html, title, onMount }: LegacyPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [html, title]);
 
-  return <div dangerouslySetInnerHTML={{ __html: html }} />;
+  return (
+    <>
+      <div ref={markupRef} dangerouslySetInnerHTML={{ __html: html }} />
+      {children && portalTarget ? createPortal(children, portalTarget) : null}
+    </>
+  );
 }
