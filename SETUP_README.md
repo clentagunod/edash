@@ -1,4 +1,4 @@
-﻿# E-Dash Setup and New-School Registration
+# E-Dash Setup and New-School Registration
 
 This guide covers a complete deployment: central school directory, public school registration requests, a new school's Firebase project and Firestore schema, shared rules, optional Apps Script endpoints for audit logs and feedback, and the web app configuration.
 

@@ -1,5 +1,7 @@
+import { getAuth } from "firebase-admin/auth";
 import { applicationDefault, cert, initializeApp } from "firebase-admin/app";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 function option(name) {
@@ -32,12 +34,15 @@ Options:
   --service-account <path>
   --service-key <path>    Service-account JSON path (both option names are accepted);
                           otherwise Application Default Credentials are used
+  --create-admin          Create a Firebase Auth login and School Admin profile;
+                          private account details are read from standard input during --apply
   --apply                 Write missing seed documents; without this flag, only print the plan
   --help                  Show this help
 
 Existing documents are left unchanged. No users, learners, dropouts, transfers,
 grades, sections, or teachers are fabricated; Firestore collections are created
-when real documents are first written to those paths.`);
+when real documents are first written to those paths. The optional initial
+admin account is created only when --apply is specified.`);
 }
 
 function getSeedDocuments(schoolYear) {
@@ -92,7 +97,7 @@ function getSeedDocuments(schoolYear) {
   ];
 }
 
-function initializeFirestore(projectId) {
+function initializeFirebase(projectId) {
   const serviceAccountOption = option("service-account");
   const serviceKeyOption = option("service-key");
   if (serviceAccountOption && serviceKeyOption && serviceAccountOption !== serviceKeyOption) {
@@ -102,7 +107,76 @@ function initializeFirestore(projectId) {
   const app = serviceAccountPath
     ? initializeApp({ credential: cert(resolve(serviceAccountPath)), projectId })
     : initializeApp({ credential: applicationDefault(), projectId });
-  return getFirestore(app);
+  return { db: getFirestore(app), auth: getAuth(app) };
+}
+
+async function readInitialAdmin() {
+  let admin;
+  try {
+    admin = JSON.parse(readFileSync(0, "utf8"));
+  } catch (error) {
+    throw new Error(
+      `Could not read initial admin details from standard input: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    );
+  }
+
+  if (!admin || typeof admin !== "object" || Array.isArray(admin)) {
+    throw new Error("Initial admin details must be a JSON object.");
+  }
+  const { name, email, password } = admin;
+  if (typeof name !== "string" || !name.trim() || name.trim().length > 120) {
+    throw new Error("Initial admin name must be 1–120 characters.");
+  }
+  if (
+    typeof email !== "string" ||
+    !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())
+  ) {
+    throw new Error("Initial admin email must be valid.");
+  }
+  if (typeof password !== "string" || password.length < 6) {
+    throw new Error("Initial admin password must be at least 6 characters.");
+  }
+  return { name: name.trim(), email: email.trim(), password };
+}
+
+async function createInitialAdmin(db, auth, admin) {
+  let user;
+  try {
+    user = await auth.createUser({
+      email: admin.email,
+      password: admin.password,
+      displayName: admin.name,
+    });
+    await db.collection("users").doc(user.uid).create({
+      uid: user.uid,
+      name: admin.name,
+      email: admin.email,
+      role: "School Admin",
+      status: "Active",
+      createdAt: FieldValue.serverTimestamp(),
+      teacherAssignments: [],
+      teacherAssignment: null,
+      teacherPrefs: { theme: "Light", inspectLearner: true },
+    });
+  } catch (error) {
+    if (user) {
+      try {
+        await auth.deleteUser(user.uid);
+      } catch (cleanupError) {
+        throw new Error(
+          `The Admin SDK user ${user.uid} was created, but its Firestore profile failed and automatic Auth cleanup also failed: ${
+            cleanupError instanceof Error ? cleanupError.message : String(cleanupError)
+          }. Remove the incomplete Auth user manually. Original profile error: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        );
+      }
+    }
+    throw error;
+  }
+  return user;
 }
 
 async function provision(db, seedDocuments, schoolYear) {
@@ -157,6 +231,7 @@ async function main() {
 
   const schoolYear = normalizeSchoolYear(schoolYearInput);
   const seedDocuments = getSeedDocuments(schoolYear);
+  const createAdmin = hasFlag("create-admin");
   console.log(`Target Firebase project: ${projectId}`);
   console.log("Firestore paths (existing documents will not be changed):");
   console.log(`  users/{uid}`);
@@ -165,17 +240,26 @@ async function main() {
   console.log(`  schoolYears/${schoolYear}/transferredOut/{LRN}`);
   console.log(`  schoolYears/${schoolYear}/grades/{gradeId}/sections/{sectionId}/teachers/{uid}`);
   seedDocuments.forEach(({ path }) => console.log(`  ${path}`));
+  if (createAdmin) {
+    console.log("Initial School Admin: a Firebase Auth login and users/{uid} profile will be created during apply.");
+  }
 
   if (!hasFlag("apply")) {
     console.log("Dry run only. No Firestore connection or writes made. Add --apply to provision missing seed documents.");
     return;
   }
 
-  const result = await provision(initializeFirestore(projectId), seedDocuments, schoolYear);
+  const admin = createAdmin ? await readInitialAdmin() : null;
+  const { db, auth } = initializeFirebase(projectId);
+  const result = await provision(db, seedDocuments, schoolYear);
   console.log(`Created ${result.created.length} document(s):`);
   result.created.forEach((path) => console.log(`  ${path}`));
   console.log(`Left ${result.skipped.length} existing document(s) unchanged:`);
   result.skipped.forEach((path) => console.log(`  ${path}`));
+  if (admin) {
+    const user = await createInitialAdmin(db, auth, admin);
+    console.log(`Initial School Admin created: ${admin.name} (${admin.email}, UID ${user.uid}).`);
+  }
 }
 
 main().catch((error) => {
