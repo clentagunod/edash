@@ -14,3 +14,24 @@
 @import './components/learner-inspector.css';
 @import './themes.css';
 @import './access-status.css';
+
+/* Enabled only for an explicit theme change; initial theme application stays instant. */
+html.theme-transitioning,
+html.theme-transitioning body,
+html.theme-transitioning body *,
+html.theme-transitioning body *::before,
+html.theme-transitioning body *::after {
+  transition-property: color, background-color, border-color, outline-color, box-shadow, fill, stroke;
+  transition-duration: 420ms;
+  transition-timing-function: ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.theme-transitioning,
+  html.theme-transitioning body,
+  html.theme-transitioning body *,
+  html.theme-transitioning body *::before,
+  html.theme-transitioning body *::after {
+    transition-duration: 0ms;
+  }
+}

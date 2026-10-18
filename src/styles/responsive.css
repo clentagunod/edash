@@ -49,6 +49,8 @@
   .nav-category-trigger,
   .nav-category-trigger > svg:last-child,
   .nav-category-menu { transition: none; }
+  .nav-item svg,
+  .nav-category-trigger > svg:first-child { animation: none; transition: none; }
 }
 
 @media (max-width: 1060px) {

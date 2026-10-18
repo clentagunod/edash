@@ -288,11 +288,18 @@ export function openEditUserModal(userId) {
   document.getElementById("userPasswordField").hidden = true;
   document.getElementById("u_password").required = false;
   document.getElementById("u_password").value = "";
-  document.getElementById("u_role").value = u.role;
+  const roleSelect = document.getElementById("u_role");
+  const hasSupportedRole = [...roleSelect.options].some((option) => option.value === u.role);
+  roleSelect.value = hasSupportedRole ? u.role : "";
   document.getElementById("u_status").value = u.status;
   editingTeacherAssignments = normalizeTeacherAssignmentsForStorage(u.teacherAssignments || (u.teacherAssignment ? [u.teacherAssignment] : []));
   const status = document.getElementById("userFormStatus");
-  if (status) { status.hidden = true; status.textContent = ""; }
+  if (status) {
+    status.hidden = hasSupportedRole;
+    status.textContent = hasSupportedRole
+      ? ""
+      : `This account uses the retired "${u.role}" role. Choose a replacement role before saving.`;
+  }
   toggleTeacherAssignmentFields(editingTeacherAssignments);
   userFormInitialSnapshot = formSnapshot(document.getElementById("userForm"));
   document.getElementById("userModalBackdrop").classList.add("is-open");
@@ -459,6 +466,7 @@ export async function handleUserFormSubmit(e) {
     password: document.getElementById("u_password").value,
   };
   try {
+    if (!record.role) throw new Error("Choose a supported account role before saving.");
     if (record.role === "Teacher") {
       const selectedOptions = [...document.querySelectorAll('#u_teacher_section input[type="checkbox"]:checked')];
       const schoolYear = document.getElementById("u_teacher_year").value.trim();

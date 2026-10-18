@@ -300,10 +300,18 @@ export function initPreferencesPage() {
   const savePrefs = async (nextPrefs) => {
     if (saving) return;
     const previousPrefs = prefs;
+    const themeChanged = nextPrefs.theme !== previousPrefs.theme;
     saving = true;
     renderPrefs();
     try {
       prefs = await fsUpdateMyTeacherPrefs(nextPrefs);
+      if (themeChanged) {
+        const root = document.documentElement;
+        root.classList.add('theme-transitioning');
+        // Force style resolution so the class is active before theme tokens change.
+        void root.offsetWidth;
+        window.setTimeout(() => root.classList.remove('theme-transitioning'), 450);
+      }
       document.body.dataset.theme = appThemeId(prefs.theme);
       document.documentElement.dataset.theme = appThemeId(prefs.theme);
       document.body.classList.toggle('dark-mode', isDarkAppTheme(prefs.theme));

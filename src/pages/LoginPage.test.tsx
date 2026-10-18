@@ -49,11 +49,16 @@ describe('LoginPage school accent', () => {
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0);
+      return 0;
+    });
   });
 
   afterEach(async () => {
     await act(async () => root.unmount());
     container.remove();
+    vi.restoreAllMocks();
   });
 
   it('applies the selected school color as a scoped login accent', async () => {
@@ -62,6 +67,7 @@ describe('LoginPage school accent', () => {
     const loginShell = container.querySelector<HTMLElement>('.login-shell');
     expect(loginShell?.style.getPropertyValue('--school-accent')).toBe('#50A61E');
     expect(loginShell?.dataset.schoolAccent).toBe('true');
+    expect(loginShell?.classList.contains('school-accent-transition')).toBe(true);
   });
 
   it('uses a neutral accent when a school color is not set', async () => {

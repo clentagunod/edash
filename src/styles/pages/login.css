@@ -2772,6 +2772,7 @@ body.dark-mode .login-shell[data-login-stage="school-selection"] .school-picker 
 }
 
 .login-shell[data-login-stage="school-login"] .login-password-toggle svg {
+  grid-area: 1 / 1;
   width: 17px;
   height: 17px;
   fill: none;
@@ -2779,6 +2780,11 @@ body.dark-mode .login-shell[data-login-stage="school-selection"] .school-picker 
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.login-shell[data-login-stage="school-login"] .login-password-toggle[aria-pressed="false"] .login-password-toggle-hide,
+.login-shell[data-login-stage="school-login"] .login-password-toggle[aria-pressed="true"] .login-password-toggle-show {
+  display: none;
 }
 
 .login-shell[data-login-stage="school-login"] .field-row {
@@ -4092,16 +4098,32 @@ body.dark-mode .school-registration-status.is-error {
   }
 }
 
+@property --school-accent {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #667064;
+}
+
+.login-shell.school-accent-transition {
+  transition: --school-accent 560ms cubic-bezier(.22, .7, .2, 1);
+}
+
 .login-shell[data-login-stage="school-login"][data-school-accent] .login-visual {
   background:
     radial-gradient(ellipse at 78% 14%, color-mix(in srgb, var(--school-accent) 32%, transparent), transparent 36%),
     radial-gradient(ellipse at 10% 100%, color-mix(in srgb, var(--school-accent) 28%, transparent), transparent 42%),
     linear-gradient(
       145deg,
-      color-mix(in srgb, var(--school-accent) 62%, #101010) 0%,
-      color-mix(in srgb, var(--school-accent) 76%, #101010) 52%,
-      color-mix(in srgb, var(--school-accent) 88%, #101010) 100%
+      color-mix(in srgb, var(--school-accent) 78%, #101010) 0%,
+      color-mix(in srgb, var(--school-accent) 88%, #101010) 52%,
+      color-mix(in srgb, var(--school-accent) 94%, #101010) 100%
     );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-shell.school-accent-transition {
+    transition: none;
+  }
 }
 
 .login-shell[data-login-stage="school-login"][data-school-accent] .login-visual::before {
@@ -4182,8 +4204,8 @@ body.dark-mode .school-registration-status.is-error {
 }
 
 .login-shell[data-login-stage="school-login"][data-school-accent] .login-metric {
-  border-color: color-mix(in srgb, var(--school-accent) 54%, transparent);
-  background: color-mix(in srgb, var(--school-accent) 54%, #101010);
+  border-color: color-mix(in srgb, var(--school-accent) 68%, transparent);
+  background: color-mix(in srgb, var(--school-accent) 68%, #101010);
 }
 
 .login-shell[data-login-stage="school-login"][data-school-accent] .login-metric-icon,

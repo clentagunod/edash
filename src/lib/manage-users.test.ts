@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import manageUsersMarkup from '../pages/markup/manage-users.html?raw';
 
 const { mockGetSections } = vi.hoisted(() => ({ mockGetSections: vi.fn() }));
 
@@ -30,6 +31,17 @@ import {
   loadTeacherAssignmentSections,
   updateTeacherAssignmentSummary,
 } from './manage-users';
+
+describe('Manage Users account roles', () => {
+  it('offers only roles managed by account administration', () => {
+    const document = new DOMParser().parseFromString(manageUsersMarkup, 'text/html');
+    const roles = [...document.querySelectorAll<HTMLSelectElement>('#u_role option')]
+      .map((option) => option.value);
+
+    expect(roles).toEqual(['School Admin', 'Registrar', 'Teacher']);
+    expect(roles).not.toContain('Visitor');
+  });
+});
 
 describe('Admin Console section navigation', () => {
   beforeEach(() => {

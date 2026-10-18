@@ -91,6 +91,27 @@
 
 .nav-item svg { flex-shrink: 0; width: 19px; height: 19px; }
 
+/* Sidebar icon hover animation (transform-only → GPU accelerated) */
+.nav-item svg,
+.nav-category-trigger > svg:first-child {
+  transform-origin: center;
+  transition: transform var(--motion-fast) var(--ease-standard), color var(--motion-fast) ease;
+}
+
+.nav-item:hover svg,
+.nav-category-trigger:hover > svg:first-child {
+  color: var(--blue-500);
+  will-change: transform;
+  animation: nav-icon-pop var(--motion-base) var(--ease-standard);
+}
+
+@keyframes nav-icon-pop {
+  0%   { transform: scale(1) rotate(0deg); }
+  40%  { transform: scale(1.28) rotate(-10deg); }
+  70%  { transform: scale(0.94) rotate(6deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
 .nav-item:hover { background: var(--bg-app); transform: translateX(2px); }
 
 .nav-item.is-active {

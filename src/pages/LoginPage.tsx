@@ -37,8 +37,11 @@ export default function LoginPage() {
 
     const loginShell = container?.querySelector<HTMLElement>('.login-shell');
     if (loginShell) {
-      loginShell.style.setProperty('--school-accent', school.colorGradientTag || '#667064');
       loginShell.dataset.schoolAccent = 'true';
+      loginShell.classList.add('school-accent-transition');
+      requestAnimationFrame(() => {
+        loginShell.style.setProperty('--school-accent', school.colorGradientTag || '#667064');
+      });
     }
 
     const image = container?.querySelector<HTMLImageElement>('.login-brand-mark img');
