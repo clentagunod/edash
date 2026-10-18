@@ -421,22 +421,40 @@
 
       <section class="admin-section-panel" id="adminAuditPanel" role="tabpanel" aria-labelledby="adminAuditTab" tabindex="0" hidden>
         <div class="admin-section-label"><div><span>Audit log</span><small>Read-only history of activity recorded in the AuditLog sheet</small></div><button class="btn btn-secondary" id="auditRefreshBtn" type="button">Refresh log</button></div>
-        <section class="panel">
-          <div class="panel-body">
+        <section class="panel audit-log-panel">
+          <div class="audit-panel-heading">
+            <div class="audit-panel-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3 19 6v5c0 4.7-2.8 8-7 10-4.2-2-7-5.3-7-10V6l7-3Z" />
+                <path d="M9 12h6M9 9h6M9 15h3" />
+              </svg>
+            </div>
+            <div class="audit-panel-heading-copy">
+              <h2>Activity history</h2>
+              <p>Review recent account and school activity. Entries are shown newest first.</p>
+            </div>
+            <span class="audit-page-size">10 per page</span>
+          </div>
+          <div class="panel-body audit-panel-tools">
             <div class="audit-toolbar">
               <div class="search-box">
-                <input type="search" id="auditSearch" placeholder="Search user, action, sheet, or record…" aria-label="Search audit log" />
+                <input type="search" id="auditSearch" placeholder="Search entries on this page…" aria-label="Search entries on the current audit log page" />
               </div>
-              <span class="audit-meta" id="auditMeta">Loading audit entries…</span>
+              <span class="audit-meta" id="auditMeta" role="status" aria-live="polite">Loading audit entries…</span>
             </div>
           </div>
           <div style="overflow-x:auto;">
-            <table class="data-table audit-table">
+            <table class="data-table audit-table" aria-label="Audit log activity">
               <thead>
                 <tr><th>Timestamp</th><th>User</th><th>Action</th><th>Sheet</th><th>Record / ID</th><th>Old Value</th><th>New Value</th><th>IP / Session</th></tr>
               </thead>
               <tbody id="auditTableBody"><tr><td colspan="8" class="state-row">Loading audit entries…</td></tr></tbody>
             </table>
+          </div>
+          <div class="audit-pagination" aria-label="Audit log pagination">
+            <button class="btn btn-secondary" id="auditPreviousPage" type="button" disabled>Previous</button>
+            <span id="auditPageStatus" aria-live="polite">Page 1 of 1</span>
+            <button class="btn btn-secondary" id="auditNextPage" type="button" disabled>Next</button>
           </div>
         </section>
       </section>

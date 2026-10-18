@@ -32,4 +32,16 @@ describe('Admin Console collapsible sections', () => {
     expect(document.querySelectorAll('#addUserBtn')).toHaveLength(1);
     expect(accessAccordions.every((accordion) => !accordion.open)).toBe(true);
   });
+
+  it('provides paginated audit log controls in the Audit Log section', () => {
+    const document = new DOMParser().parseFromString(markup, 'text/html');
+
+    expect(document.querySelector('#adminAuditPanel .audit-panel-heading h2')?.textContent).toBe('Activity history');
+    expect(document.querySelector('#adminAuditPanel .audit-page-size')?.textContent).toBe('10 per page');
+    expect(document.querySelector('#adminAuditPanel #auditPreviousPage')).not.toBeNull();
+    expect(document.querySelector('#adminAuditPanel #auditNextPage')).not.toBeNull();
+    expect(document.querySelector('#adminAuditPanel #auditPageStatus')).not.toBeNull();
+    expect(document.querySelector('#adminAuditPanel #auditSearch')?.getAttribute('placeholder'))
+      .toBe('Search entries on this page…');
+  });
 });

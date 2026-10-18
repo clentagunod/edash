@@ -276,10 +276,11 @@ export const LPSApi = (() => {
 
     // ---- Manage Users (school admin only; enforced server-side too) --------
     getUsers: () => get("getUsers"),
-    getAuditLogs: async () => {
+    getAuditLogs: async (page = 1) => {
       const token = await authHeaderToken();
       const url = new URL(APP_CONFIG.auditLogApiUrl);
       url.searchParams.set("action", "getAuditLogs");
+      url.searchParams.set("page", String(page));
       url.searchParams.set("token", token);
       return parseResponse(await fetchWithTimeout(
         url.toString(),

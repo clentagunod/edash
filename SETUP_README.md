@@ -229,6 +229,8 @@ npx --yes firebase-tools deploy --only functions:purgeExpiredTrash --project SCH
 
 Trash retention is configured in Admin Console → Access management and defaults to 30 days. The scheduled function reads `settings/toggles.trashConfg` and permanently removes expired records from `schoolYears/{schoolYear}/trash` once daily. Choose **Never** to disable automatic cleanup; users can still permanently delete items manually.
 
+In Trash, School Admins can view all records for the selected school year. Teachers can view and manage only records for their assigned grade/section; other roles do not have Trash access. Deploy the latest `firestore.rules` for this restriction to be enforced. An Admin's first Trash load also fills in assignment keys on existing teacher profiles and legacy Trash records.
+
 ### Firebase Authentication account deletion (Spark plan)
 
 Account deletion uses the tenant's AuditLog Apps Script Web App; Firebase Cloud Functions and a Blaze plan are not required. Complete the **Audit log** setup in Section 8 for each school, then set that school's `auditLogApiUrl` to the deployed Web App `/exec` URL. Redeploy the web app after changing its code or Script Properties.
@@ -339,6 +341,8 @@ The school-selection form collects school name, DepEd school ID, contact person,
 4. Deploy as a Web App that executes as the script owner, allow access to **Anyone**, and copy its `/exec` URL to `auditLogApiUrl`. The endpoint validates the caller's Firebase ID token and admin role itself; do not restrict the Web App to a Google account sign-in, which would prevent browser calls.
 
 The app sends Firebase ID tokens to this endpoint. Whenever `AuditLog.gs` is changed, deploy a new Web App version; saving the script alone does not update the live endpoint. If the endpoint reports Firebase authentication failure, check its response code: make sure `FIREBASE_WEB_API_KEY` is the `apiKey` from this school's Firebase Web App and that it matches the project in `FIRESTORE_PROJECT_ID`; if the error is `API_KEY_SERVICE_BLOCKED`, allow Identity Toolkit API requests for that key. A rejected `INVALID_ID_TOKEN` may be resolved by signing out and back in. Audit rows contain controlled event metadata/allowlisted status fields, not learner profiles. Protect the spreadsheet and Apps Script editor access.
+
+The Admin Console Audit Log loads 10 newest entries per request, with previous/next pagination. Search is limited to the currently loaded page so the browser and Apps Script do not read the entire spreadsheet. Deploy the latest `AuditLog.gs` Web App version to enable paginated responses.
 
 The read-only Parent Portal uses a separate Firebase app instance with **Anonymous** Authentication to request a single learner document by its 12-digit LRN. Enable **Authentication → Sign-in method → Anonymous** for the tenant project and deploy the latest `firestore.rules`. The rule permits anonymous `get` requests only for learner documents not marked dropped or transferred; optional status fields omitted from older/imported documents are treated as unset. It does not permit anonymous collection queries, archive reads, or writes.
 

@@ -9,12 +9,15 @@ const mocks = vi.hoisted(() => ({
   fsGetTrashRetention: vi.fn(),
   fsRestoreTrashItem: vi.fn(),
   fsPermanentlyDeleteTrashItem: vi.fn(),
+  isSchoolAdmin: vi.fn(),
+  isTeacher: vi.fn(),
 }));
 
 vi.mock('../lib/auth', () => ({ requireAuth: mocks.requireAuth }));
 vi.mock('../lib/app-config', () => ({
   appDocumentTitle: (title: string) => title,
-  canManageLearners: () => true,
+  isSchoolAdmin: mocks.isSchoolAdmin,
+  isTeacher: mocks.isTeacher,
 }));
 vi.mock('../lib/shell', () => ({
   renderShell: vi.fn(),
@@ -59,6 +62,8 @@ let container: HTMLDivElement;
 beforeEach(() => {
   Object.values(mocks).forEach((mock) => mock.mockReset());
   mocks.requireAuth.mockResolvedValue(undefined);
+  mocks.isSchoolAdmin.mockReturnValue(true);
+  mocks.isTeacher.mockReturnValue(false);
   mocks.fsGetTrashRetention.mockResolvedValue('30');
   mocks.fsGetTrash.mockResolvedValue(items);
   mocks.fsRestoreTrashItem.mockResolvedValue({ restored: true });
@@ -81,6 +86,18 @@ async function renderTrashPage(strict = false) {
       : createElement(TrashPage));
   });
 }
+
+describe('Trash access', () => {
+  it('allows a teacher to view their assignment-scoped Trash', async () => {
+    mocks.isSchoolAdmin.mockReturnValue(false);
+    mocks.isTeacher.mockReturnValue(true);
+
+    await renderTrashPage();
+
+    expect(mocks.fsGetTrash).toHaveBeenCalledWith('2026-2027');
+    expect(container.querySelector('#trashRows')?.textContent).toContain('Ana Cruz');
+  });
+});
 
 describe('Trash bulk selection', () => {
   it('restores selected items only once when mounted under React Strict Mode', async () => {

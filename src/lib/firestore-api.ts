@@ -3,7 +3,7 @@ import { LPSApi } from './sheets-api';
 import { displayNameFromEmail } from './auth';
 import { PROGRAM_FIELD_MAP } from './learner-list';
 import { auth, db, getUserCreationAuth, parentDb, userCreationAuth } from './firebase';
-import { APP_CONFIG, appRole, appSessionId, isTeacher, isVisitorSession, normalizeTeacherAssignmentsForStorage, setAppUserProfile, storedAppProfile } from './app-config';
+import { APP_CONFIG, appRole, appSessionId, isTeacher, isVisitorSession, normalizeTeacherAssignmentsForStorage, setAppUserProfile, storedAppProfile, teacherAssignmentSecurityKeys } from './app-config';
 import { LPSCache, PUBLIC_STATS_CACHE_TTL_MS } from './cache';
 import { CURRICULUM_GRADE_LEVELS, CURRICULUM_SUBJECTS, curriculumSubjectIdFromLabel, isCustomCurriculumSubjectId, normalizeCurriculumGrade, normalizeCurriculumSubjectIds, normalizeCurriculumSubjectPool } from './curriculum-subjects';
 import { isAppTheme } from './themes';
@@ -127,8 +127,63 @@ export async function fsSetTrashRetention(value) {
 }
 
 export async function fsGetTrash(schoolYear) {
-  const snapshot = await fsTrashCollection_(schoolYear).orderBy("deletedAt", "desc").get();
-  return snapshot.docs.map((doc) => ({ trashId: doc.id, ...doc.data() }));
+  const collection = fsTrashCollection_(schoolYear);
+  if (isTeacher()) {
+    const keys = teacherAssignmentSecurityKeys(fsTeacherAssignmentsForSchoolYear_(schoolYear));
+    if (!keys.length) return [];
+    const snapshots = await Promise.all(keys.map((key) =>
+      collection.where("teacherAssignmentSecurityKey", "==", key).get()
+    ));
+    const items = new Map();
+    snapshots.forEach((snapshot) => snapshot.docs.forEach((doc) => {
+      items.set(doc.id, { trashId: doc.id, ...doc.data() });
+    }));
+    return [...items.values()].sort((left, right) =>
+      new Date(right.deletedAt || 0).getTime() - new Date(left.deletedAt || 0).getTime()
+    );
+  }
+
+  if (appRole() === "School Admin") await fsEnsureTeacherTrashAccessKeys_();
+  const snapshot = await collection.orderBy("deletedAt", "desc").get();
+  const items = snapshot.docs.map((doc) => ({ trashId: doc.id, ...doc.data() }));
+  const updates = items.flatMap((item, index) => {
+    const key = teacherAssignmentSecurityKeys([{
+      schoolYear: item.schoolYear || schoolYear,
+      gradeLevel: item.learner?.gradeLevel,
+      section: item.learner?.section,
+    }])[0];
+    return key && item.teacherAssignmentSecurityKey !== key
+      ? [{ ref: snapshot.docs[index].ref, key }]
+      : [];
+  });
+  for (let index = 0; index < updates.length; index += 450) {
+    const batch = db.batch();
+    updates.slice(index, index + 450).forEach(({ ref, key }) => {
+      batch.update(ref, { teacherAssignmentSecurityKey: key });
+    });
+    await batch.commit();
+  }
+  const updatedKeys = new Map(updates.map(({ ref, key }) => [ref.id, key]));
+  return items.map((item) => updatedKeys.has(item.trashId)
+    ? { ...item, teacherAssignmentSecurityKey: updatedKeys.get(item.trashId) }
+    : item);
+}
+
+async function fsEnsureTeacherTrashAccessKeys_() {
+  const snapshot = await db.collection(FS_USERS).where("role", "==", "Teacher").get();
+  const updates = snapshot.docs.flatMap((doc) => {
+    const assignments = fsTeacherAssignmentsFromProfile_(doc.data() || {});
+    const keys = teacherAssignmentSecurityKeys(assignments);
+    const profileKeys = doc.data()?.teacherAssignmentSecurityKeys || [];
+    return JSON.stringify(profileKeys) === JSON.stringify(keys) ? [] : [{ ref: doc.ref, keys }];
+  });
+  for (let index = 0; index < updates.length; index += 450) {
+    const batch = db.batch();
+    updates.slice(index, index + 450).forEach(({ ref, keys }) => {
+      batch.update(ref, { teacherAssignmentSecurityKeys: keys });
+    });
+    await batch.commit();
+  }
 }
 
 async function fsMoveLearnerToTrash_(schoolYear, sourceCollection, learnerId) {
@@ -140,7 +195,13 @@ async function fsMoveLearnerToTrash_(schoolYear, sourceCollection, learnerId) {
   const trashRef = fsTrashCollection_(schoolYear).doc();
   const profile = storedAppProfile() || {};
   const batch = db.batch();
-  batch.set(trashRef, { learnerId: id, schoolYear, sourceCollection, learner: snapshot.data(), deletedAt: new Date().toISOString(), deletedBy: auth.currentUser?.uid || "", deletedByName: profile.name || auth.currentUser?.email || "" });
+  const learner = snapshot.data();
+  const teacherAssignmentSecurityKey = teacherAssignmentSecurityKeys([{
+    schoolYear,
+    gradeLevel: learner.gradeLevel,
+    section: learner.section,
+  }])[0] || "";
+  batch.set(trashRef, { learnerId: id, schoolYear, sourceCollection, learner, teacherAssignmentSecurityKey, deletedAt: new Date().toISOString(), deletedBy: auth.currentUser?.uid || "", deletedByName: profile.name || auth.currentUser?.email || "" });
   batch.delete(source);
   await batch.commit();
   return { deleted: true, trashId: trashRef.id };
@@ -589,6 +650,7 @@ async function fsCopyTeacherAssignmentsForYear_(sourceYear, targetYear, targetSe
       batch.set(ref, {
         teacherAssignments: assignments,
         teacherAssignment: newYearAssignments[0] || assignments[0] || null,
+        teacherAssignmentSecurityKeys: teacherAssignmentSecurityKeys(assignments),
       }, { merge: true });
       batch.set(ref.collection(FS_PATHS.assignmentHistory).doc(targetYear), {
         schoolYear: targetYear,
@@ -636,6 +698,7 @@ export async function fsAddUser(record) {
       status: record.status || "Invited",
       teacherAssignment: record.role === "Teacher" ? teacherAssignments[0] || null : null,
       teacherAssignments,
+      teacherAssignmentSecurityKeys: teacherAssignmentSecurityKeys(teacherAssignments),
       teacherPrefs: fsNormalizeTeacherPrefs(),
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
@@ -691,6 +754,7 @@ export async function fsUpdateUser(userId, record) {
       status: record.status,
       teacherAssignment: teacherAssignments.find((assignment) => assignment.schoolYear === record.teacherAssignmentSchoolYear) || teacherAssignments[0] || null,
       teacherAssignments,
+      teacherAssignmentSecurityKeys: teacherAssignmentSecurityKeys(teacherAssignments),
     }, { merge: true });
     fsQueueTeacherAssignmentHistory_(batch, ref, assignmentsForHistory, assignmentHistoryYears);
     await batch.commit();

@@ -264,22 +264,9 @@ export function normalizeTeacherAssignmentsForStorage(assignments = []) {
 }
 
 /**
- * Builds the exact-match key Firestore security rules use to authorize a
- * teacher's read/write against a learner's { schoolYear, gradeLevel, section }.
- *
- * WHY THIS EXISTS: the rules cannot reliably compare two Firestore maps for
- * "does this assignment cover this grade/section" — map equality requires an
- * IDENTICAL key set, and a stored assignment carries an extra `teacherName`
- * field (added by the admin console) that a hand-built comparison map in the
- * rules would not have. That mismatch silently made every teacher write fail
- * with permission-denied, no matter how correct the assignment looked. A flat
- * string key sidesteps map-shape entirely: two strings are simply equal or
- * they aren't, and the check scales to any number of assignments as a single
- * `in` lookup instead of one `hasAny` per possible field-shape combination.
- *
- * MUST stay in sync with `learnerAssignmentKey()` in firestore.rules — same
- * delimiter, same field order, same source values (the normalized
- * schoolYear/gradeLevel/section on the assignment, not raw user input).
+ * Builds the stable key shared by teacher assignments and Trash records.
+ * Keep the delimiter and part order aligned with the Trash access checks in
+ * firestore.rules.
  */
 export function teacherAssignmentSecurityKey(assignment) {
   const normalizeKeyPart = (value) => String(value ?? '').trim().replace(/\s+/g, ' ');

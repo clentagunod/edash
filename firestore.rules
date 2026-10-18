@@ -35,6 +35,24 @@ service cloud.firestore {
     function isRegistrar() { return myRole() == "Registrar"; }
     function isTeacher() { return myRole() == "Teacher"; }
     function isStaff() { return myRole() in ["School Admin", "Registrar", "Teacher"]; }
+    function teacherHasTrashAccess(trashItem) {
+      let profileKeys = myProfile().data.get("teacherAssignmentSecurityKeys", []);
+      let assignmentKey = trashItem.get("teacherAssignmentSecurityKey", "");
+      return isTeacher()
+        && profileKeys is list
+        && assignmentKey is string
+        && profileKeys.hasAny([assignmentKey]);
+    }
+    function validTeacherTrashAssignment(trashItem, yearId) {
+      let learner = trashItem.get("learner", {});
+      let learnerGrade = learner is map ? learner.get("gradeLevel", "") : "";
+      let learnerSection = learner is map ? learner.get("section", "") : "";
+      let assignmentKey = trashItem.get("teacherAssignmentSecurityKey", "");
+      return learnerGrade is string
+        && learnerSection is string
+        && assignmentKey == yearId + "::" + learnerGrade + "::" + learnerSection
+        && teacherHasTrashAccess(trashItem);
+    }
     function teacherPromotionEnabled() {
       let togglesPath = /databases/$(database)/documents/settings/toggles;
       return exists(togglesPath)
@@ -74,6 +92,7 @@ service cloud.firestore {
         && trashItem.get("sourceCollection", "") == "learners"
         && trashItem.get("learnerId", "") == learnerId
         && originalLearner is map
+        && teacherHasTrashAccess(trashItem)
         && request.resource.data.diff(originalLearner).affectedKeys().hasOnly(["__trashRestoreId"])
         && request.resource.data.diff(originalLearner).addedKeys().hasOnly(["__trashRestoreId"]);
     }
@@ -145,8 +164,10 @@ service cloud.firestore {
         allow read, write: if isStaff();
       }
       match /trash/{trashId} {
-        allow read: if isAdmin() || isRegistrar() || isTeacher();
-        allow create, update, delete: if isAdmin() || isRegistrar() || isTeacher();
+        allow read: if isAdmin() || teacherHasTrashAccess(resource.data);
+        allow create: if isAdmin() || validTeacherTrashAssignment(request.resource.data, yearId);
+        allow update: if isAdmin();
+        allow delete: if isAdmin() || teacherHasTrashAccess(resource.data);
       }
       match /grades/{gradeKey} {
         allow read: if isStaff();
