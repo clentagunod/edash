@@ -22,6 +22,8 @@ const S = {
   query: '',
   activeIndex: -1,
   results: [],
+  recentKeys: [],
+  resultCache: new Map(),
   navEntries: [],
   subEntries: [],
   // Pending "jump to element" target set when a result is clicked. Applied on
@@ -32,6 +34,9 @@ const S = {
 };
 
 let keysBound = false;
+const RECENT_SEARCHES_KEY = 'edash.globalSearch.recent.v1';
+const MAX_RECENT_SEARCHES = 8;
+const MAX_CACHED_QUERIES = 50;
 
 /* ============================================================================
  * Search index
@@ -304,16 +309,97 @@ function currentResults() { return document.getElementById('globalSearchResults'
 function currentPanel() { return document.getElementById('globalSearchPanel'); }
 function currentWrap() { return document.getElementById('globalSearch'); }
 
-function resultRow(entry) {
+function entryKey(entry) {
+  return JSON.stringify([entry.href, entry.selector || '', entry.label]);
+}
+
+function loadRecentKeys() {
+  try {
+    const stored = window.localStorage.getItem(RECENT_SEARCHES_KEY);
+    const keys = stored ? JSON.parse(stored) : [];
+    return Array.isArray(keys)
+      ? keys.filter((key) => typeof key === 'string').slice(0, MAX_RECENT_SEARCHES)
+      : [];
+  } catch (error) {
+    console.warn('Global search recent history could not be loaded.', error);
+    return [];
+  }
+}
+
+function saveRecentKeys() {
+  try {
+    window.localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(S.recentKeys));
+  } catch (error) {
+    console.warn('Global search recent history could not be saved.', error);
+  }
+}
+
+function rememberEntry(key) {
+  if (!key) return;
+  const entry = [...S.navEntries, ...S.subEntries].find((candidate) => entryKey(candidate) === key);
+  if (!entry || entry.isPage) return;
+  S.recentKeys = [key, ...S.recentKeys.filter((recentKey) => recentKey !== key)]
+    .slice(0, MAX_RECENT_SEARCHES);
+  saveRecentKeys();
+}
+
+function recentEntries() {
+  const availableEntries = [...S.navEntries, ...S.subEntries];
+  const entriesByKey = new Map(availableEntries.map((entry) => [entryKey(entry), entry]));
+  const componentEntries = S.recentKeys
+    .map((key) => entriesByKey.get(key))
+    .filter((entry) => entry && !entry.isPage);
+  const validKeys = componentEntries.map(entryKey);
+  if (validKeys.length !== S.recentKeys.length) {
+    S.recentKeys = validKeys;
+    saveRecentKeys();
+  }
+  return componentEntries;
+}
+
+function resultRow(entry, isRecent = false) {
   const icon = entry.icon && Icon[entry.icon] ? Icon[entry.icon] : '';
   const subtext = entry.isPage ? 'Open page' : entry.page;
-  return `
-    <a class="global-search-item" href="${pageHref(entry.href)}" role="option" aria-selected="false"
-       data-href="${entry.href}" data-selector="${entry.selector || ''}">
+  const key = entryKey(entry);
+  const link = `
+    <a class="global-search-item" href="${escapeHtml(pageHref(entry.href))}" role="option" aria-selected="false"
+       data-href="${escapeHtml(entry.href)}" data-selector="${escapeHtml(entry.selector || '')}"
+       data-entry-key="${escapeHtml(key)}" data-is-page="${Boolean(entry.isPage)}">
       <span class="gsi-icon">${icon}</span>
       <span class="gsi-copy"><strong>${escapeHtml(entry.label)}</strong><small>${escapeHtml(subtext)}</small></span>
       <span class="gsi-enter">↵</span>
     </a>`;
+  if (!isRecent) return link;
+  return `
+    <div class="gsi-recent-row">
+      ${link}
+      <button class="gsi-recent-remove" type="button" data-entry-key="${escapeHtml(key)}"
+        aria-label="Remove ${escapeHtml(entry.label)} from recently opened" title="Remove from recently opened">
+        ${Icon.x}
+      </button>
+    </div>`;
+}
+
+function findMatches(query) {
+  if (S.resultCache.has(query)) return S.resultCache.get(query);
+
+  const matches = (entry) => `${entry.page} ${entry.label} ${entry.keywords || ''}`.toLowerCase().includes(query);
+  const pages = S.navEntries.filter(matches);
+  const byPage = new Map();
+  S.subEntries.filter(matches).forEach((entry) => {
+    const list = byPage.get(entry.page) || [];
+    list.push(entry);
+    byPage.set(entry.page, list);
+  });
+  const groups = [];
+  if (pages.length) groups.push({ title: 'Pages', entries: pages });
+  byPage.forEach((entries, pageName) => groups.push({ title: `Within ${pageName}`, entries }));
+
+  if (S.resultCache.size >= MAX_CACHED_QUERIES) {
+    S.resultCache.delete(S.resultCache.keys().next().value);
+  }
+  S.resultCache.set(query, groups);
+  return groups;
 }
 
 function renderResults() {
@@ -325,8 +411,12 @@ function renderResults() {
 
   const query = S.query.trim().toLowerCase();
   if (!query) {
-    if (S.navEntries.length) {
-      container.innerHTML = '<div class="gsi-group">Pages</div>' + S.navEntries.map(resultRow).join('');
+    const recent = recentEntries();
+    if (recent.length) {
+      container.innerHTML = '<div class="gsi-group">Recently opened</div>' + recent.map((entry) => resultRow(entry, true)).join('');
+      S.results = [...container.querySelectorAll('.global-search-item')];
+    } else if (S.navEntries.length) {
+      container.innerHTML = '<div class="gsi-group">Pages</div>' + S.navEntries.map((entry) => resultRow(entry)).join('');
       S.results = [...container.querySelectorAll('.global-search-item')];
     } else {
       container.innerHTML = '<div class="gsi-empty">Nothing available in this workspace.</div>';
@@ -334,25 +424,12 @@ function renderResults() {
     return;
   }
 
-  const matches = (entry) => `${entry.page} ${entry.label} ${entry.keywords || ''}`.toLowerCase().includes(query);
-  const pages = S.navEntries.filter(matches);
-  const byPage = new Map();
-  S.subEntries.filter(matches).forEach((entry) => {
-    const list = byPage.get(entry.page) || [];
-    list.push(entry);
-    byPage.set(entry.page, list);
-  });
-
-  const groups = [];
-  if (pages.length) groups.push({ title: 'Pages', entries: pages });
-  byPage.forEach((list, pageName) => groups.push({ title: `Within ${pageName}`, entries: list }));
-
   let total = 0;
   let html = '';
-  for (const group of groups) {
+  for (const group of findMatches(query)) {
     if (total >= 60) break;
     const list = group.entries.slice(0, 12);
-    html += `<div class="gsi-group">${escapeHtml(group.title)}</div>${list.map(resultRow).join('')}`;
+    html += `<div class="gsi-group">${escapeHtml(group.title)}</div>${list.map((entry) => resultRow(entry)).join('')}`;
     total += list.length;
   }
   if (!html) html = `<div class="gsi-empty">No matches for “${escapeHtml(query)}”.</div>`;
@@ -377,17 +454,13 @@ function openPanel() {
   const input = currentInput();
   if (!panel || !wrap || !input) return;
   S.open = true;
-  S.query = '';
   panel.hidden = false;
   wrap.classList.add('is-open');
-  const trigger = document.getElementById('globalSearchTrigger');
-  if (trigger) trigger.setAttribute('aria-expanded', 'true');
-  input.value = '';
+  input.setAttribute('aria-expanded', 'true');
   renderResults();
-  window.setTimeout(() => { try { input.focus(); } catch (error) { /* no-op */ } }, 0);
 }
 
-function closePanel() {
+function closePanel(blurInput = false) {
   const panel = currentPanel();
   const input = currentInput();
   if (!panel) return;
@@ -395,17 +468,23 @@ function closePanel() {
   panel.hidden = true;
   const wrap = currentWrap();
   if (wrap) wrap.classList.remove('is-open');
-  const trigger = document.getElementById('globalSearchTrigger');
-  if (trigger) trigger.setAttribute('aria-expanded', 'false');
-  if (input) { try { input.blur(); } catch (error) { /* no-op */ } }
+  if (input) {
+    input.setAttribute('aria-expanded', 'false');
+    if (blurInput) { try { input.blur(); } catch (error) { /* no-op */ } }
+  }
   S.results = [];
   S.activeIndex = -1;
 }
 
 function onInput(event) {
+  if (!S.open) openPanel();
   S.query = event.target.value;
   S.activeIndex = -1;
   renderResults();
+}
+
+function onInputFocus() {
+  openPanel();
 }
 
 function onInputKeydown(event) {
@@ -422,17 +501,31 @@ function onInputKeydown(event) {
 }
 
 function onResultClick(event) {
+  const removeButton = event.target.closest('.gsi-recent-remove');
+  if (removeButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    const key = removeButton.dataset.entryKey;
+    S.recentKeys = S.recentKeys.filter((recentKey) => recentKey !== key);
+    saveRecentKeys();
+    renderResults();
+    return;
+  }
+
   const link = event.target.closest('.global-search-item');
   if (!link) return;
   const href = link.dataset.href || '';
   const selector = link.dataset.selector || '';
+  rememberEntry(link.dataset.entryKey);
+  const input = currentInput();
+  if (input) input.value = '';
   const path = window.location.pathname || '';
   const onSamePage = path.endsWith(`/${href}`);
 
   if (onSamePage) {
     event.preventDefault();
     S.query = '';
-    closePanel();
+    closePanel(true);
     if (selector) {
       const element = document.querySelector(selector);
       if (element) flashTarget(element);
@@ -442,7 +535,7 @@ function onResultClick(event) {
 
   if (selector) S.pending = { href, selector };
   S.query = '';
-  closePanel();
+  closePanel(true);
   // Default anchor navigation proceeds; App.tsx intercepts /pages/ links and
   // the destination renderShell re-mounts the search, applying S.pending.
 }
@@ -453,10 +546,13 @@ function bindGlobalKeys() {
   document.addEventListener('keydown', (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
       event.preventDefault();
-      const trigger = document.getElementById('globalSearchTrigger');
-      if (!trigger) return;
-      if (S.open) closePanel();
-      else openPanel();
+      const input = currentInput();
+      if (!input) return;
+      if (S.open) closePanel(true);
+      else {
+        openPanel();
+        input.focus();
+      }
     } else if (event.key === 'Escape' && S.open) {
       closePanel();
     }
@@ -472,13 +568,17 @@ function bindGlobalKeys() {
  */
 export function mountGlobalSearch(navItems = []) {
   const wrap = currentWrap();
-  const trigger = document.getElementById('globalSearchTrigger');
   const input = currentInput();
   const panel = currentPanel();
   const results = currentResults();
-  if (!wrap || !trigger || !input || !panel || !results) return;
+  if (!wrap || !input || !panel || !results) return;
 
   bindGlobalKeys();
+  S.open = false;
+  S.query = input.value;
+  panel.hidden = true;
+  wrap.classList.remove('is-open');
+  input.setAttribute('aria-expanded', 'false');
 
   // Rebuild the index from the role-filtered nav the shell already computed.
   S.navEntries = (navItems || []).map((item) => ({
@@ -494,13 +594,11 @@ export function mountGlobalSearch(navItems = []) {
   S.subEntries = CURATED.filter((entry) =>
     navHrefs.has(entry.href) || (!isVisitorSession() && (!entry.role || (ROLE_GATES[entry.role] && ROLE_GATES[entry.role]()))),
   );
+  S.recentKeys = loadRecentKeys();
+  S.resultCache.clear();
 
   // Re-bind (the topbar DOM was recreated on this render).
-  trigger.onclick = (event) => {
-    event.stopPropagation();
-    if (S.open) closePanel();
-    else openPanel();
-  };
+  input.onfocus = onInputFocus;
   input.oninput = onInput;
   input.onkeydown = onInputKeydown;
   panel.onmousedown = (event) => event.stopPropagation();

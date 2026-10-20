@@ -349,17 +349,12 @@ export function renderShell(activeKey, pageTitleForMobile) {
       <button class="topbar-menu-btn" id="menuToggle" aria-label="Toggle navigation">${Icon.menu}</button>
       <h2 style="font-size:16px; ${pageTitleForMobile ? "" : "visibility:hidden;"}">${pageTitleForMobile || ""}</h2>
       <div class="global-search" id="globalSearch">
-        <button class="global-search-trigger" id="globalSearchTrigger" type="button" aria-label="Search pages and tools" aria-haspopup="listbox" aria-expanded="false">
+        <div class="global-search-input-wrap">
           ${Icon.search}
-          <span>Search pages and tools…</span>
+          <input id="globalSearchInput" type="search" placeholder="Search pages and tools…" autocomplete="off" spellcheck="false" aria-label="Search pages and tools" role="combobox" aria-autocomplete="list" aria-controls="globalSearchPanel" aria-expanded="false" />
           <kbd>Ctrl K</kbd>
-        </button>
+        </div>
         <div class="global-search-panel" id="globalSearchPanel" role="listbox" aria-label="Search results" hidden>
-          <div class="global-search-input-wrap">
-            ${Icon.search}
-            <input id="globalSearchInput" type="search" placeholder="Search pages and tools…" autocomplete="off" spellcheck="false" aria-label="Search pages and tools" />
-            <kbd>esc</kbd>
-          </div>
           <div class="global-search-results" id="globalSearchResults"></div>
         </div>
       </div>

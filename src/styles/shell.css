@@ -332,36 +332,42 @@
 
 /* ---- Global search (command palette) ---------------------------------- */
 .global-search { position: relative; flex: 1 1 auto; max-width: 640px; margin-left: 20px; margin-right: 8px; min-width: 0; }
-.global-search-trigger {
+.global-search-input-wrap {
   display: flex; align-items: center; gap: 9px; width: 100%; height: 36px;
   padding: 0 10px 0 12px;
   border: 1px solid var(--line-200); border-radius: 10px;
-  background: var(--bg-app); color: var(--ink-500); cursor: pointer; text-align: left;
-  font: inherit; font-size: 13px; white-space: nowrap;
-  transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease, color var(--motion-fast) ease;
+  background: var(--bg-app); color: var(--ink-500);
+  transition: border-color var(--motion-fast) ease, background var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
 }
-.global-search-trigger:hover { border-color: var(--blue-300); background: var(--bg-card); color: var(--ink-800); }
-.global-search-trigger svg { width: 16px; height: 16px; flex: 0 0 auto; }
-.global-search-trigger span { flex: 1; overflow: hidden; text-overflow: ellipsis; }
-.global-search-trigger kbd,
+.global-search-input-wrap:focus-within,
+.global-search.is-open .global-search-input-wrap {
+  border-color: var(--blue-300); background: var(--bg-card); box-shadow: 0 0 0 3px var(--blue-100);
+}
+.global-search-input-wrap svg { width: 16px; height: 16px; color: var(--ink-500); flex: 0 0 auto; }
+.global-search-input-wrap input {
+  flex: 1; min-width: 0; border: 0; outline: 0; background: transparent;
+  font: inherit; font-size: 13px; color: var(--ink-900);
+}
+.global-search-input-wrap input::placeholder { color: var(--ink-500); }
 .global-search-input-wrap kbd {
   font-family: var(--font-ui); font-size: 10px; font-weight: 600; letter-spacing: .4px;
   color: var(--ink-500); background: var(--bg-card);
   border: 1px solid var(--line-200); border-radius: 5px; padding: 3px 5px; white-space: nowrap;
 }
 .global-search-panel {
-  position: absolute; top: calc(100% + 8px); left: 0; right: 0; z-index: 60;
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 60;
   background: var(--bg-card); border: 1px solid var(--line-200); border-radius: 12px;
   box-shadow: var(--shadow-pop); overflow: hidden;
   display: flex; flex-direction: column; max-height: min(540px, calc(100vh - 120px));
 }
 .global-search-panel[hidden] { display: none; }
-.global-search-input-wrap { display: flex; align-items: center; gap: 8px; padding: 11px 12px; border-bottom: 1px solid var(--line-200); }
-.global-search-input-wrap svg { width: 17px; height: 17px; color: var(--ink-500); flex: 0 0 auto; }
-.global-search-input-wrap input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: inherit; font-size: 14px; color: var(--ink-900); }
-.global-search-input-wrap input::placeholder { color: var(--ink-400); }
 .global-search-results { overflow-y: auto; padding: 6px; }
 .gsi-group { padding: 8px 10px 4px; font-size: 10.5px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: var(--ink-500); }
+.gsi-recent-row { display: flex; align-items: center; gap: 4px; }
+.gsi-recent-row .global-search-item { flex: 1; min-width: 0; }
+.gsi-recent-remove { display: grid; place-items: center; width: 32px; height: 32px; flex: 0 0 auto; border: 0; border-radius: 7px; background: transparent; color: var(--ink-400); cursor: pointer; }
+.gsi-recent-remove:hover, .gsi-recent-remove:focus-visible { outline: 0; background: var(--danger-100); color: var(--danger-600); }
+.gsi-recent-remove svg { width: 15px; height: 15px; }
 .global-search-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border-radius: 8px; color: var(--ink-700); text-decoration: none; }
 .global-search-item:hover, .global-search-item.is-active { background: var(--blue-100); color: var(--ink-900); }
 .gsi-icon { display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 auto; border-radius: 8px; background: var(--bg-app); color: var(--blue-600); }

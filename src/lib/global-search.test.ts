@@ -22,9 +22,10 @@ function setupTopbar() {
   document.body.innerHTML = `
     <header class="topbar">
       <div class="global-search" id="globalSearch">
-        <button id="globalSearchTrigger" type="button">Search</button>
+        <div class="global-search-input-wrap">
+          <input id="globalSearchInput" type="search" aria-expanded="false" />
+        </div>
         <div class="global-search-panel" id="globalSearchPanel" hidden>
-          <div class="global-search-input-wrap"><input id="globalSearchInput" type="search" /></div>
           <div class="global-search-results" id="globalSearchResults"></div>
         </div>
       </div>
@@ -34,6 +35,7 @@ function setupTopbar() {
 
 describe('global search', () => {
   beforeEach(() => {
+    window.localStorage.clear();
     setupTopbar();
     mountGlobalSearch(NAV);
   });
@@ -46,11 +48,23 @@ describe('global search', () => {
   });
 
   it('shows page quick links when opened with an empty query', () => {
-    document.getElementById('globalSearchTrigger').click();
+    document.getElementById('globalSearchInput').focus();
     const results = document.getElementById('globalSearchResults');
     const items = results.querySelectorAll('.global-search-item');
     expect(items.length).toBeGreaterThanOrEqual(2);
     expect(results.querySelector('.gsi-group')?.textContent).toBe('Pages');
+    expect(results.querySelector('.gsi-recent-remove')).toBeNull();
+  });
+
+  it('does not add suggested pages to recent component history', () => {
+    const input = document.getElementById('globalSearchInput');
+    input.focus();
+    document.querySelector('.global-search-item').click();
+
+    expect(window.localStorage.getItem('edash.globalSearch.recent.v1')).toBeNull();
+    input.focus();
+    expect(document.querySelector('.gsi-group')?.textContent).toBe('Pages');
+    expect(document.querySelector('.gsi-recent-remove')).toBeNull();
   });
 
   it('filters subcomponents by label and shows the page breadcrumb', () => {
@@ -93,11 +107,49 @@ describe('global search', () => {
   });
 
   it('closes the panel when Esc is pressed', () => {
-    document.getElementById('globalSearchTrigger').click();
+    document.getElementById('globalSearchInput').focus();
     const panel = document.getElementById('globalSearchPanel');
     expect(panel.hidden).toBe(false);
     const input = document.getElementById('globalSearchInput');
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     expect(panel.hidden).toBe(true);
+  });
+
+  it('shows a selected component from the recent-search cache', () => {
+    window.history.replaceState({}, '', '/pages/masterlist.html');
+    const input = document.getElementById('globalSearchInput');
+    input.value = 'add learner';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    document.querySelector('.global-search-item').click();
+
+    expect(JSON.parse(window.localStorage.getItem('edash.globalSearch.recent.v1'))).toHaveLength(1);
+    mountGlobalSearch(NAV);
+    input.focus();
+    expect(document.querySelector('.gsi-group')?.textContent).toBe('Recently opened');
+    expect(document.querySelector('.global-search-item strong')?.textContent).toBe('Add Learner');
+
+    document.querySelector('.gsi-recent-remove').click();
+    expect(JSON.parse(window.localStorage.getItem('edash.globalSearch.recent.v1'))).toEqual([]);
+    expect(document.querySelector('.gsi-group')?.textContent).toBe('Pages');
+    expect(document.querySelector('.global-search-item strong')?.textContent).toBe('Learner Masterlist');
+  });
+
+  it('uses the same search input when results are opened', () => {
+    const input = document.getElementById('globalSearchInput');
+    input.value = 'account';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+
+    expect(document.querySelectorAll('#globalSearchInput')).toHaveLength(1);
+    expect(document.getElementById('globalSearchPanel').hidden).toBe(false);
+    expect(document.querySelector('.global-search-item strong')?.textContent).toBe('Account Settings');
+  });
+
+  it('opens and focuses the existing input with Ctrl+K', () => {
+    const input = document.getElementById('globalSearchInput');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true }));
+
+    expect(document.activeElement).toBe(input);
+    expect(document.getElementById('globalSearchPanel').hidden).toBe(false);
+    expect(document.querySelectorAll('#globalSearchInput')).toHaveLength(1);
   });
 });
