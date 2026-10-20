@@ -4398,12 +4398,14 @@ body.dark-mode .school-registration-status.is-error {
   opacity: 1;
   filter: none;
   pointer-events: none;
-  background: linear-gradient(
-    118deg,
-    color-mix(in srgb, var(--school-accent, #667064) 74%, #101810),
-    color-mix(in srgb, var(--school-accent, #667064) 86%, #101810) 52%,
-    color-mix(in srgb, var(--school-accent, #667064) 78%, #101810)
-  );
+  background:
+    url("/assets/edash/login-curve-lines.svg") center / 100% 100% no-repeat,
+    linear-gradient(
+      118deg,
+      color-mix(in srgb, var(--school-accent, #667064) 74%, #101810),
+      color-mix(in srgb, var(--school-accent, #667064) 86%, #101810) 52%,
+      color-mix(in srgb, var(--school-accent, #667064) 78%, #101810)
+    );
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000' preserveAspectRatio='none'%3E%3Cpath fill='white' d='M0 600 C190 640 390 770 680 780 C820 785 910 735 1000 710 L1000 1000 L0 1000 Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000' preserveAspectRatio='none'%3E%3Cpath fill='white' d='M0 600 C190 640 390 770 680 780 C820 785 910 735 1000 710 L1000 1000 L0 1000 Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
   transform: none;
@@ -4456,9 +4458,23 @@ body.dark-mode .school-registration-status.is-error {
   text-shadow: 0 2px 14px rgba(0, 0, 0, .35);
 }
 
-.login-shell[data-login-stage="school-login"] .login-metrics {
+.login-shell[data-login-stage="school-login"] .login-school-visual::after {
   position: absolute;
   z-index: 2;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  opacity: .78;
+  background:
+    radial-gradient(ellipse 7% 3% at 68% 78%, rgba(255, 255, 255, .96), color-mix(in srgb, var(--school-accent, #667064) 34%, transparent) 42%, transparent 78%),
+    radial-gradient(ellipse 1.15% 16% at 68% 78%, rgba(255, 255, 255, .72), color-mix(in srgb, var(--school-accent, #667064) 30%, transparent) 42%, transparent 78%),
+    radial-gradient(ellipse 15% 8% at 68% 78%, color-mix(in srgb, var(--school-accent, #667064) 24%, transparent), transparent 76%);
+  animation: login-edge-flare 4.8s ease-in-out infinite;
+}
+
+.login-shell[data-login-stage="school-login"] .login-metrics {
+  position: absolute;
+  z-index: 3;
   right: clamp(24px, 4.6vw, 64px);
   bottom: clamp(42px, 6.5vh, 68px);
   left: clamp(24px, 4.6vw, 64px);
@@ -4626,5 +4642,19 @@ body.dark-mode .school-registration-status.is-error {
 
   .login-shell[data-login-stage="school-login"] .login-card {
     padding: 22px 20px 18px;
+  }
+}
+
+@keyframes login-edge-flare {
+  0%, 100% { opacity: .58; }
+  46% { opacity: .82; }
+  50% { opacity: 1; }
+  54% { opacity: .72; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-shell[data-login-stage="school-login"] .login-school-visual::after {
+    animation: none;
+    opacity: .82;
   }
 }

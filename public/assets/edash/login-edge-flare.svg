@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" preserveAspectRatio="none">
+  <defs>
+    <radialGradient id="flare-glow">
+      <stop offset="0" stop-color="#fff" stop-opacity=".95" />
+      <stop offset=".08" stop-color="#eafffa" stop-opacity=".76" />
+      <stop offset=".28" stop-color="#b8f9e8" stop-opacity=".28" />
+      <stop offset="1" stop-color="#b8f9e8" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="flare-ray" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d9fff3" stop-opacity="0" />
+      <stop offset=".47" stop-color="#eafffa" stop-opacity=".08" />
+      <stop offset=".5" stop-color="#fff" stop-opacity=".92" />
+      <stop offset=".54" stop-color="#c9fff0" stop-opacity=".16" />
+      <stop offset="1" stop-color="#b8f9e8" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="flare-streak" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff" stop-opacity="0" />
+      <stop offset=".5" stop-color="#fff" stop-opacity=".9" />
+      <stop offset="1" stop-color="#fff" stop-opacity="0" />
+    </linearGradient>
+    <filter id="soft-glow" x="-200%" y="-200%" width="400%" height="400%">
+      <feGaussianBlur stdDeviation="12" />
+    </filter>
+  </defs>
+  <g class="flare-pulse" transform="translate(700 780)">
+    <ellipse rx="46" ry="30" fill="url(#flare-glow)" filter="url(#soft-glow)" />
+    <ellipse rx="27" ry="19" fill="url(#flare-glow)" />
+    <path d="M0-68V68" stroke="url(#flare-ray)" stroke-width="16" />
+    <path d="M-58 0H58" stroke="url(#flare-streak)" stroke-width="2" />
+    <path d="M-8-5 0-30 8-5 30 0 8 5 0 30-8 5-30 0Z" fill="#f5fffc" fill-opacity=".88" />
+    <circle r="3.5" fill="#fff" />
+  </g>
+  <style>
+    .flare-pulse {
+      animation: flare-breathe 3.2s ease-in-out infinite;
+      transform-box: view-box;
+      transform-origin: 70% 78%;
+    }
+    @keyframes flare-breathe {
+      0%, 100% { opacity: .68; }
+      50% { opacity: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .flare-pulse { animation: none; }
+    }
+  </style>
+</svg>
