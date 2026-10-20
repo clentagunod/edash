@@ -4328,3 +4328,303 @@ body.dark-mode .school-registration-status.is-error {
     0 0 0 3px color-mix(in srgb, var(--school-accent) 14%, transparent),
     0 9px 20px rgba(0, 0, 0, .12);
 }
+
+/* Video-led school login layout. The existing school accent supplies the color. */
+.login-shell[data-login-stage="school-login"] {
+  grid-template-columns: minmax(0, 1.18fr) minmax(430px, 1fr);
+  height: 100svh;
+  min-height: 620px;
+  overflow: hidden;
+  background: #f5f7f5;
+}
+
+.login-shell[data-login-stage="school-login"] .login-visual {
+  display: block;
+  position: relative;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  isolation: isolate;
+  background: #17221d;
+}
+
+.login-shell[data-login-stage="school-login"] .login-school-media {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  aspect-ratio: auto;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.login-shell[data-login-stage="school-login"] .school-preview-video,
+.login-shell[data-login-stage="school-login"] .school-video-placeholder {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  border: 0;
+  border-radius: 0;
+  object-fit: cover;
+  object-position: center 62%;
+  transform: scale(1.1) translateY(-4%);
+}
+
+.login-shell[data-login-stage="school-login"][data-school-accent] .login-visual::before {
+  z-index: 1;
+  inset: 0;
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  opacity: 1;
+  filter: none;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(5, 15, 12, .58), rgba(5, 15, 12, .2) 68%, rgba(5, 15, 12, .08)),
+    linear-gradient(180deg, rgba(5, 15, 12, .16), transparent 42%, rgba(5, 15, 12, .2));
+}
+
+.login-shell[data-login-stage="school-login"][data-school-accent] .login-visual::after {
+  z-index: 1;
+  inset: 0;
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  opacity: 1;
+  filter: none;
+  pointer-events: none;
+  background: linear-gradient(
+    118deg,
+    color-mix(in srgb, var(--school-accent, #667064) 74%, #101810),
+    color-mix(in srgb, var(--school-accent, #667064) 86%, #101810) 52%,
+    color-mix(in srgb, var(--school-accent, #667064) 78%, #101810)
+  );
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000' preserveAspectRatio='none'%3E%3Cpath fill='white' d='M0 600 C190 640 390 770 680 780 C820 785 910 735 1000 710 L1000 1000 L0 1000 Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 1000' preserveAspectRatio='none'%3E%3Cpath fill='white' d='M0 600 C190 640 390 770 680 780 C820 785 910 735 1000 710 L1000 1000 L0 1000 Z'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  transform: none;
+}
+
+.login-shell[data-login-stage="school-login"] .login-brand {
+  position: absolute;
+  z-index: 2;
+  top: clamp(26px, 4.5vh, 48px);
+  left: clamp(28px, 4.6vw, 64px);
+  animation: none;
+}
+
+.login-shell[data-login-stage="school-login"] .login-brand-text .eyebrow {
+  color: rgba(255, 255, 255, .78);
+}
+
+.login-shell[data-login-stage="school-login"] .login-school-visual {
+  position: absolute;
+  z-index: auto;
+  inset: 0;
+  box-sizing: border-box;
+  padding: clamp(150px, 20vh, 205px) clamp(28px, 4.6vw, 64px) 0;
+  max-width: none;
+  margin: 0;
+  pointer-events: none;
+}
+
+.login-shell[data-login-stage="school-login"] .login-school-name {
+  position: relative;
+  z-index: 2;
+  max-width: 590px;
+  margin: 0 0 10px;
+  color: #fff;
+  font-size: clamp(1.45rem, 2.2vw, 2rem);
+  line-height: 1.15;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, .32);
+}
+
+.login-shell[data-login-stage="school-login"] .login-school-tagline {
+  position: relative;
+  z-index: 2;
+  max-width: 440px;
+  margin: 0;
+  color: rgba(255, 255, 255, .9);
+  font-size: clamp(1rem, 1.35vw, 1.2rem);
+  line-height: 1.55;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, .35);
+}
+
+.login-shell[data-login-stage="school-login"] .login-metrics {
+  position: absolute;
+  z-index: 2;
+  right: clamp(24px, 4.6vw, 64px);
+  bottom: clamp(42px, 6.5vh, 68px);
+  left: clamp(24px, 4.6vw, 64px);
+  width: auto;
+  max-width: 760px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  padding: 8px 4px;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--school-accent, #667064) 72%, rgba(17, 29, 22, .74));
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .12), inset 0 1px rgba(255, 255, 255, .1);
+  backdrop-filter: blur(12px);
+}
+
+.login-shell[data-login-stage="school-login"][data-school-accent] .login-metric {
+  min-height: 72px;
+  padding: 8px 14px;
+  border: 0;
+  border-right: 1px solid color-mix(in srgb, var(--school-accent) 24%, rgba(255, 255, 255, .34));
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.login-shell[data-login-stage="school-login"] .login-metric:last-child { border-right: 0; }
+
+.login-shell[data-login-stage="school-login"][data-school-accent] .login-metric-icon {
+  width: 44px;
+  height: 44px;
+  flex-basis: 44px;
+  flex-basis: 36px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--school-accent) 35%, rgba(255, 255, 255, .56));
+  background: color-mix(in srgb, var(--school-accent) 30%, rgba(255, 255, 255, .24));
+  color: #fff;
+}
+
+.login-shell[data-login-stage="school-login"] .login-metric-copy strong {
+  color: #fff;
+  font-size: 1.1rem;
+}
+
+.login-shell[data-login-stage="school-login"] .login-metric-copy span {
+  color: rgba(255, 255, 255, .78);
+  font-size: .66rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.login-shell[data-login-stage="school-login"] .login-panel {
+  padding: clamp(28px, 4vw, 58px);
+  background: linear-gradient(145deg, #f6f8f6, #edf1ee);
+}
+
+.login-shell[data-login-stage="school-login"] .login-panel::before {
+  top: -110px;
+  right: -110px;
+  width: 270px;
+  height: 270px;
+}
+
+.login-shell[data-login-stage="school-login"] .login-panel::after {
+  right: -108px;
+  bottom: -155px;
+  width: 320px;
+  height: 320px;
+}
+
+.login-shell[data-login-stage="school-login"] .login-card {
+  width: min(100%, 470px);
+  padding: clamp(28px, 3vw, 38px);
+  border-color: rgba(225, 231, 226, .9);
+  border-radius: 19px;
+  background: rgba(255, 255, 255, .91);
+  box-shadow: 0 24px 64px rgba(31, 48, 37, .12), 0 2px 8px rgba(31, 48, 37, .035);
+  backdrop-filter: blur(12px);
+  animation: none;
+}
+
+.login-shell[data-login-stage="school-login"] .login-card-kicker {
+  color: var(--school-accent, #667064);
+}
+
+.login-shell[data-login-stage="school-login"] .school-change-link {
+  color: var(--school-accent, #667064);
+}
+
+.login-shell[data-login-stage="school-login"] .field input {
+  min-height: 44px;
+  border-radius: 10px;
+  background: #f8faf8;
+}
+
+.login-shell[data-login-stage="school-login"] #loginSubmit {
+  min-height: 46px;
+  border-radius: 10px;
+}
+
+.login-shell[data-login-stage="school-login"] .visitor-login,
+.login-shell[data-login-stage="school-login"] .parent-login {
+  min-height: 52px;
+  border-radius: 13px;
+}
+
+@media (max-width: 860px) {
+  .login-shell[data-login-stage="school-login"] {
+    height: auto;
+    min-height: 100svh;
+    overflow: visible;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(260px, 34svh) minmax(0, 1fr);
+  }
+
+  .login-shell[data-login-stage="school-login"] .login-visual {
+    display: block;
+    min-height: 260px;
+  }
+
+  .login-shell[data-login-stage="school-login"] .login-school-media {
+    display: block;
+  }
+
+  .login-shell[data-login-stage="school-login"] .login-school-visual {
+    padding-top: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding-bottom: 30px;
+  }
+
+  .login-shell[data-login-stage="school-login"] .login-school-name {
+    font-size: clamp(1.15rem, 4vw, 1.65rem);
+  }
+
+  .login-shell[data-login-stage="school-login"] .login-metrics { display: none; }
+
+  .login-shell[data-login-stage="school-login"] .login-panel {
+    min-height: 0;
+    padding: 28px 24px 54px;
+  }
+}
+
+@media (max-width: 560px) {
+  .login-shell[data-login-stage="school-login"] {
+    grid-template-rows: minmax(220px, 30svh) minmax(0, 1fr);
+  }
+
+  .login-shell[data-login-stage="school-login"] .login-brand {
+    top: 20px;
+    left: 20px;
+  }
+
+  .login-shell[data-login-stage="school-login"] .login-school-visual {
+    padding: 0 20px 24px;
+  }
+
+  .login-shell[data-login-stage="school-login"] .login-panel {
+    padding: 20px 16px 48px;
+  }
+
+  .login-shell[data-login-stage="school-login"] .login-card {
+    padding: 22px 20px 18px;
+  }
+}
