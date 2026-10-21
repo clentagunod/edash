@@ -1,6 +1,7 @@
-import { APP_CONFIG } from '../lib/app-config';
+import { useModeSettings } from '../lib/mode-settings';
 
 export default function TestModeStamp() {
-  if (!APP_CONFIG.testMode) return null;
+  const { isTestMode } = useModeSettings();
+  if (!isTestMode) return null;
   return <div className="test-mode-stamp" aria-hidden="true">TEST MODE</div>;
 }

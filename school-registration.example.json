@@ -6,6 +6,7 @@
   "colorGradientTag": "#50A61E",
   "logoUrl": "/assets/edash/edash.png",
   "videoUrl": "",
+  "canUseEduAI": false,
   "schoolInfo": {
     "region": "IX",
     "divisionOffice": "Schools Division Office of Davao de Oro",

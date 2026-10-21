@@ -8,6 +8,7 @@ import RouteLoadingFallback from './components/RouteLoadingFallback';
 import MaintenancePage from './pages/MaintenancePage';
 import { APP_CONFIG } from './lib/app-config';
 import { auth } from './lib/firebase';
+import { startModeSettingsListener, useModeSettings } from './lib/mode-settings';
 import { clearTenantSession } from './lib/tenant-session';
 import { clearStoredSchool, getRegisteredSchools, getStoredSchool, sameSchoolRegistration, storeActiveSchool } from './lib/school-registry';
 
@@ -204,6 +205,11 @@ function SchoolRegistrationGate({ children }: { children: ReactNode }) {
 export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [modeSettingsRetry, setModeSettingsRetry] = useState(0);
+  const modeSettings = useModeSettings();
+
+  useEffect(() => startModeSettingsListener(), [modeSettingsRetry]);
+
   useEffect(() => {
     const handlePageLinkClick = (event: MouseEvent) => {
       if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -222,7 +228,23 @@ export default function App() {
     return () => document.removeEventListener('click', handlePageLinkClick);
   }, [navigate]);
 
-  if (APP_CONFIG.maintenanceMode) {
+  if (modeSettings.status === 'loading') {
+    return <RouteLoadingFallback pageLoading={false} />;
+  }
+  if (modeSettings.status === 'error') {
+    return (
+      <main className="school-access-error" role="alert" aria-live="assertive">
+        <div className="school-access-error-content">
+          <strong>Mode settings could not be loaded</strong>
+          <span>The centralized E-Dash settings are temporarily unavailable.</span>
+          <button className="school-access-retry" type="button" onClick={() => setModeSettingsRetry((value) => value + 1)}>
+            Try again
+          </button>
+        </div>
+      </main>
+    );
+  }
+  if (modeSettings.isMaintenanceMode) {
     return <MaintenancePage />;
   }
 

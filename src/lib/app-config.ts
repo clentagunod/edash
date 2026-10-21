@@ -5,10 +5,6 @@ import { DEFAULT_GRADE_TERMS_SETTINGS } from "./grading-config";
 const env = import.meta.env;
 const activeSchool = getActiveSchool();
 
-// Set VITE_MAINTENANCE_MODE=true in Vercel to show the maintenance page
-// without changing the application code that you use locally.
-export const MAINTENANCE_MODE = env.VITE_MAINTENANCE_MODE === "true";
-export const TEST_MODE_ENABLED = env.VITE_TEST_MODE === "true";
 const LOCAL_MAINTENANCE_ANIMATION_URL = "/assets/maintenance.json";
 
 export const APP_CONFIG = Object.freeze({
@@ -22,8 +18,6 @@ export const APP_CONFIG = Object.freeze({
     faviconFile: "favicon.png",
     description: "A realtime learner enrollment, profiles, and school statistics dashboard.",
   }),
-  maintenanceMode: MAINTENANCE_MODE,
-  testMode: TEST_MODE_ENABLED,
   // Keep the animation in the deployed app by default. A VITE_* override is
   // still supported when a different local filename or remote asset is needed.
   maintenanceAnimationUrl: env.VITE_MAINTENANCE_ANIMATION_URL || LOCAL_MAINTENANCE_ANIMATION_URL,

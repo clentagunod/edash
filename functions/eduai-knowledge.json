@@ -1,0 +1,53 @@
+[
+  {
+    "title": "E-Dash navigation and role access",
+    "keywords": ["website", "navigate", "menu", "page", "function", "access", "permission", "help"],
+    "guidance": "E-Dash shows pages and actions according to the signed-in account role and its school permissions. Use the application navigation to open a page; if a menu item or action is not available, ask the school administrator to confirm the account role and access. EduAI explains workflows but cannot change records or permissions."
+  },
+  {
+    "title": "Dashboard",
+    "keywords": ["dashboard", "overview", "summary", "counts", "trend"],
+    "guidance": "The Dashboard is the overview page for school enrollment information and summary counts. Confirm the displayed school year before interpreting a figure. Use the dedicated data or report pages for more detailed views."
+  },
+  {
+    "title": "Masterlist and learner records",
+    "keywords": ["masterlist", "learner", "student", "search", "record", "enrollment"],
+    "guidance": "The Masterlist is the central page for browsing learner records. Use its available search and filters to locate records, and follow the on-screen form validation when adding or editing information. Only make changes you are authorized to make; EduAI cannot retrieve or disclose individual profile details."
+  },
+  {
+    "title": "Enrollment data and reports",
+    "keywords": ["enrollment data", "enrollment", "report", "reports", "export", "grade level"],
+    "guidance": "Enrollment Data presents enrollment figures in summary form. Reports and EOSY Report provide reporting views for school data. Check the selected school year and filters before comparing counts or preparing a report."
+  },
+  {
+    "title": "Programs and learner profiles",
+    "keywords": ["4ps", "indigenous", "ip", "sned", "aral", "muslim", "reading", "math", "nutrition", "profile"],
+    "guidance": "E-Dash includes program pages for 4Ps, Indigenous Peoples, SNED, ARAL, and Muslim learners, as well as Reading, Math, and Nutritional Status profile pages. These pages organize information by their named program or profile area; access and available actions depend on the account role."
+  },
+  {
+    "title": "Grades and learner cards",
+    "keywords": ["grade", "grades", "grades profile", "card", "print", "sf9", "subject"],
+    "guidance": "Grades Profile is the grade-related workspace. Print Card is the separate workflow for generating learner cards. The School Admin configures card templates and attendance labels in the Admin Console Card Preferences section. Follow the current school-year selection and on-screen instructions."
+  },
+  {
+    "title": "Promotion and retention",
+    "keywords": ["promotion", "promote", "retention", "retained", "end of school year", "eosy"],
+    "guidance": "Promotion and Retention are separate EOSY workflows. Review the source school year and learner records carefully before applying a progression decision. Promotion availability can depend on school settings and account permissions; consult the School Admin if the action is unavailable."
+  },
+  {
+    "title": "Dropouts and transfers",
+    "keywords": ["dropout", "dropouts", "transfer", "transferred", "withdraw"],
+    "guidance": "Dropout and Transfer Info are dedicated pages for those learner status workflows. Use the appropriate page and follow its required fields rather than changing a status through an unrelated workflow. The application enforces role permissions for records."
+  },
+  {
+    "title": "Admin Console: accounts and school configuration",
+    "roles": ["School Admin"],
+    "keywords": ["admin console", "manage users", "users", "account", "accounts", "school year", "settings", "configuration", "card preferences"],
+    "guidance": "The Admin Console is available to School Admin accounts. Manage Users handles account administration; Settings includes school configuration, and the Card Preferences area configures print-card templates and attendance layout. Use the current on-screen controls, and verify the target school year before changing year-specific settings."
+  },
+  {
+    "title": "Trash and restoration",
+    "keywords": ["trash", "restore", "deleted", "recover"],
+    "guidance": "The Trash page is used to review and restore supported deleted records. Restoration access depends on role and assignment permissions. If a record is not visible or restoration is unavailable, contact a School Admin."
+  }
+]

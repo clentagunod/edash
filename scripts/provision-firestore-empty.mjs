@@ -1,5 +1,6 @@
 import { applicationDefault, cert, getApps, initializeApp } from "firebase-admin/app";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 function option(name, fallback = "") {
@@ -82,6 +83,14 @@ async function seedSchoolStructure(db, schoolYear) {
     subjects: [],
     updatedAt: FieldValue.serverTimestamp(),
   });
+  const eduAiSettingsRef = db.collection("settings").doc("eduai");
+  const eduAiSettingsSnapshot = await eduAiSettingsRef.get();
+  if (!eduAiSettingsSnapshot.exists) {
+    await ensureDoc(eduAiSettingsRef, {
+      ...JSON.parse(readFileSync(new URL("../src/lib/eduai-tenant-defaults.json", import.meta.url), "utf8")),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  }
 
   const gradeTermsRef = db.collection("settings").doc("gradeTerms");
   const gradeTermsSnapshot = await gradeTermsRef.get();
@@ -260,6 +269,7 @@ async function main() {
   console.log("- schoolYears/{schoolYear}/transferredOut/{learnerId}");
   console.log("- schoolYears/{schoolYear}/grades/{gradeId}/sections/{sectionId}/teachers/{teacherUid}");
   console.log("- settings/currentSchoolYear");
+  console.log("- settings/eduai");
   console.log("- settings/curriculumSubjectPool");
   console.log("- settings/gradeTerms/years/{schoolYear}");
   console.log("- publicStats/summary");

@@ -4,6 +4,8 @@ dist
 coverage
 .vite
 .vercel
+worker/.dev.vars*
+!worker/.dev.vars.example
 .DS_Store
 *.log
 npm-debug.log*

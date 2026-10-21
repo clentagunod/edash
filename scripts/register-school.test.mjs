@@ -40,6 +40,13 @@ describe("school registration schema", () => {
       .toBe("#50a61e");
   });
 
+  it("keeps canUseEduAI optional, preserves booleans, and rejects non-boolean values", () => {
+    expect(validateRegistration({ ...validRegistration, canUseEduAI: true }).canUseEduAI).toBe(true);
+    expect(validateRegistration({ ...validRegistration, canUseEduAI: false }).canUseEduAI).toBe(false);
+    expect(() => validateRegistration({ ...validRegistration, canUseEduAI: "true" }))
+      .toThrow("canUseEduAI must be a boolean");
+  });
+
   it.each(["", "green", "#50A61", "#50A61E00"])(
     "rejects an invalid colorGradientTag: %s",
     (colorGradientTag) => {

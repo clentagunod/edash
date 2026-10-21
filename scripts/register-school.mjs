@@ -49,6 +49,9 @@ export function validateRegistration(value) {
   if (typeof tagline !== "string" || tagline.length > 240) {
     throw new Error("tagline must be a string of at most 240 characters.");
   }
+  if (value.canUseEduAI !== undefined && typeof value.canUseEduAI !== "boolean") {
+    throw new Error("canUseEduAI must be a boolean when supplied.");
+  }
   const colorGradientTag = value.colorGradientTag;
   if (colorGradientTag !== undefined &&
     (typeof colorGradientTag !== "string" || !/^#[0-9a-fA-F]{6}$/.test(colorGradientTag))) {

@@ -10,6 +10,12 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // The browser reads global UI modes before a user signs in.
+    match /settings/modes {
+      allow get: if true;
+      allow list, write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

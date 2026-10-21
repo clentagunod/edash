@@ -24,6 +24,7 @@ export interface NutritionChartRecord {
 interface NutritionChartGroup {
   label: string;
   values: Record<NutritionStatus, number>;
+  counts: Record<NutritionStatus, number>;
   total: number;
 }
 
@@ -57,7 +58,7 @@ export function buildNutritionGraphData(records: NutritionChartRecord[]): Nutrit
       if (status) counts[status] += 1;
     });
     const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
-    return { label, values: toPercentages(counts, total), total };
+    return { label, values: toPercentages(counts, total), counts, total };
   });
 
   const latestStatuses = emptyStatusCounts();
@@ -84,7 +85,7 @@ export function buildNutritionGraphData(records: NutritionChartRecord[]): Nutrit
       ? latestStatuses
       : genderCounts.get(label) ?? emptyStatusCounts();
     const total = Object.values(counts).reduce((sum, count) => sum + count, 0);
-    return { label, values: toPercentages(counts, total), total };
+    return { label, values: toPercentages(counts, total), counts, total };
   });
 
   return { periods, latestStatuses, latestByGender };

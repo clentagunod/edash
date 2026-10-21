@@ -6,6 +6,9 @@ export default function MaintenancePage() {
   const lottieContainerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     document.title = `Under Maintenance — ${APP_CONFIG.branding.productName}`;
+    document.body.classList.add('maintenance-mode-active');
+    document.getElementById('testModeStamp')?.remove();
+    return () => document.body.classList.remove('maintenance-mode-active');
   }, []);
 
   const animationUrl = APP_CONFIG.maintenanceAnimationUrl;
@@ -58,7 +61,7 @@ export default function MaintenancePage() {
       <section className="maintenance-card" aria-labelledby="maintenance-title">
         <div className="maintenance-card-topline">
           <span className="maintenance-status-dot" aria-hidden="true" />
-          <span>System update in progress</span>
+          <span>HTTP 503 Service Unavailable</span>
         </div>
 
         <div className={`maintenance-art${animationUrl ? ' has-external-art' : ''}`}>
@@ -76,12 +79,13 @@ export default function MaintenancePage() {
 
         <p className="maintenance-eyebrow">{APP_CONFIG.branding.productName} Website</p>
         <h1 id="maintenance-title">
-          We’re making things
-          <span> even better.</span>
+          Temporarily
+          <span> unavailable.</span>
         </h1>
         <p className="maintenance-copy">
-          The E-Dash website is temporarily unavailable while we carry out
-          maintenance. Please check back soon — we’ll be back shortly.
+          E-Dash is temporarily unavailable while we perform scheduled
+          maintenance. Our team is working to restore the service. Your data
+          remains safe; please refresh this page in a few minutes.
         </p>
 
         <div className="maintenance-progress" aria-label="Maintenance in progress">

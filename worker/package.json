@@ -1,0 +1,19 @@
+{
+  "name": "edash-eduai-gateway",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:create": "wrangler d1 create edash-eduai",
+    "db:migrate:local": "wrangler d1 migrations apply EDUAI_DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply EDUAI_DB --remote",
+    "test": "node --test ../functions/eduai-provider.node.cjs"
+  },
+  "dependencies": {
+    "jose": "^6.1.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.40.0"
+  }
+}

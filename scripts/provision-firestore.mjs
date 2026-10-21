@@ -1,6 +1,7 @@
 import { applicationDefault, cert, getApps, initializeApp } from "firebase-admin/app";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { execFileSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 function option(name, fallback = "") {
@@ -450,6 +451,7 @@ async function main() {
 
   console.log(`Project: ${projectId}`);
   console.log("Provisioning: publicStats/summary");
+  console.log("Provisioning: settings/eduai (role defaults only if missing)");
   console.log("Provisioning: year-specific grade-term settings (default only if missing)");
   if (schoolYear) console.log(`Provisioning: schoolYears/${schoolYear}, settings/currentSchoolYear`);
   if (adminUid) console.log(`Provisioning: users/${adminUid}`);
@@ -460,6 +462,14 @@ async function main() {
 
   const db = initializeAdmin(projectId);
   const batch = db.batch();
+  const eduAiSettingsRef = db.collection("settings").doc("eduai");
+  const existingEduAiSettings = await eduAiSettingsRef.get();
+  if (!existingEduAiSettings.exists) {
+    batch.set(eduAiSettingsRef, {
+      ...JSON.parse(readFileSync(new URL("../src/lib/eduai-tenant-defaults.json", import.meta.url), "utf8")),
+      updatedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  }
   const curriculumSubjectPoolRef = db.collection("settings").doc("curriculumSubjectPool");
   const existingCurriculumSubjectPool = await curriculumSubjectPoolRef.get();
   if (!existingCurriculumSubjectPool.exists) {

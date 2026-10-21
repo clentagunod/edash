@@ -142,6 +142,96 @@ npm run firestore:provision -- --project SCHOOL_FIREBASE_PROJECT_ID --migrate-v2
 
 The migration copies learner, dropout, transfer, grade, section, and teacher data; it skips existing destination records, retains the source collections, and does not roll back automatically. Back up the tenant first and verify the migrated data before deploying the new app/rules. Do not use `--delete-legacy-sections` as a substitute: that flag is only for the older lowercase `sections` collection.
 
+## EduAI no-Blaze plan setup
+
+**You do not need Firebase Blaze or Firebase Cloud Functions for EduAI.** The app keeps sign-in, tenant school data, and chat history in the existing Firebase projects. A separate Cloudflare Worker handles provider calls, and a Cloudflare D1 database stores encrypted provider keys and usage totals. You need a Cloudflare account (the free Workers plan is sufficient to start), a Gemini API key only if you want shared Default usage, and provider API keys only for users who choose BYO.
+
+| Service | Purpose | Billing note |
+| --- | --- | --- |
+| Existing Firebase Auth and Firestore (Spark) | Staff sign-in, tenant school records, preferences, chat history, central school entitlement | No Firebase Cloud Functions are used. Keep within Firebase Spark quotas. |
+| Cloudflare Workers | Authenticated API gateway for EduAI | Free plan includes 100,000 requests/day and 10 ms CPU/request at the time of writing. |
+| Cloudflare D1 | Encrypted provider credentials and per-user/per-provider usage totals | Free plan includes 5 million rows read/day, 100,000 rows written/day, and 5 GB total storage at the time of writing. |
+| AI providers | Model inference | Free-tier availability/quotas vary. BYO users are responsible for their provider account and charges. |
+
+Cloudflare free quotas are not a guarantee of unlimited capacity. Exceeding a daily limit can temporarily stop the Worker or D1 requests until reset. Review [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/) and [D1 pricing](https://developers.cloudflare.com/d1/platform/pricing/) before enabling real school data. Vercel Hobby also has a separate non-commercial-use restriction; the Worker does not change the terms of the Vercel frontend host.
+
+### One-time deployment
+
+1. Confirm the central registry school document has `enabled: true` and boolean `canUseEduAI: true`. The gateway checks this on every call; disabling the flag blocks requests without rebuilding the app.
+2. In Cloudflare, create or sign in to an account and install the Worker package from the repository root:
+
+   ```powershell
+   npm ci --prefix worker
+   npx wrangler login --cwd worker
+   ```
+
+3. Create the D1 database and copy the returned `database_id` into `worker/wrangler.toml`, replacing `replace-after-running-wrangler-d1-create`:
+
+   ```powershell
+   npm run db:create --prefix worker
+   ```
+
+4. Edit `[vars]` in `worker/wrangler.toml`:
+   - `REGISTRY_PROJECT_ID`: the Firebase project ID for the central school directory.
+   - `REGISTRY_FIREBASE_API_KEY`: the public web API key in the existing root `.env.local` under `VITE_REGISTRY_FIREBASE_API_KEY`. This is a public Firebase web config value, not a service-account key.
+   - `ALLOWED_ORIGINS`: comma-separated exact origins that host the app. Include the production origin (for example, `https://dashboard.example.edu`) and `http://localhost:5173` for local testing. Do not put URL paths or trailing slashes here.
+5. Apply the D1 schema:
+
+   ```powershell
+   npm run db:migrate:remote --prefix worker
+   ```
+
+6. Add the encryption secret. Generate a random 32-byte value, copy it somewhere secure, and paste it into the prompt:
+
+   ```powershell
+   node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
+   npx wrangler secret put EDUAI_CREDENTIAL_ENCRYPTION_KEY --cwd worker
+   ```
+
+   Do not regenerate this value after users save keys: existing ciphertext cannot be decrypted with a replacement. To enable the shared Default Gemini option, create a key in [Google AI Studio](https://aistudio.google.com/app/apikey) and set it too:
+
+   ```powershell
+   npx wrangler secret put GEMINI_API_KEY --cwd worker
+   ```
+
+   Shared Gemini is optional. Personal-provider mode only needs the encryption secret; each user supplies their own provider key in AI settings.
+7. Deploy the Worker and copy the URL printed by Wrangler (typically `https://edash-eduai-gateway.<account>.workers.dev`):
+
+   ```powershell
+   npm run deploy --prefix worker
+   ```
+
+8. Set `VITE_EDUAI_API_URL` to that Worker URL in the root `.env.local` for local development. Add the same variable to the Vercel project's Environment Variables for Production (and Preview if you use it), then redeploy the frontend. This URL is public, not a secret. `.env.example` lists the frontend variables.
+9. Start local development and confirm EduAI settings load:
+
+   ```powershell
+   npm run dev
+   ```
+
+   Local API requests can go directly to the deployed Worker; `ALLOWED_ORIGINS` must include `http://localhost:5173`. To run the gateway locally instead, copy `worker/.dev.vars.example` to `worker/.dev.vars`, set a random local encryption key there (and `GEMINI_API_KEY` only if testing shared Gemini), then run `npm run db:migrate:local --prefix worker` followed by `npm run dev --prefix worker` in a second terminal. Point local `VITE_EDUAI_API_URL` to `http://localhost:8787`. No provider API key belongs in `.env.local` or any `VITE_*` variable.
+10. Test the Default option if the shared Gemini secret was set. Then configure a personal provider with a test user, send a synthetic-data question, confirm that usage is per user/provider, switch back to Default, remove the saved key, and test a provider quota error. Do not use real learner data until the school approves the provider's data processing.
+
+The Worker runs independently from the Firebase projects. You do **not** deploy Firebase Functions, upgrade to Blaze, add a service-account JSON file, grant cross-project IAM roles, or store user API keys in tenant Firestore. The tenant's existing Firestore rules still control its user profile and learner-record reads; the server checks the active role and rebuilds model context from the tenant data instead of trusting context sent by the browser. Chat history remains in the tenant Firestore under the signed-in user's existing conversation path. Provider credentials and usage totals live in the central D1 database, keyed by both the central `schoolId` and Firebase `uid`, with provider keys encrypted using AES-256-GCM.
+
+### Role and student-data scope
+
+- Open **AI settings** to select **Default** (shared school Gemini) or **I have my own provider options** (Groq, OpenAI, Gemini, Claude, DeepSeek, Mistral, or OpenRouter). The personal-provider model ID is editable; endpoint entry is pre-filled and server-validated against that provider's official HTTPS host/path to prevent arbitrary URL requests and SSRF. Keys are write-only in the UI, encrypted using the Worker encryption secret, and only decrypted for the request. Users can replace or remove their saved key. The UI also displays successful request/token usage for the current UTC month; provider free allowances are not universal and remain controlled by each vendor.
+- Settings include a maximum reply length (256–2,048 output tokens), creativity (0.0–0.6), request timeout (30–120 seconds), previous messages (0–8), and learner-name inclusion (0–150). Preferences are private to the signed-in account at `users/{uid}/eduaiSettings/preferences`; role defaults live in `settings/eduai`. Defaults set teachers to share no learner names unless they deliberately change the setting. **Reset role defaults** only removes the personal response preferences, not provider credentials.
+- The shared model choices are an allowlist and may not be enabled for every Google AI Studio key. See [Gemini model availability](https://ai.google.dev/gemini-api/docs/models) and [current pricing/free-tier eligibility](https://ai.google.dev/gemini-api/docs/pricing). EduAI never silently switches a provider or model. A provider quota/billing exhaustion response displays an actionable notice; ordinary rate limiting and temporary outages are shown separately.
+- EduAI reloads the signed-in user's Firestore profile and requires an active `School Admin`, `Registrar`, or `Teacher` role before reading data.
+- Teachers use the existing teacher-scoped learner reader; the assistant receives only the scoped aggregates and names, not a school-wide total. Registrars and school administrators receive school-wide aggregates and names.
+- The model context includes aggregate counts, role-scoped chart data, and at most 150 learner names. Graph context covers Dashboard/Reports enrollment and program charts, Reading (CRLA and Phil-IRI), Math (RMA), and Nutritional Status charts. For profile graphs, only counts and percentages by grade/category/assessment period are sent; nutritional charts include aggregate category counts and percentages. No individual assessment or health records, learner IDs, age, marks/grades, attendance, contact details, guardian details, heights, or weights are sent. This includes sensitive aggregate profile categories, so use only with school approval. Recommendations must be general and non-diagnostic; EduAI must not identify or infer an individual outcome from a chart.
+- The available context is not an audit of all website activity. It includes only current-school-year learner records in the active user's server-verified role scope. Use **Refresh data** to refresh the client workspace; each model call also rebuilds the context from Firestore. Admin-console records, audit logs, feedback, and other users' profiles are not loaded for the model.
+- Each chat is saved per user in that tenant's Firestore and can be reopened or deleted in EduAI. The UI loads up to 25 recent conversations and the last 40 messages in the selected conversation; **Previous messages included** controls how many recent messages are sent to the selected provider.
+- E-Dash usage help is curated in `functions/eduai-knowledge.json`; `src/lib/eduai-knowledge.ts` and the server gateway select only relevant, bounded snippets with each question. It is maintained product guidance, not a live index of activity or records. Update it when routes, roles, or workflows change. Admin Console account-management help is withheld from teacher answers; EduAI should acknowledge when a workflow is not covered instead of inventing steps.
+- When EduAI loads the current school year, it builds bounded chart summaries from the same tenant Firestore learner records available to the signed-in role. Teacher summaries therefore use only their assigned sections. Chart context includes current-year aggregates, not page-specific UI filters, historical years, or live graph screenshots; use **Refresh data** after updates. Graph labels and values are normalized and sent as structured data so the assistant can compare series and explain trends rather than guessing from pixels.
+- The current implementation deliberately permits names only as the individual-level student data, per the requested scope. A learner name is still personally identifiable information. Review the selected provider's current data-use, retention, and pricing terms and applicable school/student privacy rules before sending real learner names. Use synthetic data for tests; obtain school approval before processing real learner data.
+
+### Backend security and limits
+
+- The Cloudflare Worker verifies Firebase ID tokens, checks the enabled central registry record, and uses the caller's token to read the caller's tenant profile, assignments, and school records through Firestore Security Rules. It rebuilds active school-year context server-side: teachers are limited to their assigned active sections; registrars and school administrators receive the school-wide aggregate. The browser does not submit model context or product-guide text and cannot access provider credentials or usage totals stored in D1. Provider endpoint hosts and exact API paths are allowlisted, redirects are rejected, upstream errors are sanitized, and API keys are never logged or returned. Prompt, role limitations, history count, context size, output settings, and learner-name limit are validated server-side. Tenant Firestore rules remain the data-access boundary for conversations and preferences.
+- Per-user and per-provider usage totals count successful calls and provider-reported tokens only; some APIs do not report usage. EduAI does not impose or estimate a universal free quota. A provider-reported quota/billing error triggers the free-usage notice; users should consult their provider dashboard.
+
 ## 4A. Provision the schema for a newly registered school
 
 The app and the standalone `scripts/provision-test.mjs` use the same year-scoped tenant schema. Create the school's tenant Firebase project and default Firestore database first. The provisioner creates initial year/settings/statistics documents in that tenant project; it does not register the school in the central directory or deploy security rules.
@@ -380,7 +470,7 @@ npm test
 npm run build
 ```
 
-For Vercel, configure the same six `VITE_REGISTRY_FIREBASE_*` values in the deployment's environment settings, then redeploy. `VITE_MAINTENANCE_MODE` and `VITE_TEST_MODE` are optional flags; do not put secrets in any `VITE_*` variable because Vite embeds them in the browser bundle. The provided `vercel.json` rewrites app paths to `index.html`; Firebase Hosting settings are in `firebase.json`.
+For Vercel, configure the same six `VITE_REGISTRY_FIREBASE_*` values in the deployment's environment settings, then redeploy. The app reads maintenance and test mode live from the central registry Firestore document `settings/modes` (`isMaintenanceMode` and `isTestMode` boolean fields); changing these values does not require a deployment. The central registry's Firestore rules must allow public reads of this document, as in `school-registry.rules`. Do not put secrets in any `VITE_*` variable because Vite embeds them in the browser bundle. The provided `vercel.json` rewrites app paths to `index.html`; Firebase Hosting settings are in `firebase.json`.
 
 After deployment, visit the site, select the new school, sign in with the administrator Auth account, and verify Firestore reads/writes. Verify audit log and feedback separately if configured. Confirm that the school appears only when its central registry document has `enabled: true`.
 

@@ -27,6 +27,7 @@ export interface RegisteredSchool {
   colorGradientTag?: string;
   logoUrl: string;
   videoUrl: string;
+  canUseEduAI?: boolean;
   schoolInfo?: SchoolInfo;
   schoolHead?: {
     [field: string]: unknown;
@@ -124,6 +125,7 @@ export function isRegisteredSchool(value: unknown): value is RegisteredSchool {
     isSafeAssetReference(school.logoUrl) &&
     typeof school.videoUrl === "string" &&
     (!school.videoUrl || isSafeAssetReference(school.videoUrl)) &&
+    (school.canUseEduAI === undefined || typeof school.canUseEduAI === "boolean") &&
     configIsUsable(school.firebaseConfig) &&
     (school.auditLogApiUrl === undefined ||
       (typeof school.auditLogApiUrl === "string" && isHttpsOrEmpty(school.auditLogApiUrl))) &&
@@ -215,19 +217,22 @@ export function clearStoredSchool(): void {
   localStorage.removeItem(ACTIVE_SCHOOL_KEY);
 }
 
-export async function getRegisteredSchools(): Promise<RegisteredSchool[]> {
+export function getCentralRegistryFirestore(): any {
   if (!configIsUsable(registryFirebaseConfig)) {
     throw new Error("Central E-Dash registry Firebase configuration is missing. Configure VITE_REGISTRY_FIREBASE_* before starting the app.");
   }
+  const registryApp =
+    firebase.apps.find((app: any) => app.name === "edash-school-registry") ||
+    firebase.initializeApp(registryFirebaseConfig, "edash-school-registry");
+  return registryApp.firestore();
+}
+
+export async function getRegisteredSchools(): Promise<RegisteredSchool[]> {
   if (cachedSchools && cacheExpiresAt > Date.now()) return cachedSchools;
   if (pendingRegistryRead) return pendingRegistryRead;
 
   pendingRegistryRead = (async () => {
-    const registryApp =
-      firebase.apps.find((app: any) => app.name === "edash-school-registry") ||
-      firebase.initializeApp(registryFirebaseConfig, "edash-school-registry");
-    const snapshot = await registryApp
-      .firestore()
+    const snapshot = await getCentralRegistryFirestore()
       .collection("schools")
       .where("enabled", "==", true)
       .get();

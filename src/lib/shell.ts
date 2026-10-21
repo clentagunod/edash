@@ -5,6 +5,7 @@ import { LPS_SESSION_KEY, displayNameFromEmail, handleLogout, initials } from '.
 import { Icon } from './icons';
 import { auth, db } from './firebase';
 import { getStoredSchool } from './school-registry';
+import { getModeSettings, subscribeModeSettings } from './mode-settings';
 import { appThemeFromId, appThemeId, isAppTheme, isDarkAppTheme } from './themes';
 import { mountGlobalSearch } from './global-search';
 
@@ -46,6 +47,26 @@ export const NAV_ITEMS = [
   { group: "Feedback", key: "trash", label: "Trash", icon: "trash", href: "trash.html" },
   { group: "Feedback", key: "feedback", label: "Feedback", icon: "message", href: "feedback.html" },
 ];
+
+function updateTestModeStamp() {
+  if (document.body.classList.contains("maintenance-mode-active")) {
+    document.getElementById("testModeStamp")?.remove();
+    return;
+  }
+  const enabled = getModeSettings().isTestMode;
+  let testModeStamp = document.getElementById("testModeStamp");
+  if (enabled && !testModeStamp) {
+    testModeStamp = document.createElement("div");
+    testModeStamp.id = "testModeStamp";
+    testModeStamp.className = "test-mode-stamp";
+    testModeStamp.textContent = "TEST MODE";
+    document.body.appendChild(testModeStamp);
+  } else if (!enabled) {
+    testModeStamp?.remove();
+  }
+}
+
+let testModeSubscriptionInitialized = false;
 
 export function appPageHref(fileName) {
   return `${APP_PAGE_PREFIX}${fileName}${isVisitorSession() ? "?visitor=1" : ""}`;
@@ -264,15 +285,10 @@ export function renderShell(activeKey, pageTitleForMobile) {
   const topbarMount = document.getElementById("topbarMount");
   const mainArea = document.querySelector(".main-area");
   if (!sidebarMount || !topbarMount || !mainArea) return;
-  let testModeStamp = document.getElementById("testModeStamp");
-  if (APP_CONFIG.testMode && !testModeStamp) {
-    testModeStamp = document.createElement("div");
-    testModeStamp.id = "testModeStamp";
-    testModeStamp.className = "test-mode-stamp";
-    testModeStamp.textContent = "TEST MODE";
-    document.body.appendChild(testModeStamp);
-  } else if (!APP_CONFIG.testMode) {
-    testModeStamp?.remove();
+  updateTestModeStamp();
+  if (!testModeSubscriptionInitialized) {
+    subscribeModeSettings(updateTestModeStamp);
+    testModeSubscriptionInitialized = true;
   }
 
   const session = JSON.parse(sessionStorage.getItem(LPS_SESSION_KEY) || "null");

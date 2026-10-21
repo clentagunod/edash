@@ -60,6 +60,15 @@ describe('school directory tenant selection', () => {
     expect(isRegisteredSchool({ ...school, tagline: 7 })).toBe(false);
   });
 
+  it('accepts an optional EduAI feature flag and rejects a non-boolean value', () => {
+    const school = { ...validSchool, canUseEduAI: true };
+
+    expect(isRegisteredSchool(school)).toBe(true);
+    storeActiveSchool(school);
+    expect(getStoredSchool()?.canUseEduAI).toBe(true);
+    expect(isRegisteredSchool({ ...school, canUseEduAI: 'true' })).toBe(false);
+  });
+
   it('accepts and validates the optional color gradient tag from school registration', () => {
     const school = { ...validSchool, colorGradientTag: '#50A61E' };
 

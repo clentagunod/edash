@@ -7,8 +7,4 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
   },
-  build: {
-    outDir: 'dist',
-    sourcemap: true,
-  },
 });

@@ -27,7 +27,6 @@ import { LPSCache, PUBLIC_STATS_CACHE_TTL_MS } from './cache';
 
 // Configuration values are maintained in app-config.js.
 export const firebaseConfig = APP_CONFIG.firebase;
-export const FIREBASE_FUNCTIONS_REGION = "us-central1";
 
 // Initialize Firebase (compat SDK — chosen so this project runs from plain
 // <script> tags with no build step, which keeps setup simple for a school).
@@ -38,9 +37,6 @@ const parentFirebaseApp = firebase.apps.find((item) => item.name === "parent-por
 	|| firebase.initializeApp(firebaseConfig, "parent-portal");
 export const parentAuth = parentFirebaseApp.auth();
 export const parentDb = parentFirebaseApp.firestore();
-export function getFirebaseFunctions() {
-	return firebaseApp.functions(FIREBASE_FUNCTIONS_REGION);
-}
 export let userCreationAuth = null;
 
 export function getUserCreationAuth() {

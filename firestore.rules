@@ -35,6 +35,26 @@ service cloud.firestore {
     function isRegistrar() { return myRole() == "Registrar"; }
     function isTeacher() { return myRole() == "Teacher"; }
     function isStaff() { return myRole() in ["School Admin", "Registrar", "Teacher"]; }
+    function validEduAiPreferences(data) {
+      return data.keys().hasAll([
+          "role", "model", "maxOutputTokens", "timeoutSeconds",
+          "temperature", "historyMessages", "learnerNameLimit", "updatedAt"
+        ])
+        && data.keys().hasOnly([
+          "role", "model", "maxOutputTokens", "timeoutSeconds",
+          "temperature", "historyMessages", "learnerNameLimit", "updatedAt"
+        ])
+        && data.role == myRole()
+        && data.model == "gemini-3.5-flash-lite"
+        && data.maxOutputTokens in [256, 512, 768, 1024, 1536, 2048]
+        && data.timeoutSeconds in [30, 45, 60, 90, 120]
+        && data.temperature is number
+        && data.temperature >= 0
+        && data.temperature <= 0.6
+        && data.historyMessages in [0, 2, 4, 6, 8]
+        && data.learnerNameLimit in [0, 25, 50, 100, 150]
+        && data.updatedAt is timestamp;
+    }
     function teacherHasTrashAccess(trashItem) {
       let profileKeys = myProfile().data.get("teacherAssignmentSecurityKeys", []);
       let assignmentKey = trashItem.get("teacherAssignmentSecurityKey", "");
@@ -139,6 +159,58 @@ service cloud.firestore {
         allow read: if isAdmin() || (isSignedIn() && userId == request.auth.uid);
         allow write: if isAdmin();
       }
+      match /eduaiSettings/{settingId} {
+        allow read: if isStaff() && userId == request.auth.uid && settingId == "preferences";
+        allow create, update: if isStaff()
+          && userId == request.auth.uid
+          && settingId == "preferences"
+          && validEduAiPreferences(request.resource.data);
+        allow delete: if isStaff() && userId == request.auth.uid && settingId == "preferences";
+      }
+      match /eduaiPrivate/{document=**} {
+        allow read, write: if false;
+      }
+      match /eduaiUsage/{document=**} {
+        allow read, write: if false;
+      }
+      match /eduaiRequests/{document=**} {
+        allow read, write: if false;
+      }
+      match /eduaiConversations/{conversationId} {
+        allow read: if isStaff() && userId == request.auth.uid;
+        allow create: if isStaff()
+          && userId == request.auth.uid
+          && request.resource.data.keys().hasAll(["title", "createdAt", "updatedAt"])
+          && request.resource.data.keys().hasOnly(["title", "createdAt", "updatedAt"])
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 80
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.updatedAt is timestamp;
+        allow update: if isStaff()
+          && userId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["title", "updatedAt"])
+          && request.resource.data.title is string
+          && request.resource.data.title.size() > 0
+          && request.resource.data.title.size() <= 80
+          && request.resource.data.updatedAt is timestamp;
+        allow delete: if isStaff() && userId == request.auth.uid;
+
+        match /messages/{messageId} {
+          allow read: if isStaff() && userId == request.auth.uid;
+          allow create: if isStaff()
+            && userId == request.auth.uid
+            && request.resource.data.keys().hasAll(["role", "content", "createdAt"])
+            && request.resource.data.keys().hasOnly(["role", "content", "createdAt"])
+            && request.resource.data.role in ["user", "assistant"]
+            && request.resource.data.content is string
+            && request.resource.data.content.size() > 0
+            && request.resource.data.content.size() <= 8000
+            && request.resource.data.createdAt is timestamp;
+          allow update: if false;
+          allow delete: if isStaff() && userId == request.auth.uid;
+        }
+      }
     }
 
     // --- School-year data and its grade/section structure are year-scoped.
@@ -183,7 +255,7 @@ service cloud.firestore {
       }
     }
     match /settings/{settingId} {
-      allow read: if isSignedIn();
+      allow read: if settingId == "eduai" ? isStaff() : isSignedIn();
       allow write: if isAdmin();
       match /years/{schoolYear} {
         allow read: if isSignedIn() && settingId == "gradeTerms";

@@ -1,0 +1,15 @@
+name = "edash-eduai-gateway"
+main = "index.mjs"
+compatibility_date = "2026-10-21"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+REGISTRY_PROJECT_ID = "e-dash-478ec"
+REGISTRY_FIREBASE_API_KEY = "AIzaSyBCYgtM9go98_cV6LSGoiHRd5RB4cEOJ-I"
+ALLOWED_ORIGINS = "http://localhost:5173,https://edash-temp.vercel.app"
+
+[[d1_databases]]
+binding = "EDUAI_DB"
+database_name = "edash-eduai"
+database_id = "160bb04b-f784-4da1-8d40-a65c30441ae3"
+migrations_dir = "migrations"

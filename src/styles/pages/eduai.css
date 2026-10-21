@@ -34,8 +34,405 @@
 body.dark-mode .eduai-intro { background: linear-gradient(145deg, #201b43 0%, #443876 56%, #185e5b) !important; }
 body.dark-mode .eduai-eyebrow { color: #b9aaff; }
 
+.eduai-workspace { display: grid; gap: 16px; }
+.eduai-workspace-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding: 22px 24px; border: 1px solid var(--line-200); border-radius: 18px; background: var(--bg-card); box-shadow: 0 8px 26px rgba(31, 49, 82, .05); }
+.eduai-workspace-header h2 { margin: 7px 0 0; color: var(--ink-900); font-size: 23px; }
+.eduai-workspace-header p { margin: 6px 0 0; color: var(--ink-500); font-size: 13px; }
+.eduai-workspace-kicker { display: inline-flex; align-items: center; gap: 7px; color: #6551c6; font-size: 11px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.eduai-workspace-kicker span { font-size: 16px; }
+.eduai-header-actions { display: flex; align-items: flex-end; gap: 8px; }
+.eduai-conversation-select { display: grid; gap: 5px; color: var(--ink-500); font-size: 11px; font-weight: 700; }
+.eduai-conversation-select select { min-width: 190px; max-width: 260px; height: 38px; padding: 0 30px 0 11px; border: 1px solid var(--line-200); border-radius: 9px; color: var(--ink-700); background: var(--bg-card); font: inherit; }
+.eduai-secondary-button, .eduai-delete-button, .eduai-send-button { min-height: 38px; padding: 0 13px; border: 1px solid var(--line-200); border-radius: 9px; color: var(--ink-700); background: var(--bg-card); font: inherit; font-size: 12px; font-weight: 750; cursor: pointer; }
+.eduai-secondary-button:hover { border-color: #b8adef; background: #f7f5ff; }
+.eduai-delete-button { color: #a33348; }
+.eduai-delete-button:hover { background: #fff4f5; border-color: #ecc2ca; }
+.eduai-secondary-button:disabled, .eduai-delete-button:disabled, .eduai-send-button:disabled { cursor: not-allowed; opacity: .55; }
+.eduai-access-card, .eduai-state-card { position: relative; display: grid; justify-items: start; gap: 12px; max-width: 680px; margin: 24px auto; padding: 34px; overflow: hidden; border: 1px solid var(--line-200); border-radius: 20px; background: linear-gradient(135deg, var(--bg-card) 0%, color-mix(in srgb, var(--blue-100) 42%, var(--bg-card)) 58%, color-mix(in srgb, var(--tag-ip-bg) 45%, var(--bg-card)) 100%); color: var(--ink-700); box-shadow: 0 18px 48px rgba(35, 51, 82, .1); }
+.eduai-access-card::after { content: ""; position: absolute; width: 210px; height: 210px; right: -90px; bottom: -120px; border: 1px solid rgba(101, 81, 198, .16); border-radius: 50%; box-shadow: 0 0 0 24px rgba(101, 81, 198, .04), 0 0 0 48px rgba(46, 153, 139, .04); pointer-events: none; }
+.eduai-access-icon, .eduai-welcome-mark { display: grid; place-items: center; width: 45px; height: 45px; border-radius: 14px; color: #fff; background: linear-gradient(135deg, #6551c6, #32a497); box-shadow: 0 8px 18px rgba(101, 81, 198, .22); font-size: 23px; }
+.eduai-access-label { color: #6551c6; font-size: 10px; font-weight: 850; letter-spacing: .12em; text-transform: uppercase; }
+.eduai-access-card h2 { max-width: 500px; margin: 0; color: var(--ink-900); font-size: clamp(22px, 3vw, 29px); line-height: 1.2; }
+.eduai-access-card > p, .eduai-state-card p { max-width: 520px; margin: 0; color: var(--ink-500); font-size: 14px; line-height: 1.65; }
+.eduai-access-note { display: grid; gap: 4px; margin-top: 8px; padding: 14px 16px; border: 1px solid var(--line-200); border-radius: 12px; background: color-mix(in srgb, var(--bg-card) 78%, var(--bg-app)); }
+.eduai-access-note strong { color: var(--ink-700); font-size: 12px; }
+.eduai-access-note span { color: var(--ink-500); font-size: 12px; line-height: 1.5; }
+.eduai-access-card { width: 100%; max-width: 1000px; }
+.eduai-provider-catalog { position: relative; z-index: 1; display: grid; width: 100%; gap: 20px; margin-top: 8px; text-align: left; }
+.eduai-provider-catalog-heading h3 { margin: 5px 0 0; color: var(--ink-900); font-size: 18px; }
+.eduai-provider-catalog-heading p { margin: 5px 0 0; color: var(--ink-500); font-size: 12px; line-height: 1.5; }
+.eduai-provider-section { display: grid; gap: 10px; }
+.eduai-provider-section > h4 { margin: 0; color: var(--ink-700); font-size: 12px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.eduai-provider-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.eduai-provider-grid-local { grid-template-columns: minmax(0, 1fr); }
+.eduai-provider-card { display: flex; min-width: 0; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--line-200); border-radius: 13px; background: color-mix(in srgb, var(--bg-card) 92%, var(--bg-app)); }
+.eduai-provider-heading { display: flex; min-width: 0; align-items: center; gap: 10px; }
+.eduai-provider-logo { display: grid; width: 38px; height: 38px; flex: 0 0 38px; place-items: center; border: 1px solid var(--line-200); border-radius: 11px; color: var(--provider-color); background: var(--bg-card); }
+.eduai-provider-logo svg { width: 21px; height: 21px; fill: currentColor; }
+.eduai-provider-wordmark { font-size: 10px; font-weight: 800; letter-spacing: -.06em; }
+.eduai-provider-wordmark.is-xai { font-size: 15px; letter-spacing: -.09em; }
+.eduai-provider-heading h4 { margin: 0; color: var(--ink-900); font-size: 13px; line-height: 1.35; }
+.eduai-provider-heading > div > span { display: block; margin-top: 3px; color: var(--ink-500); font-size: 10px; line-height: 1.4; }
+.eduai-provider-card > p { margin: 0; color: var(--ink-700); font-size: 11px; line-height: 1.55; }
+.eduai-provider-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin-top: auto; padding-top: 2px; }
+.eduai-provider-actions a { display: inline-flex; min-height: 32px; align-items: center; gap: 6px; color: var(--blue-600); font-size: 11px; font-weight: 750; text-decoration: none; }
+.eduai-provider-actions a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.eduai-provider-actions a:focus-visible { border-radius: 4px; outline: 2px solid var(--blue-600); outline-offset: 3px; }
+.eduai-provider-actions a span { font-size: 13px; }
+.eduai-provider-secondary-link { color: var(--ink-500) !important; font-weight: 650 !important; }
+.eduai-provider-disclaimer { margin: -5px 0 0; color: var(--ink-500); font-size: 10px; line-height: 1.55; }
+.eduai-state-card { grid-template-columns: auto 1fr auto; align-items: center; width: 100%; margin: 4px 0; padding: 20px 22px; border-radius: 14px; background: var(--bg-card); }
+.eduai-state-card strong { display: block; margin-bottom: 3px; color: var(--ink-900); font-size: 14px; }
+.eduai-state-spinner { width: 17px; height: 17px; flex: 0 0 auto; border: 2px solid var(--line-200); border-top-color: var(--blue-600); border-radius: 50%; animation: eduai-spin .7s linear infinite; }
+@keyframes eduai-spin { to { transform: rotate(360deg); } }
+.eduai-inline-alert { display: flex; flex-wrap: wrap; gap: 5px 8px; padding: 12px 15px; border: 1px solid #ead9a8; border-radius: 11px; color: #725719; background: #fffaf0; font-size: 12px; line-height: 1.55; }
+.eduai-inline-alert code { padding: 1px 4px; border-radius: 4px; background: rgba(114, 87, 25, .08); font-size: 11px; }
+.eduai-quota-alert { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 15px; border: 1px solid #efcf9a; border-radius: 12px; color: #745318; background: #fff8e9; }
+.eduai-quota-alert strong { font-size: 12px; }
+.eduai-quota-alert p { margin: 4px 0 0; font-size: 11px; line-height: 1.55; }
+.eduai-quota-alert .eduai-secondary-button { flex: 0 0 auto; }
+.eduai-conversation-panel { display: grid; grid-template-rows: minmax(310px, 1fr) auto; min-height: 540px; overflow: hidden; border: 1px solid var(--line-200); border-radius: 17px; background: var(--bg-card); box-shadow: 0 8px 26px rgba(31, 49, 82, .05); }
+.eduai-message-list { display: flex; flex-direction: column; gap: 18px; max-height: min(58vh, 620px); min-height: 310px; overflow: auto; padding: 24px clamp(16px, 4vw, 42px); }
+.eduai-history-status { align-self: center; color: var(--ink-500); font-size: 11px; text-align: center; }
+.eduai-message-list.is-empty { align-items: center; justify-content: center; }
+.eduai-welcome { display: grid; justify-items: center; max-width: 490px; padding: 25px 10px; text-align: center; }
+.eduai-welcome-mark { margin-bottom: 15px; }
+.eduai-welcome h3 { margin: 0; color: var(--ink-900); font-size: 20px; }
+.eduai-welcome p { max-width: 390px; margin: 8px 0 0; color: var(--ink-500); font-size: 13px; line-height: 1.65; }
+.eduai-prompts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 20px; }
+.eduai-prompts button { padding: 9px 12px; border: 1px solid #e2e0f2; border-radius: 999px; color: #5443a8; background: #faf9ff; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.eduai-prompts button:hover { border-color: #b9adef; background: #f3f0ff; }
+.eduai-message { display: flex; align-items: flex-start; gap: 11px; max-width: min(760px, 94%); }
+.eduai-message.is-user { align-self: flex-end; flex-direction: row-reverse; }
+.eduai-message-avatar { display: grid; place-items: center; width: 31px; height: 31px; flex: 0 0 31px; border-radius: 10px; color: #fff; background: linear-gradient(135deg, #6551c6, #32a497); font-size: 10px; font-weight: 800; }
+.eduai-message-avatar img { display: block; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+.eduai-assistant-avatar { font-size: 16px; }
+.eduai-message-content { padding: 11px 14px; border: 1px solid #e8eaf1; border-radius: 4px 13px 13px; background: #f8f9fc; }
+.eduai-message.is-user .eduai-message-content { border-color: #e2dcfa; border-radius: 13px 4px 13px 13px; background: #f4f1ff; }
+.eduai-message-content > strong { color: #647089; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }
+.eduai-message-content > p,
+.eduai-markdown { margin: 5px 0 0; color: var(--ink-700); font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.eduai-message-content > p { white-space: pre-wrap; }
+.eduai-markdown > :first-child { margin-top: 0; }
+.eduai-markdown > :last-child { margin-bottom: 0; }
+.eduai-markdown p { margin: 0 0 10px; }
+.eduai-markdown h1, .eduai-markdown h2, .eduai-markdown h3, .eduai-markdown h4 { margin: 16px 0 7px; color: var(--ink-900); line-height: 1.3; }
+.eduai-markdown h1 { font-size: 1.4em; }
+.eduai-markdown h2 { font-size: 1.25em; }
+.eduai-markdown h3, .eduai-markdown h4 { font-size: 1.1em; }
+.eduai-markdown ul, .eduai-markdown ol { display: grid; gap: 5px; margin: 7px 0 12px; padding-left: 22px; }
+.eduai-markdown li > p { margin: 0; }
+.eduai-markdown strong { color: var(--ink-900); font-weight: 750; }
+.eduai-markdown a { color: var(--blue-600); text-decoration: underline; text-underline-offset: 2px; }
+.eduai-markdown blockquote { margin: 10px 0; padding: 3px 0 3px 12px; border-left: 3px solid var(--blue-600); color: var(--ink-500); }
+.eduai-markdown hr { margin: 14px 0; border: 0; border-top: 1px solid var(--line-200); }
+.eduai-markdown :not(pre) > code { padding: 2px 5px; border: 1px solid var(--line-200); border-radius: 5px; background: var(--bg-app); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .9em; }
+.eduai-markdown pre { max-width: 100%; margin: 10px 0; padding: 12px 14px; overflow-x: auto; border: 1px solid var(--line-200); border-radius: 9px; background: var(--bg-app); }
+.eduai-markdown pre code { color: var(--ink-700); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; white-space: pre; }
+.eduai-markdown table { display: block; width: 100%; margin: 10px 0; overflow-x: auto; border-collapse: collapse; font-size: 12px; }
+.eduai-markdown th, .eduai-markdown td { padding: 7px 10px; border: 1px solid var(--line-200); text-align: left; }
+.eduai-markdown th { color: var(--ink-900); background: var(--bg-app); font-weight: 750; }
+.eduai-thinking { display: flex; align-items: center; gap: 9px; align-self: flex-start; color: var(--ink-500); font-size: 12px; }
+.eduai-composer { margin: 0 18px 16px; padding: 12px 14px 9px; border: 1px solid var(--line-200); border-radius: 13px; background: var(--bg-card); box-shadow: 0 3px 12px rgba(26, 43, 77, .04); }
+.eduai-composer:focus-within { border-color: #aaa0e4; box-shadow: 0 0 0 3px rgba(101, 81, 198, .1); }
+.eduai-composer textarea { display: block; width: 100%; min-height: 48px; max-height: 130px; resize: vertical; border: 0; outline: 0; color: var(--ink-900); background: transparent; font: inherit; font-size: 13px; line-height: 1.55; }
+.eduai-composer textarea::placeholder { color: #98a1b0; }
+.eduai-composer-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 7px; color: var(--ink-500); font-size: 10px; }
+.eduai-send-button { display: inline-flex; align-items: center; gap: 8px; min-height: 34px; padding: 0 13px; border-color: #6551c6; color: #fff; background: #6551c6; }
+.eduai-send-button:hover:not(:disabled) { border-color: #5140a9; background: #5140a9; }
+.eduai-send-button span { font-size: 16px; }
+.eduai-stop-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 34px; padding: 0 13px; border: 1px solid #d64b5e; border-radius: 9px; color: #fff; background: #c93b50; font: inherit; font-size: 12px; font-weight: 750; cursor: pointer; }
+.eduai-stop-button:hover { border-color: #b92b40; background: #b92b40; }
+.eduai-stop-button:focus-visible { outline: 3px solid rgba(201, 59, 80, .24); outline-offset: 2px; }
+.eduai-stop-button span { font-size: 10px; }
+.eduai-settings-button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 0 13px; border: 1px solid #ded9f5; border-radius: 9px; color: #5140a9; background: #f7f5ff; font: inherit; font-size: 12px; font-weight: 750; cursor: pointer; }
+.eduai-settings-button:hover:not(:disabled) { border-color: #b8adef; background: #f0edff; }
+.eduai-settings-button:disabled { cursor: not-allowed; opacity: .55; }
+.eduai-settings-button span { font-size: 15px; }
+.eduai-active-settings { padding: 0 3px; color: var(--ink-500); font-size: 10px; text-align: right; }
+.eduai-settings-backdrop { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 20px; background: rgba(17, 25, 43, .52); backdrop-filter: blur(4px); }
+.eduai-settings-dialog { display: grid; grid-template-rows: auto minmax(0, 1fr); width: min(100%, 680px); max-height: min(90vh, 860px); overflow: hidden; border: 1px solid var(--line-200); border-radius: 18px; background: var(--bg-card); box-shadow: 0 24px 80px rgba(12, 20, 39, .28); }
+.eduai-settings-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 22px 26px 18px; border-bottom: 1px solid var(--line-100); }
+.eduai-settings-header h2 { margin: 8px 0 0; color: var(--ink-900); font-size: 22px; }
+.eduai-settings-header p { margin: 5px 0 0; color: var(--ink-500); font-size: 12px; }
+.eduai-settings-close { display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 34px; border: 1px solid var(--line-200); border-radius: 9px; color: var(--ink-500); background: transparent; font-size: 22px; cursor: pointer; }
+.eduai-settings-close:hover { color: var(--ink-900); background: var(--bg-app); }
+.eduai-settings-form { overflow: auto; }
+.eduai-settings-section { display: grid; gap: 15px; padding: 20px 26px; border-bottom: 1px solid var(--line-100); }
+.eduai-settings-section-heading { display: flex; align-items: flex-start; gap: 12px; }
+.eduai-settings-number { display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 30px; border-radius: 9px; color: #5b49ba; background: #f0edff; font-size: 10px; font-weight: 850; }
+.eduai-settings-section-heading h3 { margin: 0; color: var(--ink-900); font-size: 13px; }
+.eduai-settings-section-heading p { margin: 4px 0 0; color: var(--ink-500); font-size: 11px; }
+.eduai-setting-field { display: grid; gap: 7px; margin-left: 42px; color: var(--ink-700); font-size: 11px; font-weight: 750; }
+.eduai-setting-field > span { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; }
+.eduai-setting-field > span strong { color: #6150b2; font-size: 10px; }
+.eduai-setting-field select { width: 100%; min-height: 38px; padding: 0 11px; border: 1px solid var(--line-200); border-radius: 9px; color: var(--ink-700); background: var(--bg-card); font: inherit; font-weight: 500; }
+.eduai-setting-field input[type="text"], .eduai-setting-field input[type="url"], .eduai-setting-field input[type="password"] { width: 100%; min-height: 38px; padding: 0 11px; border: 1px solid var(--line-200); border-radius: 9px; color: var(--ink-700); background: var(--bg-card); font: inherit; font-weight: 500; }
+.eduai-setting-field input:focus, .eduai-setting-field select:focus { outline: 2px solid color-mix(in srgb, #6551c6 35%, transparent); outline-offset: 1px; }
+.eduai-provider-usage { display: grid; gap: 4px; margin-left: 42px; padding: 11px 13px; border: 1px solid var(--line-200); border-radius: 10px; color: var(--ink-700); background: var(--bg-app); font-size: 10px; line-height: 1.5; }
+.eduai-provider-usage strong { color: var(--ink-900); font-size: 11px; }
+.eduai-provider-usage small { color: var(--ink-500); font-size: 10px; }
+.eduai-remove-key-button { justify-self: start; margin-left: 42px; padding: 7px 10px; border: 1px solid #e7c9c9; border-radius: 8px; color: #9a3535; background: transparent; font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; }
+.eduai-remove-key-button:hover:not(:disabled) { background: #fff3f3; }
+.eduai-remove-key-button:disabled { cursor: wait; opacity: .55; }
+.eduai-setting-field input[type="range"] { width: 100%; accent-color: #6551c6; }
+.eduai-setting-field small { color: var(--ink-500); font-size: 10px; font-weight: 450; line-height: 1.5; }
+.eduai-settings-note { margin: -2px 0 0 42px; padding: 10px 12px; border: 1px solid #e6e1f8; border-radius: 9px; color: #665b91; background: #faf9ff; font-size: 10px; line-height: 1.5; }
+.eduai-settings-footer { position: sticky; bottom: 0; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px 26px; border-top: 1px solid var(--line-100); background: var(--bg-card); }
+.eduai-settings-footer > span { color: var(--ink-500); font-size: 10px; line-height: 1.5; }
+.eduai-settings-footer > div { display: flex; flex: 0 0 auto; gap: 8px; }
+.eduai-settings-footer code { color: var(--ink-700); }
+.eduai-privacy-note { display: flex; align-items: flex-start; gap: 8px; padding: 0 3px; color: var(--ink-500); }
+.eduai-privacy-note > span { color: #6551c6; font-size: 14px; }
+.eduai-privacy-note p { margin: 0; font-size: 10px; line-height: 1.6; }
+.eduai-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+body.dark-mode .eduai-workspace-header, body.dark-mode .eduai-conversation-panel { border-color: var(--line-200); background: var(--bg-card); }
+body.dark-mode .eduai-workspace-header h2, body.dark-mode .eduai-welcome h3, body.dark-mode .eduai-message-content p { color: var(--ink-900); }
+body.dark-mode .eduai-workspace-header p, body.dark-mode .eduai-welcome p, body.dark-mode .eduai-privacy-note { color: var(--ink-500); }
+body.dark-mode .eduai-conversation-select select, body.dark-mode .eduai-secondary-button, body.dark-mode .eduai-composer { border-color: var(--line-200); color: var(--ink-700); background: var(--bg-app); }
+body.dark-mode .eduai-message-content { border-color: var(--line-200); background: color-mix(in srgb, var(--bg-card) 72%, var(--bg-app)); }
+body.dark-mode .eduai-message.is-user .eduai-message-content { border-color: var(--line-200); background: color-mix(in srgb, var(--blue-100) 75%, var(--bg-card)); }
+body.dark-mode .eduai-inline-alert { border-color: #655b3d; color: #f2d996; background: #343022; }
+body.dark-mode .eduai-quota-alert { border-color: #655b3d; color: #f2d996; background: #343022; }
+body.dark-mode .eduai-settings-dialog { border-color: var(--line-200); background: var(--bg-card); }
+body.dark-mode .eduai-settings-header, body.dark-mode .eduai-settings-section, body.dark-mode .eduai-settings-footer { border-color: var(--line-200); background: var(--bg-card); }
+body.dark-mode .eduai-settings-header h2, body.dark-mode .eduai-settings-section-heading h3 { color: var(--ink-900); }
+body.dark-mode .eduai-settings-header p, body.dark-mode .eduai-settings-section-heading p, body.dark-mode .eduai-setting-field small, body.dark-mode .eduai-settings-footer > span { color: var(--ink-500); }
+body.dark-mode .eduai-setting-field { color: var(--ink-700); }
+body.dark-mode .eduai-setting-field select, body.dark-mode .eduai-settings-close { border-color: var(--line-200); color: var(--ink-700); background: var(--bg-app); }
+body.dark-mode .eduai-setting-field input[type="text"], body.dark-mode .eduai-setting-field input[type="url"], body.dark-mode .eduai-setting-field input[type="password"] { border-color: var(--line-200); color: var(--ink-700); background: var(--bg-app); }
+body.dark-mode .eduai-provider-usage { border-color: var(--line-200); color: var(--ink-700); background: var(--bg-app); }
+body.dark-mode .eduai-provider-usage strong { color: var(--ink-900); }
+body.dark-mode .eduai-remove-key-button { border-color: #714242; color: #ffc3c3; }
+body.dark-mode .eduai-remove-key-button:hover:not(:disabled) { background: #422d2d; }
+body.dark-mode .eduai-settings-number { color: var(--blue-600); background: var(--blue-100); }
+body.dark-mode .eduai-settings-note { border-color: var(--line-200); color: var(--ink-700); background: color-mix(in srgb, var(--bg-card) 72%, var(--bg-app)); }
+body.dark-mode .eduai-settings-button { border-color: var(--line-200); color: var(--ink-700); background: var(--bg-app); }
+body.dark-mode .eduai-settings-button:hover:not(:disabled) { background: var(--bg-card); }
+
 @media (max-width: 760px) { .eduai-layout { grid-template-columns: 1fr; } .eduai-intro { min-height: auto; } }
 @media (max-width: 520px) { .eduai-preview-body { grid-template-columns: 1fr; padding: 22px 18px; } .eduai-orbit { width: 145px; height: 145px; } .eduai-orbit span { inset: 54px; } }
+@media (max-width: 760px) {
+  .eduai-workspace-header { align-items: stretch; flex-direction: column; padding: 20px; }
+  .eduai-header-actions { align-items: stretch; flex-wrap: wrap; }
+  .eduai-conversation-select { flex: 1 1 100%; }
+  .eduai-conversation-select select { width: 100%; max-width: none; }
+  .eduai-conversation-panel { min-height: 500px; }
+  .eduai-message-list { max-height: 55vh; }
+}
+@media (max-width: 520px) {
+  .eduai-access-card { margin: 10px 0; padding: 24px 20px; }
+  .eduai-provider-grid { grid-template-columns: minmax(0, 1fr); }
+  .eduai-provider-card { padding: 13px; }
+  .eduai-state-card { grid-template-columns: auto 1fr; padding: 17px; }
+  .eduai-state-card .eduai-secondary-button { grid-column: 2; justify-self: start; }
+  .eduai-header-actions > button { flex: 1; }
+  .eduai-message { max-width: 100%; }
+  .eduai-conversation-panel { min-height: 480px; }
+  .eduai-composer { margin: 0 10px 10px; padding: 10px; }
+  .eduai-composer-footer { align-items: flex-end; }
+  .eduai-composer-footer span { max-width: 68%; line-height: 1.5; }
+  .eduai-privacy-note p { font-size: 9px; }
+  .eduai-settings-backdrop { padding: 8px; }
+  .eduai-settings-dialog { max-height: 94vh; border-radius: 14px; }
+  .eduai-settings-header, .eduai-settings-section { padding-left: 17px; padding-right: 17px; }
+  .eduai-setting-field, .eduai-settings-note { margin-left: 0; }
+  .eduai-provider-usage, .eduai-remove-key-button { margin-left: 0; }
+  .eduai-quota-alert { align-items: stretch; flex-direction: column; }
+  .eduai-settings-footer { align-items: stretch; flex-direction: column; padding: 12px 17px; }
+  .eduai-settings-footer > div { justify-content: flex-end; }
+}
+
+body.eduai-catalog-mode {
+  height: 100%;
+  overflow: hidden;
+}
+.eduai-catalog-mode .app-shell,
+.eduai-catalog-mode .main-area {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+.eduai-catalog-mode .main-area { min-width: 0; }
+.eduai-catalog-mode .eduai-page {
+  display: flex;
+  min-height: 0;
+  max-width: none;
+  flex: 1;
+  flex-direction: column;
+  padding: 14px 22px 18px;
+  overflow: hidden;
+}
+.eduai-catalog-mode .eduai-page .page-header { margin-bottom: 12px; }
+.eduai-catalog-mode .eduai-page .page-header h1 { margin-bottom: 3px; font-size: 22px; }
+.eduai-catalog-mode .eduai-page .page-header .desc { font-size: 12px; }
+.eduai-catalog-mode .eduai-page #eduaiMount {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+}
+.eduai-catalog-mode .eduai-access-card {
+  display: grid;
+  width: 100%;
+  max-width: none;
+  min-height: 0;
+  grid-template-columns: minmax(225px, .72fr) minmax(0, 1.8fr);
+  align-items: center;
+  gap: clamp(18px, 2.4vw, 36px);
+  margin: 0;
+  padding: clamp(20px, 2.5vw, 34px);
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--line-200) 78%, #6551c6);
+  border-radius: 22px;
+  background:
+    radial-gradient(ellipse at 4% 0%, color-mix(in srgb, #6551c6 10%, transparent), transparent 34%),
+    linear-gradient(145deg, var(--bg-card), color-mix(in srgb, var(--blue-100) 22%, var(--bg-card)));
+  box-shadow: 0 18px 50px rgba(20, 31, 56, .08);
+}
+.eduai-catalog-mode .eduai-access-card::after { right: -120px; bottom: -160px; opacity: .5; }
+.eduai-catalog-mode .eduai-access-overview {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: start;
+  align-content: center;
+  gap: 12px;
+}
+.eduai-catalog-mode .eduai-access-icon {
+  width: 42px;
+  height: 42px;
+  margin: 0 0 4px;
+  border-radius: 13px;
+  font-size: 21px;
+}
+.eduai-catalog-mode .eduai-access-label { letter-spacing: .14em; }
+.eduai-catalog-mode .eduai-access-card h2 {
+  max-width: 310px;
+  font-size: clamp(23px, 2.35vw, 31px);
+  letter-spacing: -.035em;
+}
+.eduai-catalog-mode .eduai-access-card > .eduai-access-overview > p {
+  max-width: 350px;
+  font-size: 13px;
+  line-height: 1.65;
+}
+.eduai-catalog-mode .eduai-access-note {
+  gap: 5px;
+  margin-top: 2px;
+  padding: 12px 13px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--bg-card) 78%, var(--bg-app));
+}
+.eduai-catalog-mode .eduai-access-note strong { font-size: 11px; }
+.eduai-catalog-mode .eduai-access-note span { font-size: 10.5px; line-height: 1.5; }
+.eduai-catalog-mode .eduai-provider-catalog {
+  min-width: 0;
+  gap: 12px;
+  margin: 0;
+}
+.eduai-catalog-mode .eduai-provider-catalog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.eduai-catalog-mode .eduai-provider-catalog-heading h3 { margin-top: 3px; font-size: 17px; }
+.eduai-catalog-mode .eduai-provider-catalog-heading p { margin-top: 3px; font-size: 10.5px; }
+.eduai-catalog-mode .eduai-provider-section { gap: 7px; }
+.eduai-catalog-mode .eduai-provider-section > h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  letter-spacing: .1em;
+}
+.eduai-catalog-mode .eduai-provider-section > h4::after {
+  height: 1px;
+  flex: 1;
+  background: var(--line-200);
+  content: "";
+}
+.eduai-catalog-mode .eduai-provider-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.eduai-catalog-mode .eduai-provider-card {
+  min-height: 112px;
+  gap: 7px;
+  padding: 10px 11px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--bg-card) 88%, var(--bg-app));
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+.eduai-catalog-mode .eduai-provider-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--blue-600) 42%, var(--line-200));
+  box-shadow: 0 8px 18px rgba(25, 39, 68, .08);
+}
+.eduai-catalog-mode .eduai-provider-heading { gap: 8px; }
+.eduai-catalog-mode .eduai-provider-logo { width: 32px; height: 32px; flex-basis: 32px; border-radius: 9px; }
+.eduai-catalog-mode .eduai-provider-logo svg { width: 18px; height: 18px; }
+.eduai-catalog-mode .eduai-provider-heading h4 { font-size: 11.5px; }
+.eduai-catalog-mode .eduai-provider-heading > div > span { margin-top: 2px; font-size: 9px; }
+.eduai-catalog-mode .eduai-provider-card > p {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--ink-500);
+  font-size: 9.5px;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.eduai-catalog-mode .eduai-provider-actions { gap: 2px 11px; padding-top: 0; }
+.eduai-catalog-mode .eduai-provider-actions a { min-height: 22px; font-size: 9.5px; }
+.eduai-catalog-mode .eduai-provider-actions a span { font-size: 11px; }
+.eduai-catalog-mode .eduai-provider-grid-local { grid-template-columns: minmax(0, 1fr); }
+.eduai-catalog-mode .eduai-provider-grid-local .eduai-provider-card {
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: minmax(150px, .75fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+.eduai-catalog-mode .eduai-provider-grid-local .eduai-provider-card > p { -webkit-line-clamp: 2; }
+.eduai-catalog-mode .eduai-provider-grid-local .eduai-provider-actions { padding: 0; }
+.eduai-catalog-mode .eduai-provider-disclaimer { margin: -3px 0 0; font-size: 9px; }
+
+@media (max-height: 780px) and (min-width: 861px) {
+  .eduai-catalog-mode .eduai-page { padding-top: 9px; padding-bottom: 10px; }
+  .eduai-catalog-mode .eduai-page .page-header { margin-bottom: 7px; }
+  .eduai-catalog-mode .eduai-access-card { padding: 16px 20px; }
+  .eduai-catalog-mode .eduai-access-overview { gap: 8px; }
+  .eduai-catalog-mode .eduai-provider-catalog { gap: 8px; }
+  .eduai-catalog-mode .eduai-provider-card { min-height: 98px; padding: 8px 9px; }
+  .eduai-catalog-mode .eduai-provider-grid-local .eduai-provider-card { min-height: 62px; }
+}
+@media (max-width: 1100px) and (min-width: 861px) {
+  .eduai-catalog-mode .eduai-access-card { grid-template-columns: minmax(200px, .65fr) minmax(0, 1.7fr); gap: 18px; padding: 18px; }
+  .eduai-catalog-mode .eduai-provider-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .eduai-catalog-mode .eduai-provider-card { min-height: 98px; }
+}
+@media (max-width: 860px) {
+  .eduai-catalog-mode { height: auto; overflow: auto; }
+  .eduai-catalog-mode .app-shell,
+  .eduai-catalog-mode .main-area { height: auto; min-height: 100dvh; overflow: visible; }
+  .eduai-catalog-mode .eduai-page { min-height: calc(100dvh - var(--topbar-h)); overflow: visible; }
+  .eduai-catalog-mode .eduai-page #eduaiMount { display: block; }
+  .eduai-catalog-mode .eduai-access-card { grid-template-columns: 1fr; gap: 20px; overflow: visible; }
+  .eduai-catalog-mode .eduai-access-overview { grid-template-columns: auto 1fr; column-gap: 12px; }
+  .eduai-catalog-mode .eduai-access-icon { grid-row: span 2; margin: 0; }
+  .eduai-catalog-mode .eduai-access-overview > .eduai-access-label { align-self: end; }
+  .eduai-catalog-mode .eduai-access-overview h2,
+  .eduai-catalog-mode .eduai-access-overview > p,
+  .eduai-catalog-mode .eduai-access-note { grid-column: 1 / -1; }
+  .eduai-catalog-mode .eduai-access-card h2 { max-width: none; }
+}
+@media (max-width: 560px) {
+  .eduai-catalog-mode .eduai-page { padding: 14px 14px 24px; }
+  .eduai-catalog-mode .eduai-access-card { padding: 18px; border-radius: 17px; }
+  .eduai-catalog-mode .eduai-provider-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .eduai-catalog-mode .eduai-provider-card { min-height: 112px; }
+  .eduai-catalog-mode .eduai-provider-grid-local .eduai-provider-card { grid-template-columns: minmax(0, 1fr) auto; }
+  .eduai-catalog-mode .eduai-provider-grid-local .eduai-provider-card > p { grid-column: 1 / -1; grid-row: 2; }
+  .eduai-catalog-mode .eduai-provider-grid-local .eduai-provider-actions { grid-column: 2; grid-row: 1; }
+}
 
 @media (max-width: 760px) {
   .feedback-layout { grid-template-columns: 1fr; }
@@ -285,4 +682,3 @@ body.dark-mode .eduai-eyebrow { color: #b9aaff; }
   .login-panel { padding: 24px 20px; }
   .login-card h2 { font-size: 20px; }
 }
-
