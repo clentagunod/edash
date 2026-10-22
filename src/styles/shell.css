@@ -256,6 +256,164 @@
 
 @keyframes shell-enter { from { opacity: 0; } to { opacity: 1; } }
 
+.eduai-availability-notice {
+  position: fixed;
+  z-index: 90;
+  top: calc(var(--topbar-h) + 16px);
+  right: 24px;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 28px;
+  align-items: start;
+  gap: 14px;
+  width: min(390px, calc(100vw - 36px));
+  padding: 18px 16px;
+  overflow: hidden;
+  border: 1px solid rgba(110, 91, 230, .2);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 12% 12%, rgba(228, 223, 255, .88), transparent 35%),
+    linear-gradient(135deg, #fff 10%, #f8f7ff 100%);
+  box-shadow: 0 18px 48px rgba(30, 26, 74, .2), 0 3px 10px rgba(30, 26, 74, .08);
+  color: var(--ink-900);
+  animation: eduai-notice-pop 680ms cubic-bezier(.2, 1.45, .4, 1) both;
+}
+
+.eduai-availability-notice::after {
+  position: absolute;
+  top: -34px;
+  right: 36px;
+  width: 88px;
+  height: 88px;
+  border: 1px solid rgba(110, 91, 230, .12);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+}
+
+.eduai-availability-art {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  border: 1px solid rgba(111, 92, 230, .15);
+  border-radius: 16px;
+  background: linear-gradient(145deg, #7564ed, #5246c7);
+  box-shadow: 0 7px 16px rgba(91, 76, 205, .27);
+  color: #fff;
+  animation: eduai-notice-icon 900ms 140ms cubic-bezier(.2, 1.4, .4, 1) both;
+}
+
+.eduai-availability-art svg { width: 34px; height: 34px; }
+.eduai-availability-art path { stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+
+.eduai-availability-copy { min-width: 0; padding-top: 1px; }
+.eduai-availability-eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: #6355c8;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .09em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.eduai-availability-copy > strong {
+  display: block;
+  color: #23213d;
+  font-size: 17px;
+  font-weight: 750;
+  letter-spacing: -.025em;
+  line-height: 1.25;
+}
+
+.eduai-availability-copy > p {
+  margin: 5px 0 11px;
+  color: #66647d;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.eduai-availability-link {
+  display: inline-flex;
+  min-height: 32px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 11px;
+  border-radius: 9px;
+  background: #27234d;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background var(--motion-fast) ease, transform var(--motion-fast) var(--ease-standard);
+}
+
+.eduai-availability-link:hover {
+  transform: translateY(-1px);
+  background: #4e43bd;
+}
+
+.eduai-availability-link:focus-visible,
+.eduai-availability-close:focus-visible {
+  outline: 3px solid #8a7cf4;
+  outline-offset: 3px;
+}
+
+.eduai-availability-link svg { width: 14px; height: 14px; }
+.eduai-availability-link svg path,
+.eduai-availability-close svg path { stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+
+.eduai-availability-close {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(39, 35, 77, .06);
+  color: #77748d;
+  cursor: pointer;
+  transition: background var(--motion-fast) ease, color var(--motion-fast) ease;
+}
+
+.eduai-availability-close:hover { background: rgba(39, 35, 77, .12); color: #27234d; }
+.eduai-availability-close svg { width: 14px; height: 14px; }
+
+@keyframes eduai-notice-pop {
+  0% { opacity: 0; transform: translate3d(0, -24px, 0) scale(.9); filter: blur(7px); }
+  65% { opacity: 1; transform: translate3d(0, 3px, 0) scale(1.015); filter: blur(0); }
+  82% { transform: translate3d(0, -2px, 0) scale(.995); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); filter: blur(0); }
+}
+
+@keyframes eduai-notice-icon {
+  0% { opacity: 0; transform: rotate(-18deg) scale(.55); }
+  65% { opacity: 1; transform: rotate(7deg) scale(1.12); }
+  100% { opacity: 1; transform: rotate(0) scale(1); }
+}
+
+@media (max-width: 600px) {
+  .eduai-availability-notice {
+    top: calc(var(--topbar-h) + 10px);
+    right: 12px;
+    width: calc(100vw - 24px);
+    grid-template-columns: 46px minmax(0, 1fr) 26px;
+    gap: 11px;
+    padding: 15px 13px;
+    border-radius: 16px;
+  }
+  .eduai-availability-art { width: 46px; height: 46px; border-radius: 14px; }
+  .eduai-availability-copy > strong { font-size: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .eduai-availability-notice,
+  .eduai-availability-art { animation: none; }
+  .eduai-availability-link { transition: none; }
+}
+
 .topbar {
   height: var(--topbar-h);
   background: #fff;

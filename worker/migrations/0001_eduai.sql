@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS eduai_provider_settings (
 );
 
 CREATE TABLE IF NOT EXISTS eduai_usage (
-  school_id TEXT NOT NULL,
+  school_id TEXT NOT NULL,      
   uid TEXT NOT NULL,
   provider TEXT NOT NULL,
   month TEXT NOT NULL,

@@ -1,18 +1,75 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
-import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import SchoolSelectionPage from './pages/SchoolSelectionPage';
 import ParentPortalPage from './pages/ParentPortalPage';
 import RouteErrorBoundary from './components/RouteErrorBoundary';
 import RouteLoadingFallback from './components/RouteLoadingFallback';
 import MaintenancePage from './pages/MaintenancePage';
-import { APP_CONFIG } from './lib/app-config';
+import { APP_CONFIG, isVisitorSession } from './lib/app-config';
 import { auth } from './lib/firebase';
 import { startModeSettingsListener, useModeSettings } from './lib/mode-settings';
 import { clearTenantSession } from './lib/tenant-session';
 import { clearStoredSchool, getRegisteredSchools, getStoredSchool, sameSchoolRegistration, storeActiveSchool } from './lib/school-registry';
 
 const initialTenantSchool = getStoredSchool();
+
+function EduAiAvailabilityNotice({ schoolId }: { schoolId: string }) {
+  const [visible, setVisible] = useState(() => {
+    try {
+      return sessionStorage.getItem(`edash.eduaiNoticeSeen.${schoolId}`) !== 'true';
+    } catch (error) {
+      console.error('Could not read EduAI announcement state:', error);
+      return true;
+    }
+  });
+
+  useEffect(() => {
+    if (!visible) return;
+    try {
+      sessionStorage.setItem(`edash.eduaiNoticeSeen.${schoolId}`, 'true');
+    } catch (error) {
+      console.error('Could not save EduAI announcement state:', error);
+    }
+  }, [schoolId, visible]);
+
+  if (!visible) return null;
+  return (
+    <aside className="eduai-availability-notice" role="status" aria-live="polite" aria-label="EduAI is Available">
+      <span className="eduai-availability-art" aria-hidden="true">
+        <svg viewBox="0 0 48 48" fill="none">
+          <path d="M24 4.5 27.7 18l13.8 4.5-13.8 4.1L24 40.5l-3.7-13.9L6.5 22.5 20.3 18 24 4.5Z" />
+          <path d="m38 5 .9 3.1L42 9l-3.1.9L38 13l-.9-3.1L34 9l3.1-.9L38 5Z" />
+        </svg>
+      </span>
+      <div className="eduai-availability-copy">
+        <span className="eduai-availability-eyebrow">A new school sidekick</span>
+        <strong>EduAI is Available</strong>
+        <p>A little more help for planning, teaching, and learner support.</p>
+        <Link
+          className="eduai-availability-link"
+          to="/pages/eduai.html"
+          onClick={() => setVisible(false)}
+        >
+          Meet EduAI
+          <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <path d="M4 10h12m-5-5 5 5-5 5" />
+          </svg>
+        </Link>
+      </div>
+      <button
+        className="eduai-availability-close"
+        type="button"
+        aria-label="Dismiss EduAI availability announcement"
+        onClick={() => setVisible(false)}
+      >
+        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <path d="m5 5 10 10M15 5 5 15" />
+        </svg>
+      </button>
+    </aside>
+  );
+}
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const MasterlistPage = lazy(() => import('./pages/MasterlistPage'));
@@ -51,6 +108,7 @@ function SchoolRegistrationGate({ children }: { children: ReactNode }) {
   const [retry, setRetry] = useState(0);
   const [status, setStatus] = useState<'checking' | 'active' | 'denied' | 'unavailable'>('checking');
   const [verifiedPath, setVerifiedPath] = useState<string | null>(null);
+  const [eduAiEnabled, setEduAiEnabled] = useState(false);
   const isPublicRoute = location.pathname === '/' ||
     location.pathname === '/index.html' ||
     location.pathname === '/select-school' ||
@@ -104,6 +162,7 @@ function SchoolRegistrationGate({ children }: { children: ReactNode }) {
         }
         const registeredSchool = registeredSchools.find((registered) => registered.id === school.id);
         if (registeredSchool && sameSchoolRegistration(registeredSchool, school)) {
+          setEduAiEnabled(registeredSchool.canUseEduAI === true);
           if (registeredSchool.colorGradientTag !== school.colorGradientTag) {
             storeActiveSchool(registeredSchool);
             if (location.pathname === '/login') {
@@ -171,7 +230,19 @@ function SchoolRegistrationGate({ children }: { children: ReactNode }) {
 
   if (isPublicRoute) return children;
   const routeStatus = verifiedPath === location.pathname ? status : 'checking';
-  if (routeStatus === 'active') return children;
+  if (routeStatus === 'active') {
+    const activeSchool = getStoredSchool();
+    const showEduAiNotice = eduAiEnabled &&
+      location.pathname.startsWith('/pages/') &&
+      location.pathname !== '/pages/eduai.html' &&
+      !isVisitorSession();
+    return (
+      <>
+        {children}
+        {showEduAiNotice && activeSchool && <EduAiAvailabilityNotice key={activeSchool.id} schoolId={activeSchool.id} />}
+      </>
+    );
+  }
   if (routeStatus === 'denied') return <Navigate to="/select-school" replace />;
 
   if (routeStatus === 'checking') {
