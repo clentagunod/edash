@@ -1,53 +1,78 @@
 [
   {
-    "title": "E-Dash navigation and role access",
-    "keywords": ["website", "navigate", "menu", "page", "function", "access", "permission", "help"],
-    "guidance": "E-Dash shows pages and actions according to the signed-in account role and its school permissions. Use the application navigation to open a page; if a menu item or action is not available, ask the school administrator to confirm the account role and access. EduAI explains workflows but cannot change records or permissions."
+    "title": "Complete sidebar navigation and paths from Dashboard to Feedback",
+    "keywords": ["website", "navigate", "navigation", "menu", "sidebar", "page", "component", "route", "path", "all pages", "dashboard", "learner masterlist", "masterlist", "enrollment data", "settings", "programs", "4ps", "beneficiaries", "IP", "indigenous peoples", "SNED", "ARAL", "Muslim", "nutrition", "nutritional status", "statistics", "reports", "EOSY status report", "profiles", "grades profile", "reading profile", "math profile", "movement", "promotion", "retention", "transfer info", "dropout info", "utilities", "data", "grade calculator", "BMI calculator", "EduAI", "trash", "feedback", "access", "permission", "help"],
+    "guidance": "Authenticated sidebar order and exact application routes: Primary links: Dashboard — /pages/dashboard.html; Learner Masterlist — /pages/masterlist.html; Enrollment Data — /pages/enrollment-data.html; Settings — /pages/settings.html. Programs category: 4Ps Beneficiaries — /pages/program-4ps.html; IP Learners — /pages/program-ip.html; SNED Learners — /pages/program-sned.html; ARAL Tagged Learners — /pages/program-aral.html; Muslim Learners — /pages/program-muslim.html. Nutrition: Nutritional Status — /pages/nutritional-status.html. Statistics: Statistics — /pages/reports.html; EOSY Status Report — /pages/eosy-report.html. Profiles: Grades Profile — /pages/grades-profile.html; Reading Profile — /pages/reading-profile.html; Math Profile — /pages/math-profile.html. Movement: Promotion — /pages/promotion.html; Retention — /pages/retention.html; Transfer Info — /pages/transfer-info.html; Dropout Info — /pages/dropout.html. Utilities: Data — /pages/data.html; Grade Calculator — /pages/grade-calculator.html; BMI Calculator — /pages/bmi-calculator.html; EduAI — /pages/eduai.html. Bottom links: Trash — /pages/trash.html; Feedback — /pages/feedback.html. The Utilities landing page is /pages/utilities.html. Category buttons expand/collapse their child links; selecting a link opens its route and marks the current link active. On small screens use the topbar menu button to open/close the sidebar. Visitor sessions only see Dashboard and Enrollment Data. Promotion, Retention, and Grades Profile are filtered by account permission; other routes and actions can also enforce role access. Do not infer that a hidden link is broken; ask a School Admin to verify access. EduAI explains the app but does not perform navigation or modify records."
   },
   {
     "title": "Dashboard",
     "keywords": ["dashboard", "overview", "summary", "counts", "trend"],
-    "guidance": "The Dashboard is the overview page for school enrollment information and summary counts. Confirm the displayed school year before interpreting a figure. Use the dedicated data or report pages for more detailed views."
+    "guidance": "Open Dashboard at /pages/dashboard.html. It is the school enrollment overview and includes learner distribution by program, learners by grade level, recently added learners, and a program summary. Confirm the displayed school year before interpreting counts. Use /pages/enrollment-data.html for enrollment totals, /pages/reports.html for statistics, or /pages/data.html to export records."
   },
   {
     "title": "Masterlist and learner records",
     "keywords": ["masterlist", "learner", "student", "search", "record", "enrollment"],
-    "guidance": "The Masterlist is the central page for browsing learner records. Use its available search and filters to locate records, and follow the on-screen form validation when adding or editing information. Only make changes you are authorized to make; EduAI cannot retrieve or disclose individual profile details."
+    "guidance": "Open Learner Masterlist at /pages/masterlist.html. It is the central learner-record list; use its search and filters for grade level, program, and gender, along with the learner table, pagination, and Add Learner workflow. Follow form validation when adding or editing. Use program-specific lists under Programs for 4Ps, IP, SNED, ARAL, or Muslim learners. Only make changes you are authorized to make; EduAI cannot retrieve or disclose individual profile details."
   },
   {
     "title": "Enrollment data and reports",
     "keywords": ["enrollment data", "enrollment", "report", "reports", "export", "grade level"],
-    "guidance": "Enrollment Data presents enrollment figures in summary form. Reports and EOSY Report provide reporting views for school data. Check the selected school year and filters before comparing counts or preparing a report."
+    "guidance": "Enrollment Data is at /pages/enrollment-data.html and presents enrollment totals by grade/section, including male, female, and overall totals. Statistics is at /pages/reports.html; EOSY Status Report is at /pages/eosy-report.html. Data export is a separate page at /pages/data.html. Check the selected school year and filters before comparing figures or preparing a report."
   },
   {
     "title": "Programs and learner profiles",
     "keywords": ["4ps", "indigenous", "ip", "sned", "aral", "muslim", "reading", "math", "nutrition", "profile"],
-    "guidance": "E-Dash includes program pages for 4Ps, Indigenous Peoples, SNED, ARAL, and Muslim learners, as well as Reading, Math, and Nutritional Status profile pages. These pages organize information by their named program or profile area; access and available actions depend on the account role."
+    "guidance": "Program pages are grouped under Programs: 4Ps Beneficiaries /pages/program-4ps.html, IP Learners /pages/program-ip.html, SNED Learners /pages/program-sned.html, ARAL Tagged Learners /pages/program-aral.html, and Muslim Learners /pages/program-muslim.html. They are focused lists for their named learner program. Nutritional Status is /pages/nutritional-status.html; Reading Profile is /pages/reading-profile.html; Math Profile is /pages/math-profile.html. Search the page name to get details about filters and views. Access and available actions depend on account permissions."
   },
   {
     "title": "Grades and learner cards",
     "keywords": ["grade", "grades", "grades profile", "card", "print", "sf9", "subject"],
-    "guidance": "Grades Profile is the grade-related workspace. Print Card is the separate workflow for generating learner cards. The School Admin configures card templates and attendance labels in the Admin Console Card Preferences section. Follow the current school-year selection and on-screen instructions."
+    "guidance": "Grades Profile is /pages/grades-profile.html: a grade workspace with search and filters, term navigation, a subject-grades table, Excel export, and a Print Card action. Print Card is a separate page at /pages/print-card.html. Preferences is /pages/preferences.html; card template and attendance-layout options are configured there by a School Admin. Follow the selected school year and on-screen instructions."
   },
   {
     "title": "Promotion and retention",
     "keywords": ["promotion", "promote", "retention", "retained", "end of school year", "eosy"],
-    "guidance": "Promotion and Retention are separate EOSY workflows. Review the source school year and learner records carefully before applying a progression decision. Promotion availability can depend on school settings and account permissions; consult the School Admin if the action is unavailable."
+    "guidance": "Promotion (/pages/promotion.html) and Retention (/pages/retention.html) are separate end-of-school-year learner progression workflows under Movement. Review the source school year and learner records before applying a decision. These links are shown only when the account can manage learners; consult a School Admin if unavailable. For status reporting, use EOSY Status Report at /pages/eosy-report.html."
   },
   {
     "title": "Dropouts and transfers",
     "keywords": ["dropout", "dropouts", "transfer", "transferred", "withdraw"],
-    "guidance": "Dropout and Transfer Info are dedicated pages for those learner status workflows. Use the appropriate page and follow its required fields rather than changing a status through an unrelated workflow. The application enforces role permissions for records."
+    "guidance": "Transfer Info is /pages/transfer-info.html and Dropout Info is /pages/dropout.html. These are dedicated learner-status pages under Movement; use the matching workflow and required fields rather than changing a status in an unrelated workflow. Download archive records from /pages/data.html. The application enforces role permissions."
   },
   {
     "title": "Admin Console: accounts and school configuration",
     "roles": ["School Admin"],
     "keywords": ["admin console", "manage users", "users", "account", "accounts", "school year", "settings", "configuration", "card preferences"],
-    "guidance": "The Admin Console is available to School Admin accounts. Manage Users handles account administration; Settings includes school configuration, and the Card Preferences area configures print-card templates and attendance layout. Use the current on-screen controls, and verify the target school year before changing year-specific settings."
+    "guidance": "The Admin Console is available to School Admin accounts. Manage Users at /pages/manage-users.html handles account administration. Settings is /pages/settings.html for school settings. Preferences is /pages/preferences.html for workspace theme and the Learner Inspection action toggle. Audit Log at /pages/audit-log.html is a read-only activity history and is admin-gated. Confirm the selected school and school year before changing configuration."
   },
   {
     "title": "Trash and restoration",
     "keywords": ["trash", "restore", "deleted", "recover"],
-    "guidance": "The Trash page is used to review and restore supported deleted records. Restoration access depends on role and assignment permissions. If a record is not visible or restoration is unavailable, contact a School Admin."
+    "guidance": "Trash is at /pages/trash.html and is used to review supported deleted learner records and restore them when authorized. Permanent deletion is destructive; confirm the selected record and permissions before proceeding. Feedback is a separate page at /pages/feedback.html. If a record or action is unavailable, contact a School Admin."
+  },
+  {
+    "title": "Utilities page components and tools",
+    "keywords": ["utilities", "tools", "calculator", "grade calculator", "average", "subject grades", "BMI", "body mass index", "health", "height", "weight", "data export", "excel", "CSV", "EduAI"],
+    "guidance": "Utilities sidebar category links: Data /pages/data.html, Grade Calculator /pages/grade-calculator.html, BMI Calculator /pages/bmi-calculator.html, and EduAI /pages/eduai.html. The separate Utilities landing page /pages/utilities.html contains two cards: Grade Calculator and BMI Calculator. Grade Calculator accepts subject grades from 60 to 100, excludes empty subjects, and computes their arithmetic average, with Calculate average and Clear actions. BMI Calculator takes height in meters and weight in kilograms, computes weight divided by height squared, and has Calculate BMI and Clear actions. BMI is a screening measure, not a diagnosis; children need age- and sex-specific percentile interpretation. Data is a separate export workspace with year, search, grade, program, and gender filters and filtered Excel, full masterlist, CSV, transferred-out, and dropout downloads. EduAI is a separate AI assistant page, not a card on the Utilities landing page."
+  },
+  {
+    "title": "Website Feedback page and form",
+    "keywords": ["feedback", "website feedback", "rating", "suggestion", "comment", "email", "submit feedback", "improve", "navigation"],
+    "guidance": "Website Feedback is /pages/feedback.html, the bottom Feedback link in the sidebar. The page explains that feedback helps prioritize improvements, shows the signed-in account email as read-only, provides a quick evaluation with 1=Poor to 5=Excellent rating fields, and has a required comment box (up to 2,000 characters) plus Submit feedback. The response is sent to the website administrator. Feedback is not the Trash page; Trash is /pages/trash.html."
+  },
+  {
+    "title": "Global search and finding page components",
+    "keywords": ["global search", "search pages", "find button", "component", "shortcut", "ctrl k", "command k", "jump", "navigate", "navigation", "sidebar", "topbar"],
+    "guidance": "The authenticated-page topbar has global search for pages, tools, and indexed page components. Use Ctrl+K on Windows/Linux or Command+K on macOS to open it, type a page or control name, and select a result to navigate to that page and jump to the indexed component when available. Escape closes the search; arrow keys and Enter can navigate/select results. On mobile, use the topbar menu button to show or hide the sidebar. Category buttons expand/collapse their menu; a child link opens the page."
+  },
+  {
+    "title": "Routes not shown as standard sidebar links",
+    "keywords": ["hidden page", "direct route", "route directory", "print card", "audit log", "preferences", "manage users", "admin console", "login", "school selection", "parent portal", "privacy policy"],
+    "guidance": "Additional registered routes include Print Card /pages/print-card.html (also reachable from Grades Profile), Audit Log /pages/audit-log.html (read-only and admin-gated), Preferences /pages/preferences.html (workspace theme and Learner Inspection toggle), and Admin Console /pages/manage-users.html (School Admin only). Public/account routes are /select-school (school selection), /login, /privacy-policy, and /parent.html (parent portal). The root route / and /index.html redirect to /select-school. A route existing in the app does not mean every role can access it; follow role checks and do not bypass them."
+  },
+  {
+    "title": "Complete authenticated route directory",
+    "keywords": ["all routes", "every path", "page paths", "route list", "directory", "dashboard", "masterlist", "program", "enrollment", "data", "reports", "EOSY", "grades", "print card", "reading", "math", "nutrition", "transfer", "dropout", "promotion", "retention", "audit", "feedback", "trash", "utilities", "BMI", "calculator", "settings", "preferences", "manage users", "EduAI"],
+    "guidance": "Authenticated app routes: /pages/dashboard.html; /pages/masterlist.html; /pages/program-4ps.html; /pages/program-ip.html; /pages/program-sned.html; /pages/program-aral.html; /pages/program-muslim.html; /pages/enrollment-data.html; /pages/data.html; /pages/reports.html; /pages/eosy-report.html; /pages/grades-profile.html; /pages/print-card.html; /pages/reading-profile.html; /pages/math-profile.html; /pages/nutritional-status.html; /pages/transfer-info.html; /pages/dropout.html; /pages/promotion.html; /pages/retention.html; /pages/audit-log.html; /pages/feedback.html; /pages/trash.html; /pages/utilities.html; /pages/bmi-calculator.html; /pages/grade-calculator.html; /pages/settings.html; /pages/preferences.html; /pages/manage-users.html; /pages/eduai.html. Sidebar grouping and labels are described in Complete sidebar navigation and paths from Dashboard to Feedback. Some routes are opened from within another page or are role-restricted rather than shown as standard sidebar items."
   }
 ]

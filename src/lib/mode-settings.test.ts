@@ -12,7 +12,7 @@ vi.mock('./school-registry', () => ({
   }),
 }));
 
-const { getModeSettings, startModeSettingsListener } = await import('./mode-settings');
+const { getModeSettings, resolveMaintenanceMode, startModeSettingsListener } = await import('./mode-settings');
 
 describe('central mode settings', () => {
   let nextSnapshot: (snapshot: { exists: boolean; data: () => Record<string, unknown> }) => void;
@@ -22,6 +22,13 @@ describe('central mode settings', () => {
       nextSnapshot = onNext;
       return vi.fn();
     });
+  });
+
+  it('lets a local maintenance override win while preserving Firestore behavior otherwise', () => {
+    expect(resolveMaintenanceMode(false, true)).toBe(true);
+    expect(resolveMaintenanceMode(true, false)).toBe(false);
+    expect(resolveMaintenanceMode(true, null)).toBe(true);
+    expect(resolveMaintenanceMode(false, false)).toBe(false);
   });
 
   it('loads both booleans from settings/modes and rejects malformed values', () => {

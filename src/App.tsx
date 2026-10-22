@@ -8,7 +8,7 @@ import RouteLoadingFallback from './components/RouteLoadingFallback';
 import MaintenancePage from './pages/MaintenancePage';
 import { APP_CONFIG, isVisitorSession } from './lib/app-config';
 import { auth } from './lib/firebase';
-import { startModeSettingsListener, useModeSettings } from './lib/mode-settings';
+import { resolveMaintenanceMode, startModeSettingsListener, useModeSettings } from './lib/mode-settings';
 import { clearTenantSession } from './lib/tenant-session';
 import { clearStoredSchool, getRegisteredSchools, getStoredSchool, sameSchoolRegistration, storeActiveSchool } from './lib/school-registry';
 
@@ -299,6 +299,9 @@ export default function App() {
     return () => document.removeEventListener('click', handlePageLinkClick);
   }, [navigate]);
 
+  if (resolveMaintenanceMode(modeSettings.isMaintenanceMode)) {
+    return <MaintenancePage />;
+  }
   if (modeSettings.status === 'loading') {
     return <RouteLoadingFallback pageLoading={false} />;
   }
@@ -315,10 +318,6 @@ export default function App() {
       </main>
     );
   }
-  if (modeSettings.isMaintenanceMode) {
-    return <MaintenancePage />;
-  }
-
   const isPageRoute = location.pathname.startsWith('/pages/');
   return (
     <RouteErrorBoundary>

@@ -8,9 +8,27 @@ export interface ModeSettings {
   error?: Error;
 }
 
+function readLocalMaintenanceOverride(): boolean | null {
+  if (!import.meta.env.DEV || import.meta.env.MODE === 'test') return null;
+  const value = import.meta.env.MAINTENANCE_MODE?.trim().toLowerCase();
+  if (!value) return null;
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  throw new Error('MAINTENANCE_MODE must be set to "true" or "false".');
+}
+
+const localMaintenanceOverride = readLocalMaintenanceOverride();
+
+export function resolveMaintenanceMode(
+  firestoreMaintenanceMode: boolean,
+  localOverride = localMaintenanceOverride,
+): boolean {
+  return localOverride ?? firestoreMaintenanceMode;
+}
+
 let modeSettings: ModeSettings = {
-  status: 'loading',
-  isMaintenanceMode: false,
+  status: localMaintenanceOverride === null ? 'loading' : 'ready',
+  isMaintenanceMode: localMaintenanceOverride ?? false,
   isTestMode: false,
 };
 const subscribers = new Set<() => void>();
@@ -44,7 +62,7 @@ export function useModeSettings(): ModeSettings {
 
 export function startModeSettingsListener(): () => void {
   publish({
-    status: 'loading',
+    status: localMaintenanceOverride === null ? 'loading' : 'ready',
     isMaintenanceMode: modeSettings.isMaintenanceMode,
     isTestMode: modeSettings.isTestMode,
   });
@@ -59,7 +77,7 @@ export function startModeSettingsListener(): () => void {
           const settings = snapshot.exists ? snapshot.data() || {} : {};
           publish({
             status: 'ready',
-            isMaintenanceMode: parseModeFlag(settings, 'isMaintenanceMode'),
+            isMaintenanceMode: localMaintenanceOverride ?? parseModeFlag(settings, 'isMaintenanceMode'),
             isTestMode: parseModeFlag(settings, 'isTestMode'),
           });
         } catch (error) {
