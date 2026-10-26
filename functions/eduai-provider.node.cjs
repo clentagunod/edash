@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const {
   PROVIDERS,
   buildProviderRequest,
+  buildSystemInstruction,
   decryptApiKey,
   encryptApiKey,
   isQuotaExhausted,
@@ -10,7 +11,7 @@ const {
   parseProviderResponse,
   validateProviderConfiguration,
 } = require("./eduai-provider.cjs");
-const { buildEduAiProductGuide, loadTrustedEduAiContext } = require("./eduai-context.cjs");
+const { buildEduAiApplicationAccess, buildEduAiContext, loadTrustedEduAiContext } = require("./eduai-context.cjs");
 
 const encryptionKey = Buffer.alloc(32, 7).toString("base64");
 
@@ -176,8 +177,92 @@ test("rebuilds teacher context from server-owned assignments and active tenant r
   assert.deepEqual(context.graphs[0].points, [{ label: "Grade 6", count: 1 }]);
 });
 
-test("keeps admin-console product guidance out of teacher answers", () => {
+test("keeps admin-console product guidance out of teacher answers", async () => {
+  const { buildEduAiProductGuide } = await import('./eduai-guide.mjs');
   const teacherGuide = buildEduAiProductGuide("How do I manage users in the admin console?", "Teacher");
   assert.doesNotMatch(teacherGuide, /Manage Users handles account administration/);
   assert.match(buildEduAiProductGuide("How do I manage users in the admin console?", "School Admin"), /Manage Users/);
+});
+
+test('builds explicit per-role capabilities and does not assume unverified teacher permissions', () => {
+  const teacher = buildEduAiApplicationAccess('Teacher', {
+    email: 'PRIVATE-EMAIL', password: 'PRIVATE-PASSWORD',
+    teacherAssignments: [{ schoolYear: '2026-2027', gradeLevel: '6', section: 'A', teacherUid: 'PRIVATE-UID' }],
+  }, '2026-2027');
+  assert.equal(teacher.capabilities.progression, null);
+  assert.equal(teacher.capabilities.tenantBackupRestore, false);
+  assert.equal(teacher.schoolSettings.status, 'unavailable');
+  assert.deepEqual(teacher.assignedClasses, [{ gradeLevel: 'Grade 6', section: 'A' }]);
+  assert.doesNotMatch(JSON.stringify(teacher), /PRIVATE-/);
+  assert.equal(buildEduAiApplicationAccess('Registrar', {}, '2026-2027', {}).capabilities.trash, false);
+  assert.equal(buildEduAiApplicationAccess('School Admin', {}, '2026-2027', {}).capabilities.studentImport, true);
+  assert.throws(() => buildEduAiApplicationAccess('Visitor', {}, '2026-2027', {}), /not allowed/);
+});
+
+test('uses only allowlisted school settings, with defaults only when the document was read', () => {
+  const empty = buildEduAiApplicationAccess('Teacher', {}, '2026-2027', {});
+  assert.equal(empty.capabilities.progression, false);
+  assert.equal(empty.schoolSettings.parentPortalEnabled, true);
+  const configured = buildEduAiApplicationAccess('Teacher', {}, '2026-2027', {
+    canPromoteStudents: true, canParentAccess: false, trashConfg: 'never', roundType: 'none', providerKey: 'PRIVATE-KEY',
+  });
+  assert.equal(configured.capabilities.progression, true);
+  assert.equal(configured.schoolSettings.parentPortalEnabled, false);
+  assert.equal(configured.schoolSettings.trashRetention, 'never');
+  assert.equal(configured.schoolSettings.finalGradeRounding, 'none');
+  assert.doesNotMatch(JSON.stringify(configured), /PRIVATE-KEY/);
+  assert.equal(buildEduAiApplicationAccess('Teacher', {}, '', { canPromoteStudents: 'true' }).capabilities.progression, null);
+});
+
+test('system prompts always include the verified role policy and keep names and private payloads bounded', () => {
+  const context = buildEduAiContext('Teacher', '2026-2027', [{ name: 'Allowed learner', gradeLevel: 'Grade 6', section: 'A' }]);
+  context.applicationAccess = buildEduAiApplicationAccess('Teacher', {}, '2026-2027', { canPromoteStudents: false });
+  context.credentials = 'PRIVATE-CREDENTIAL';
+  context.rawLearners = [{ guardian: 'PRIVATE-GUARDIAN' }];
+  const instruction = buildSystemInstruction(context, 'Masterlist: documented help.', 0);
+  assert.match(instruction, /active Teacher/);
+  assert.match(instruction, /applicationAccess capabilities take precedence/);
+  assert.match(instruction, /false is disabled and null is unknown/);
+  assert.match(instruction, /"learnerNamesIncluded":0/);
+  assert.match(instruction, /"learnerNamesTruncated":true/);
+  assert.doesNotMatch(instruction, /Allowed learner|PRIVATE-/);
+  assert.match(buildSystemInstruction({ ...context, role: 'Registrar' }, '', 0), /active Registrar/);
+  assert.match(buildSystemInstruction({ ...context, role: 'School Admin' }, '', 0), /active School Admin/);
+  assert.throws(() => buildSystemInstruction({ ...context, role: 'Parent' }, '', 0), /not allowed/);
+});
+
+test('worker rebuilds teacher capabilities and data scope using signed-in Firestore reads', async () => {
+  const { buildTrustedContext } = await import('../worker/index.mjs');
+  const originalFetch = global.fetch;
+  const wireValue = value => typeof value === 'boolean' ? { booleanValue: value }
+    : Array.isArray(value) ? { arrayValue: { values: value.map(wireValue) } }
+      : value && typeof value === 'object' ? { mapValue: { fields: Object.fromEntries(Object.entries(value).map(([key, item]) => [key, wireValue(item)])) } }
+        : { stringValue: String(value) };
+  const document = (path, data) => ({ name: `projects/test-school/databases/(default)/documents/${path}`, fields: Object.fromEntries(Object.entries(data).map(([key, value]) => [key, wireValue(value)])) });
+  const reads = [];
+  global.fetch = async (url, options) => {
+    assert.equal(options.headers.Authorization, 'Bearer trusted-token');
+    const path = new URL(url).pathname.split('/documents/')[1];
+    reads.push(path);
+    let payload;
+    if (path === 'users/teacher-1') payload = document(path, { status: 'Active', role: 'Teacher', teacherAssignments: [{ schoolYear: '2026-2027', gradeLevel: 'Grade 6', section: 'A' }] });
+    else if (path === 'settings/currentSchoolYear') payload = document(path, { value: '2026-2027' });
+    else if (path === 'settings/toggles') payload = document(path, { canPromoteStudents: false, canParentAccess: true });
+    else if (path === 'schoolYears/2026-2027:runQuery') payload = [
+      { document: document('schoolYears/2026-2027/learners/one', { name: 'Assigned learner', gradeLevel: 'Grade 6', section: 'A' }) },
+      { document: document('schoolYears/2026-2027/learners/two', { name: 'Other class learner', gradeLevel: 'Grade 6', section: 'B' }) },
+    ];
+    else throw new Error(`Unexpected read ${path}`);
+    return new Response(JSON.stringify(payload), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+  try {
+    const { context } = await buildTrustedContext({ uid: 'teacher-1', token: 'trusted-token', projectId: 'test-school', tenantConfig: { apiKey: 'public-test-key' } });
+    assert.equal(context.role, 'Teacher');
+    assert.equal(context.summary.totalLearners, 1);
+    assert.deepEqual(context.learnerNames, ['Assigned learner']);
+    assert.equal(context.applicationAccess.capabilities.progression, false);
+    assert.equal(context.applicationAccess.capabilities.adminConsole, false);
+    assert.deepEqual(context.applicationAccess.assignedClasses, [{ gradeLevel: 'Grade 6', section: 'A' }]);
+    assert.ok(reads.includes('settings/toggles'));
+  } finally { global.fetch = originalFetch; }
 });

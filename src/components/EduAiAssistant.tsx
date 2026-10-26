@@ -410,7 +410,7 @@ export default function EduAiAssistant() {
         <div>
           <span className="eduai-workspace-kicker"><span aria-hidden="true">✦</span> School-aware assistant</span>
           <h2>How can I help today?</h2>
-          <p>Ask about school-wide summaries, enrollment patterns, or general next steps.</p>
+          <p>Get help with E-Dash workflows, {context?.role === 'Teacher' ? 'your assigned classes' : 'your school’s summaries'}, and the features available to your role.</p>
         </div>
         <div className="eduai-header-actions">
           <button
@@ -492,7 +492,13 @@ export default function EduAiAssistant() {
                 <button type="button" onClick={() => setQuestion('How do I use the Masterlist to find a learner?')}>How do I use the Masterlist?</button>
                 <button type="button" onClick={() => setQuestion('Summarize the learner counts by grade level.')}>Summarize learner counts</button>
                 <button type="button" onClick={() => setQuestion('Interpret the school graphs. Explain the key categories and compare relevant periods using the aggregate counts and percentages.')}>Read school graphs</button>
-                <button type="button" onClick={() => setQuestion('What general support strategies could help based on these aggregate counts?')}>Suggest general strategies</button>
+                <button type="button" onClick={() => setQuestion(context?.role === 'School Admin'
+                  ? 'How do I import students, and how is that different from restoring a tenant database backup?'
+                  : context?.role === 'Registrar'
+                    ? 'What can I manage as a Registrar, and how do I record transfers or dropouts?'
+                    : 'What can I do with my assigned classes, and when can I use promotion or retention?')}>
+                  {context?.role === 'School Admin' ? 'Import students & backups' : context?.role === 'Registrar' ? 'Registrar workflows' : 'My teaching permissions'}
+                </button>
               </div>
             </div>
           ) : messages.map((message, index) => (

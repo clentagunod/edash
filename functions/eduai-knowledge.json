@@ -1,7 +1,7 @@
 [
   {
     "id": "navigation", "title": "Complete sidebar navigation and paths from Dashboard to Feedback", "overview": true,
-    "keywords": ["sidebar", "navigation", "menu", "all pages", "navigate", "components", "dashboard to feedback", "whole website"],
+    "keywords": ["sidebar", "navigation", "menu", "all pages", "navigate", "components", "dashboard to feedback", "whole website", "website overview", "functionality"],
     "guidance": "Primary links: Dashboard — /pages/dashboard.html; Learner Masterlist — /pages/masterlist.html; Enrollment Data — /pages/enrollment-data.html; Settings — /pages/settings.html. Programs: 4Ps Beneficiaries, IP Learners, SNED Learners, ARAL Tagged Learners, Muslim Learners. Nutrition: Nutritional Status. Statistics: Statistics and EOSY Status Report. Profiles: Grades Profile, Reading Profile, Math Profile. Movement: Promotion, Retention, Transfer Info, Dropout Info. Utilities: Data, Grade Calculator, BMI Calculator, EduAI. Bottom Feedback — /pages/feedback.html; Trash is role-restricted. Categories expand/collapse; links open pages. The mobile topbar menu opens the sidebar. Visitors only see Dashboard and Enrollment Data. A visible link does not guarantee access; respect the authorized role and server permissions. EduAI can explain routes but cannot navigate or operate controls."
   },
   {
@@ -27,7 +27,7 @@
   },
   {
     "id": "masterlist", "title": "Masterlist and learner records", "routes": ["/pages/masterlist.html"],
-    "keywords": ["masterlist", "learner", "student", "search", "record", "enrollment", "add learner", "edit learner", "remove learner", "LRN"],
+    "keywords": ["masterlist", "learner", "student", "search", "record", "enrollment", "add learner", "edit learner", "remove learner", "LRN", "birthdate", "date of birth", "guardian", "contact", "gender", "suffix", "age", "first name", "middle name", "last name", "N/A"],
     "guidance": "Learner Masterlist (/pages/masterlist.html) provides search and filters for grade level, program, and gender, sorting, pagination, learner inspection, and Add Learner/Edit/Remove actions when authorized. Select the correct year first. The form requires a 12-digit LRN and uses separate first/middle/last names and suffix; birthdate uses YYYY-MM-DD and calculates age. Choose a configured grade/section; teachers use their assigned classes. Guardian and contact can be N/A when unavailable and edited later. The form also handles program tags, terms/subject grades, reading/math classifications, nutrition periods, EOSY status, and transfer fields. Save learner persists changes; follow validation errors rather than inventing missing values. Removed records go to Trash for authorized recovery. EduAI explains fields but cannot open, retrieve, edit, or disclose a learner's individual profile."
   },
   {

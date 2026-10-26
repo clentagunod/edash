@@ -12,7 +12,7 @@ const ALIASES = {
   exporting: 'export', downloading: 'export', download: 'export', backups: 'backup', restoring: 'restore',
   permissions: 'permission', accounts: 'account', users: 'user', teachers: 'teacher',
 };
-const tokens = value => String(value || '').normalize('NFKC').toLowerCase().match(/[\p{L}\p{N}]+/gu)
+const tokens = value => String(value || '').normalize('NFKC').toLowerCase().replace(/\bn\s*\/\s*a\b/g, 'notavailable').match(/[\p{L}\p{N}]+/gu)
   ?.filter(token => token.length > 1 && !STOP_WORDS.has(token)).map(token => ALIASES[token] || token) || [];
 const overlap = (text, query) => [...new Set(tokens(text))].filter(token => query.has(token)).length;
 
@@ -28,8 +28,12 @@ export function selectEduAiGuideEntries(question, role, history = []) {
   const ranked = guideEntries.filter(entry => !entry.roles || entry.roles.includes(role)).map(entry => {
     const keyText = entry.keywords.join(' ');
     const currentScore = overlap(entry.title, query) * 5 + overlap(keyText, query) * 3;
+    const bodyMatches = overlap(entry.guidance, query);
     const previousScore = overlap(`${entry.title} ${keyText}`, previous);
-    return { entry, score: currentScore + previousScore + (currentScore ? overlap(entry.guidance, query) * 0.1 : 0) + (entry.overview && broad && currentScore ? 12 : 0) };
+    // Two meaningful body terms can recover a field question missing an alias,
+    // while title/keyword matches remain substantially stronger.
+    const bodyScore = currentScore ? bodyMatches * 0.1 : bodyMatches >= 2 ? bodyMatches * 0.4 : 0;
+    return { entry, score: currentScore + previousScore + bodyScore + (entry.overview && broad && currentScore ? 12 : 0) };
   }).filter(candidate => candidate.score > 0).sort((left, right) => right.score - left.score || left.entry.id.localeCompare(right.entry.id));
   const selected = [];
   let length = 0, overviews = 0;
