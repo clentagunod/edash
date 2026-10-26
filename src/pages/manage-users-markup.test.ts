@@ -2,6 +2,16 @@ import { describe, expect, it } from 'vitest';
 import markup from './markup/manage-users.html?raw';
 
 describe('Admin Console collapsible sections', () => {
+  it('keeps tenant backup collapsed with a hidden summary and separate restore action', () => {
+    const document = new DOMParser().parseFromString(markup, 'text/html');
+    const accordion = document.querySelector<HTMLDetailsElement>('#tenantBackupAccordion')!;
+    expect(accordion.open).toBe(false);
+    expect(accordion.querySelector('summary')?.textContent).toContain('Tenant database backup');
+    expect(accordion.querySelector('#firestoreBackupReview')?.hidden).toBe(true);
+    expect(accordion.querySelector('#confirmFirestoreBackupBtn')).not.toBeNull();
+    expect(accordion.querySelector('#downloadFirestoreBackupBtn')).not.toBeNull();
+    expect(document.querySelector('#adminStudentImportRoot')?.closest('details')).toBeNull();
+  });
   it('groups Card Preferences controls into three collapsed accordions', () => {
     const document = new DOMParser().parseFromString(markup, 'text/html');
     const accordions = [...document.querySelectorAll('#adminCardPreferencesPanel .admin-card-preference-accordion')];

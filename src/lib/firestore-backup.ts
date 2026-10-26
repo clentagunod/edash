@@ -15,6 +15,7 @@ import {
   fsInvalidateReadCaches_,
 } from './firestore-api';
 import { clearButtonLoading, setButtonLoading, showToast } from './shell';
+import { clearFirestoreBackupReview, renderFirestoreBackupReview } from './firestore-backup-review';
 
 export const FIRESTORE_BACKUP_FORMAT = "edash-tenant-firestore-backup";
 export const FIRESTORE_BACKUP_FORMAT_VERSION = 1;
@@ -203,16 +204,33 @@ function appendSnapshotDocuments(documents, snapshot) {
 }
 
 async function appendCollectionDocuments(documents, collection) {
-  appendSnapshotDocuments(documents, await collection.get());
+  appendSnapshotDocuments(documents, await readBackupReference(collection));
+}
+
+async function readBackupReference(reference) {
+  try {
+    return await reference.get();
+  } catch (error) {
+    if (error.code === "permission-denied" || error.code === "firestore/permission-denied") {
+      const projectId = db.app?.options?.projectId || APP_CONFIG.firebase?.projectId || "the selected school's Firebase project";
+      throw new Error(
+        `Backup cannot read "${reference.path}" in ${projectId}. ` +
+        "Sign in with an active School Admin account and deploy the latest firestore.rules to this school's Firebase project, then retry. " +
+        "No backup was downloaded.",
+        { cause: error },
+      );
+    }
+    throw error;
+  }
 }
 
 export async function collectFirestoreBackup() {
   const documents = [];
   const [usersSnapshot, yearsSnapshot, settingsSnapshot, publicStatsSummary] = await Promise.all([
-    db.collection(FS_USERS).get(),
-    db.collection(FS_SCHOOL_YEARS).get(),
-    db.collection(FS_SETTINGS).get(),
-    db.collection("publicStats").doc("summary").get(),
+    readBackupReference(db.collection(FS_USERS)),
+    readBackupReference(db.collection(FS_SCHOOL_YEARS)),
+    readBackupReference(db.collection(FS_SETTINGS)),
+    readBackupReference(db.collection("publicStats").doc("summary")),
   ]);
   appendSnapshotDocuments(documents, usersSnapshot);
   appendSnapshotDocuments(documents, yearsSnapshot);
@@ -233,15 +251,15 @@ export async function collectFirestoreBackup() {
 
   await Promise.all(yearsSnapshot.docs.map(async (year) => {
     const [learners, dropouts, transfers, trash, grades] = await Promise.all([
-      year.ref.collection(FS_LEARNERS).get(),
-      year.ref.collection(FS_DROPOUTS).get(),
-      year.ref.collection(FS_TRANSFERRED_OUT).get(),
-      year.ref.collection("trash").get(),
-      year.ref.collection(FS_PATHS.grades).get(),
+      readBackupReference(year.ref.collection(FS_LEARNERS)),
+      readBackupReference(year.ref.collection(FS_DROPOUTS)),
+      readBackupReference(year.ref.collection(FS_TRANSFERRED_OUT)),
+      readBackupReference(year.ref.collection("trash")),
+      readBackupReference(year.ref.collection(FS_PATHS.grades)),
     ]);
     [learners, dropouts, transfers, trash, grades].forEach((snapshot) => appendSnapshotDocuments(documents, snapshot));
     await Promise.all(grades.docs.map(async (grade) => {
-      const sections = await grade.ref.collection(FS_PATHS.sections).get();
+      const sections = await readBackupReference(grade.ref.collection(FS_PATHS.sections));
       appendSnapshotDocuments(documents, sections);
       await Promise.all(sections.docs.map(async (section) =>
         appendCollectionDocuments(documents, section.ref.collection(FS_PATHS.teachers))));
@@ -283,6 +301,12 @@ export const FIRESTORE_BACKUP_MODES = Object.freeze({
 });
 
 export function updateFirestoreBackupModeWarning(mode = FIRESTORE_BACKUP_MODES.REPLACE) {
+  const review = document.getElementById('firestoreBackupReview');
+  if (review && !review.hidden) {
+    const status = document.getElementById('firestoreBackupValidationStatus');
+    if (status) status.textContent = 'Restore options changed. Choose the backup again to review it with this mode.';
+  }
+  clearFirestoreBackupReview();
   const title = document.getElementById("backupReplaceWarningTitle");
   const description = document.getElementById("backupModeWarningDescription");
   const descriptions = {
@@ -403,8 +427,9 @@ export async function importFirestoreBackupFile(file, mode = document.getElement
   const steps = [...document.querySelectorAll("[data-backup-validation-step]")];
   const progress = document.getElementById("firestoreBackupProgress");
   const validationStatus = document.getElementById("firestoreBackupValidationStatus");
+  const modeSelect = document.getElementById('firestoreBackupMode');
+  if (modeSelect) modeSelect.disabled = true;
   let activeStep = 0;
-  let validationFinished = false;
   const setStepState = (stepIndex, state) => {
     const step = steps[stepIndex];
     if (!step) return;
@@ -452,30 +477,52 @@ export async function importFirestoreBackupFile(file, mode = document.getElement
     await nextPaint();
     validateBackupActiveAdmin(parsed, auth.currentUser?.uid || "");
     const backup = parsed;
-    setValidationProgress(activeStep, "complete", "Validation passed. Review the replace warning before continuing.");
-    validationFinished = true;
-    const exportedAt = new Date(backup.exportedAt);
-    const exportedLabel = Number.isNaN(exportedAt.getTime()) ? "an unknown date" : exportedAt.toLocaleString();
-    const documentCount = backup.documents.length.toLocaleString();
-    const modeNames = {
-      [FIRESTORE_BACKUP_MODES.REPLACE]: "Replace",
-      [FIRESTORE_BACKUP_MODES.MERGE]: "Merge",
-      [FIRESTORE_BACKUP_MODES.EXTEND]: "Extend",
-    };
-    const modeDetails = {
-      [FIRESTORE_BACKUP_MODES.REPLACE]: "Matching app-managed documents will be overwritten, and other app-managed documents missing from this file will be deleted.",
-      [FIRESTORE_BACKUP_MODES.MERGE]: "Imported fields will update matching documents, preserving fields not included in the file. Existing documents absent from the backup will remain unchanged.",
-      [FIRESTORE_BACKUP_MODES.EXTEND]: "Only app-managed documents whose exact paths do not exist will be added. Existing matching documents will be skipped.",
-    };
-    if (!window.confirm(
-      `${modeNames[mode]} ${documentCount} app-managed database documents for ${backup.schoolName || APP_CONFIG.branding.schoolName} using the backup from ${exportedLabel}?\n\n` +
-      `${modeDetails[mode]}\n\n` +
-      `This mode cannot affect Firebase Authentication accounts or unrelated/custom collections. A JSON safety backup will be downloaded first. Restore is not atomic. Continue?`,
-    )) {
-      if (validationStatus) validationStatus.textContent = `${modeNames[mode]} validation passed. Restore canceled; database unchanged.`;
-      return null;
-    }
+    setValidationProgress(activeStep, "complete", "Validation passed. Review the backup summary, then choose Review and restore.");
+    const summary = renderFirestoreBackupReview(backup, file.name, mode, () => restoreReviewedFirestoreBackup(backup, mode));
+    if (status) status.textContent = 'Backup validated. Review the summary before restoring; nothing has been uploaded.';
+    return { prepared: true, mode, summary };
+  } catch (error) {
+    setValidationProgress(activeStep, "error", `Validation stopped: ${error.message || "The selected file could not be validated."}`);
+    if (status) status.textContent = error.message || "Backup could not be imported.";
+    showToast(error.message || "Backup could not be imported.", "error");
+    return null;
+  } finally {
+    clearButtonLoading(button);
+    if (modeSelect) modeSelect.disabled = false;
+  }
+}
 
+async function restoreReviewedFirestoreBackup(backup, mode) {
+  const button = document.getElementById('confirmFirestoreBackupBtn');
+  if (!button || button.disabled) return null;
+  const status = document.getElementById('firestoreBackupStatus');
+  const validationStatus = document.getElementById('firestoreBackupValidationStatus');
+  const exportedLabel = new Date(backup.exportedAt).toLocaleString();
+  const documentCount = backup.documents.length.toLocaleString();
+  const modeNames = {
+    [FIRESTORE_BACKUP_MODES.REPLACE]: "Replace",
+    [FIRESTORE_BACKUP_MODES.MERGE]: "Merge",
+    [FIRESTORE_BACKUP_MODES.EXTEND]: "Extend",
+  };
+  const modeDetails = {
+    [FIRESTORE_BACKUP_MODES.REPLACE]: "Matching app-managed documents will be overwritten, and other app-managed documents missing from this file will be deleted.",
+    [FIRESTORE_BACKUP_MODES.MERGE]: "Imported fields will update matching documents, preserving fields not included in the file. Existing documents absent from the backup will remain unchanged.",
+    [FIRESTORE_BACKUP_MODES.EXTEND]: "Only app-managed documents whose exact paths do not exist will be added. Existing matching documents will be skipped.",
+  };
+  if (!window.confirm(
+    `${modeNames[mode]} ${documentCount} app-managed database documents for ${backup.schoolName || APP_CONFIG.branding.schoolName} using the backup from ${exportedLabel}?\n\n` +
+    `${modeDetails[mode]}\n\n` +
+    `This mode cannot affect Firebase Authentication accounts or unrelated/custom collections. A JSON safety backup will be downloaded first. Restore is not atomic. Continue?`,
+  )) {
+    if (validationStatus) validationStatus.textContent = `${modeNames[mode]} validation passed. Restore canceled; database unchanged. You can review the summary and try again.`;
+    return null;
+  }
+  const controls = ['importFirestoreBackupBtn', 'downloadFirestoreBackupBtn', 'firestoreBackupMode', 'cancelFirestoreBackupBtn']
+    .map(id => document.getElementById(id)).filter(Boolean).map(element => ({ element, disabled: element.disabled }));
+  controls.forEach(({ element }) => { element.disabled = true; });
+  setButtonLoading(button, 'Restoring…');
+  button.disabled = true;
+  try {
     const result = await restoreFirestoreBackup(backup, mode);
     const resultParts = [`${result.restored.toLocaleString()} written`];
     if (result.removed) resultParts.push(`${result.removed.toLocaleString()} removed`);
@@ -485,15 +532,18 @@ export async function importFirestoreBackupFile(file, mode = document.getElement
     showToast("Tenant database restore completed.", "success");
     return result;
   } catch (error) {
-    if (validationFinished) {
-      if (validationStatus) validationStatus.textContent = `Validation passed, but restore failed: ${error.message || "Unknown error"}`;
-    } else {
-      setValidationProgress(activeStep, "error", `Validation stopped: ${error.message || "The selected file could not be validated."}`);
-    }
+    if (validationStatus) validationStatus.textContent = `Validation passed, but restore failed: ${error.message || "Unknown error"}. Choose and validate the backup again before retrying.`;
     if (status) status.textContent = error.message || "Backup could not be imported.";
     showToast(error.message || "Backup could not be imported.", "error");
     return null;
   } finally {
     clearButtonLoading(button);
+    button.disabled = true;
+    controls.forEach(({ element, disabled }) => { element.disabled = disabled; });
+    const close = document.getElementById('cancelFirestoreBackupBtn');
+    if (close) {
+      close.textContent = 'Close summary';
+      close.onclick = clearFirestoreBackupReview;
+    }
   }
 }

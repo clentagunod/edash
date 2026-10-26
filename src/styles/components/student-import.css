@@ -1,0 +1,47 @@
+.student-import-panel { margin-top: 24px; padding: 22px; color: var(--ink-900); }
+.student-import-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+.student-import-heading h3 { margin: 4px 0 8px; font-size: 18px; }
+.student-import-heading p { max-width: 740px; margin: 0; color: var(--ink-500); font-size: 12px; line-height: 1.65; }
+.student-import-heading .btn, .student-import-file-row .btn, .student-import-actions .btn, .student-import-sheet-options .btn { width: auto; flex-shrink: 0; }
+.student-import-eyebrow { color: var(--blue-600); font-size: 10px; font-weight: 800; letter-spacing: .09em; text-transform: uppercase; }
+.student-import-warning { margin: 20px 0; padding: 12px 15px; border-left: 3px solid var(--warning-600); border-radius: 4px; color: var(--ink-700); background: var(--bg-app); font-size: 11px; line-height: 1.7; }
+.student-import-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; min-width: 0; padding: 0; margin: 0; border: 0; }
+.student-import-options legend { margin-bottom: 12px; font-size: 12px; font-weight: 750; }
+.student-import-panel label { display: grid; min-width: 0; gap: 7px; color: var(--ink-500); font-size: 11px; font-weight: 650; }
+.student-import-panel select { width: 100%; min-height: 38px; border: 1px solid var(--line-200); border-radius: 8px; padding: 8px 28px 8px 10px; color: var(--ink-900); background: var(--bg-card); font: inherit; }
+.student-import-panel :is(select, button, summary):focus-visible { outline: 3px solid var(--blue-100); outline-offset: 3px; }
+.student-import-panel :disabled { opacity: .55; cursor: not-allowed; }
+.student-import-file-row { display: flex; align-items: center; gap: 14px; margin-top: 22px; }
+.student-import-file-row > span { overflow-wrap: anywhere; color: var(--ink-500); font-size: 12px; }
+.student-import-hint { margin: 12px 0; color: var(--ink-500); font-size: 11px; line-height: 1.7; }
+.student-import-sheet-options { display: grid; grid-template-columns: minmax(0, 1fr) minmax(160px, 1fr) auto; gap: 15px; align-items: end; margin-top: 18px; }
+.student-import-steps { display: flex; flex-wrap: wrap; gap: 12px 20px; padding: 18px 0; margin: 20px 0 0; list-style: none; border-top: 1px solid var(--line-200); }
+.student-import-steps li { display: flex; gap: 7px; align-items: center; color: var(--ink-500); font-size: 10px; }
+.student-import-steps li > span { display: grid; place-items: center; width: 21px; height: 21px; border: 1px solid var(--line-200); border-radius: 50%; font-size: 10px; }
+.student-import-steps li[data-state="active"] { color: var(--blue-600); font-weight: 750; }
+.student-import-steps li[data-state="active"] > span { background: var(--blue-100); border-color: var(--blue-600); }
+.student-import-steps li[data-state="complete"] > span { color: var(--success-600); border-color: var(--success-600); }
+.student-import-status { display: flex; gap: 8px; align-items: center; min-height: 24px; margin: 0; color: var(--ink-700); font-size: 12px; line-height: 1.65; }
+.student-import-panel .student-import-error, .student-import-errors { color: var(--danger-600); font-size: 12px; line-height: 1.7; }
+.student-import-progress { width: 100%; height: 6px; margin-top: 12px; accent-color: var(--blue-600); }
+.student-import-review { margin-top: 20px; border-top: 1px solid var(--line-200); padding-top: 18px; }
+.student-import-summary { display: flex; flex-wrap: wrap; gap: 10px 24px; font-size: 11px; color: var(--ink-500); }
+.student-import-summary strong { color: var(--ink-900); font-size: 16px; margin-right: 4px; }
+.student-import-review details { border: 1px solid var(--line-200); border-radius: 8px; padding: 12px 14px; margin-top: 12px; font-size: 11px; line-height: 1.65; }
+.student-import-review summary { cursor: pointer; font-weight: 700; }
+.student-import-table-wrap { max-width: 100%; overflow: auto; max-height: 350px; margin-top: 12px; }
+.student-import-table-wrap table { width: 100%; border-collapse: collapse; text-align: left; font-size: 11px; }
+.student-import-table-wrap th { position: sticky; top: 0; background: var(--bg-app); color: var(--ink-700); }
+.student-import-table-wrap :is(th, td) { padding: 9px 12px; border-bottom: 1px solid var(--line-200); white-space: nowrap; }
+.student-import-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+@media (max-width: 800px) {
+  .student-import-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .student-import-heading { gap: 16px; }
+  .student-import-sheet-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px) {
+  .student-import-panel { padding: 16px; }
+  .student-import-heading, .student-import-file-row { flex-direction: column; align-items: stretch; }
+  .student-import-options, .student-import-sheet-options { grid-template-columns: minmax(0, 1fr); }
+  .student-import-actions .btn { width: 100%; }
+}

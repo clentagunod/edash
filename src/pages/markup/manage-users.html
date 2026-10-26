@@ -380,17 +380,22 @@
       </section>
 
       <section class="admin-section-panel" id="adminBackupPanel" role="tabpanel" aria-labelledby="adminBackupTab" tabindex="0" hidden>
-      <div class="admin-section-label"><div><span>Database backup</span><small>Export or restore tenant data using a structured JSON file</small></div></div>
+      <div class="admin-section-label"><div><span>Database backup</span><small>Back up your school database or import student records</small></div></div>
+      <details class="admin-accordion admin-database-accordion" id="tenantBackupAccordion">
+        <summary class="admin-accordion-summary">
+          <span class="admin-accordion-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12m-5-5 5 5 5-5M5 17v4h14v-4"/></svg></span>
+          <span class="admin-accordion-copy"><strong>Tenant database backup</strong><small>Export your school database or review and restore an E-Dash JSON backup</small></span>
+          <svg class="admin-accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </summary>
       <section class="panel admin-backup-panel">
         <div class="admin-backup-content">
-          <div class="admin-backup-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M5 21h14a2 2 0 0 0 2-2v-4M3 15v4a2 2 0 0 0 2 2"/></svg></div>
-          <div><h3>Tenant database backup</h3><p>Download a structured JSON backup of users, school years, settings, learners, archives, academic structure, and public statistics. Import replaces app-managed database records for this school; a safety copy is downloaded before restore.</p><span id="firestoreBackupStatus" class="admin-backup-status" role="status" aria-live="polite">Firebase Authentication accounts and passwords are not included.</span></div>
-          <div class="admin-backup-actions">
-            <label class="admin-backup-mode-control" for="firestoreBackupMode"><span>Import mode</span><select id="firestoreBackupMode"><option value="replace">Replace</option><option value="merge">Merge</option><option value="extend">Extend</option></select></label>
-            <button class="btn btn-secondary" id="importFirestoreBackupBtn" type="button">Import JSON</button><input id="firestoreBackupFile" type="file" accept=".json,application/json" hidden />
+          <div><p>Export or restore users, school years, settings, students, archives, academic structure, and public statistics using an E-Dash backup JSON. A safety copy is downloaded before restore. For spreadsheets or student-only JSON, use Import students below.</p><span id="firestoreBackupStatus" class="admin-backup-status" role="status" aria-live="polite">Firebase Authentication accounts and passwords are not included.</span></div>
+        </div>
+          <div class="admin-backup-actions admin-backup-toolbar">
+            <label class="admin-backup-mode-control" for="firestoreBackupMode"><span>Restore mode</span><select id="firestoreBackupMode"><option value="replace">Replace</option><option value="merge">Merge</option><option value="extend">Extend</option></select></label>
+            <button class="btn btn-secondary" id="importFirestoreBackupBtn" type="button">Restore JSON</button><input id="firestoreBackupFile" type="file" accept=".json,application/json" hidden />
             <button class="btn btn-primary admin-backup-button" id="downloadFirestoreBackupBtn" type="button">Export JSON</button>
           </div>
-        </div>
         <aside class="admin-backup-warning" role="note" aria-labelledby="backupReplaceWarningTitle">
           <span class="admin-backup-warning-icon" aria-hidden="true">!</span>
           <div>
@@ -403,8 +408,8 @@
         <section class="admin-backup-validation" aria-labelledby="backupValidationTitle">
           <div class="admin-backup-validation-heading">
             <div>
-              <h4 id="backupValidationTitle">Import file validation</h4>
-              <p>Each check must pass before the replace confirmation appears.</p>
+              <h4 id="backupValidationTitle">Backup restore validation</h4>
+              <p>Each check must pass before the restore confirmation appears.</p>
             </div>
             <span id="firestoreBackupValidationStatus" role="status" aria-live="polite">Choose an import file to begin validation.</span>
           </div>
@@ -416,7 +421,18 @@
             <li data-backup-validation-step data-state="pending"><span class="admin-backup-step-indicator" aria-hidden="true"></span><span>Confirm active School Admin account is included</span><small data-backup-step-state>Waiting</small></li>
           </ol>
         </section>
+        <section id="firestoreBackupReview" class="admin-backup-review" aria-labelledby="firestoreBackupReviewTitle" hidden>
+          <h4 id="firestoreBackupReviewTitle">Backup summary</h4>
+          <p class="admin-backup-review-note">Review this file and the selected restore mode before uploading. A safety backup is downloaded after your final confirmation.</p>
+          <div id="firestoreBackupReviewContent"></div>
+          <div class="admin-backup-review-actions">
+            <button id="cancelFirestoreBackupBtn" class="btn btn-secondary" type="button">Cancel restore</button>
+            <button id="confirmFirestoreBackupBtn" class="btn btn-primary" type="button">Review and restore</button>
+          </div>
+        </section>
       </section>
+      </details>
+      <div id="adminStudentImportRoot"></div>
       </section>
 
       <section class="admin-section-panel" id="adminAuditPanel" role="tabpanel" aria-labelledby="adminAuditTab" tabindex="0" hidden>

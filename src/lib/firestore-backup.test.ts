@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockFirestore } = vi.hoisted(() => {
-  const state = { documents: new Map(), commits: [] };
+  const state = { documents: new Map(), commits: [], readErrors: new Map() };
+  const checkRead = (path) => {
+    if (state.readErrors.has(path)) throw state.readErrors.get(path);
+  };
   const snapshot = (path) => {
     const exists = state.documents.has(path);
     const ref = documentRef(path);
@@ -16,11 +19,16 @@ const { mockFirestore } = vi.hoisted(() => {
     path,
     id: path.split("/").at(-1),
     collection: (name) => collectionRef(`${path}/${name}`),
-    get: async () => snapshot(path),
+    get: async () => {
+      checkRead(path);
+      return snapshot(path);
+    },
   });
   const collectionRef = (path) => ({
+    path,
     doc: (id) => documentRef(`${path}/${id}`),
     get: async () => {
+      checkRead(path);
       const depth = path.split("/").length + 1;
       const prefix = `${path}/`;
       const docs = [...state.documents.keys()]
@@ -88,6 +96,7 @@ vi.mock("./shell", () => ({
 
 import {
   collectFirestoreBackup,
+  downloadFirestoreBackup,
   decodeBackupValue,
   encodeBackupValue,
   FIRESTORE_BACKUP_FORMAT,
@@ -99,6 +108,9 @@ import {
   updateFirestoreBackupModeWarning,
   validateFirestoreBackup,
 } from "./firestore-backup";
+import { summarizeFirestoreBackup } from './firestore-backup-review';
+
+const reviewMarkup = `<section id="firestoreBackupReview" hidden><div id="firestoreBackupReviewContent"></div><button id="confirmFirestoreBackupBtn">Review and restore</button><button id="cancelFirestoreBackupBtn">Cancel restore</button></section>`;
 
 vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
 
@@ -131,6 +143,7 @@ function makeBackup(documents = [{
 describe("tenant database JSON backup", () => {
   beforeEach(() => {
     mockFirestore.state.documents.clear();
+    mockFirestore.state.readErrors.clear();
     mockFirestore.state.commits.length = 0;
     vi.stubGlobal("firebase", {
       firestore: { Timestamp: TestTimestamp, GeoPoint },
@@ -194,18 +207,24 @@ describe("tenant database JSON backup", () => {
     ]))).toThrow(/invalid geographic point/i);
   });
 
-  it("shows each validation layer before asking to replace tenant data", async () => {
+  it("shows validation and a summary before the user explicitly starts the restore", async () => {
     document.body.innerHTML = `
       <button id="importFirestoreBackupBtn"></button>
       <p id="firestoreBackupStatus"></p>
       <p id="firestoreBackupValidationStatus"></p>
       <div id="firestoreBackupProgress" aria-valuenow="0"></div>
+      ${reviewMarkup}
       ${Array.from({ length: 4 }, () => '<li data-backup-validation-step data-state="pending"><span data-backup-step-state></span></li>').join("")}
     `;
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
 
     await importFirestoreBackupFile({ text: async () => JSON.stringify(makeBackup()) });
 
+    expect(confirm).not.toHaveBeenCalled();
+    expect(document.getElementById('firestoreBackupReview')?.hidden).toBe(false);
+    expect(document.getElementById('firestoreBackupReviewContent')?.textContent).toContain('Total documents1');
+    expect(mockFirestore.state.commits).toHaveLength(0);
+    document.getElementById('confirmFirestoreBackupBtn')?.click();
     expect(confirm).toHaveBeenCalledOnce();
     expect([...document.querySelectorAll("[data-backup-validation-step]")].map((step) => step.dataset.state))
       .toEqual(["complete", "complete", "complete", "complete"]);
@@ -254,6 +273,34 @@ describe("tenant database JSON backup", () => {
     ]);
     expect(backup.documents.find(({ path }) => path === "settings/toggles")?.data)
       .toEqual({ canParentAccess: false });
+  });
+
+  it.each([
+    ["settings", "permission-denied"],
+    ["users/admin-1/assignmentHistory", "permission-denied"],
+    ["schoolYears/2025-2026/trash", "firestore/permission-denied"],
+    ["publicStats/summary", "permission-denied"],
+  ])("reports denied reads at %s and never downloads an incomplete backup", async (path, code) => {
+    document.body.innerHTML = '<button id="downloadFirestoreBackupBtn"></button><p id="firestoreBackupStatus"></p>';
+    mockFirestore.state.documents.set("users/admin-1", { role: "School Admin", status: "Active" });
+    mockFirestore.state.documents.set("schoolYears/2025-2026", { isCurrent: true });
+    mockFirestore.state.readErrors.set(path, Object.assign(new Error("Missing or insufficient permissions."), { code }));
+
+    expect(await downloadFirestoreBackup()).toBeNull();
+
+    const status = document.getElementById("firestoreBackupStatus")?.textContent;
+    expect(status).toContain(`Backup cannot read "${path}"`);
+    expect(status).toContain("active School Admin");
+    expect(status).toContain("deploy the latest firestore.rules to this school's Firebase project");
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+    expect(mockFirestore.state.commits).toHaveLength(0);
+  });
+
+  it("preserves non-permission errors when reading a backup", async () => {
+    const error = Object.assign(new Error("Network unavailable"), { code: "unavailable" });
+    mockFirestore.state.readErrors.set("settings", error);
+
+    await expect(collectFirestoreBackup()).rejects.toBe(error);
   });
 
   it("restores incoming records and removes stale app-managed records", async () => {
@@ -315,6 +362,7 @@ describe("tenant database JSON backup", () => {
       <p id="firestoreBackupStatus"></p>
       <p id="firestoreBackupValidationStatus"></p>
       <div id="firestoreBackupProgress" aria-valuenow="0"></div>
+      ${reviewMarkup}
       ${Array.from({ length: 4 }, () => '<li data-backup-validation-step data-state="pending"><span data-backup-step-state></span></li>').join("")}
     `;
     updateFirestoreBackupModeWarning(FIRESTORE_BACKUP_MODES.MERGE);
@@ -330,10 +378,46 @@ describe("tenant database JSON backup", () => {
       { path: "settings/toggles", data: { canParentAccess: false } },
     ])) }, FIRESTORE_BACKUP_MODES.MERGE);
 
+    expect(confirm).not.toHaveBeenCalled();
+    document.getElementById('confirmFirestoreBackupBtn')?.click();
+    await vi.waitFor(() => expect(document.getElementById("firestoreBackupStatus")?.textContent).toContain("Merge complete"));
+
     expect(confirm.mock.calls[0][0]).toContain("Merge 2 app-managed database documents");
     expect(mockFirestore.state.documents.get("settings/toggles"))
       .toEqual({ canParentAccess: false, retainedField: "keep" });
     expect(document.getElementById("firestoreBackupStatus")?.textContent).toContain("Merge complete");
+    confirm.mockRestore();
+  });
+
+  it('counts backup record types and distinct years without counting subcollections as users', () => {
+    const paths = [
+      'users/admin-1', 'users/admin-1/assignmentHistory/2026-2027',
+      'schoolYears/2026-2027', 'schoolYears/2026-2027/learners/123456789012',
+      'schoolYears/2025-2026/learners/123456789012', 'schoolYears/2026-2027/trash/deleted',
+      'schoolYears/2026-2027/grades/grade6', 'settings/toggles', 'publicStats/summary',
+    ];
+    expect(summarizeFirestoreBackup(makeBackup(paths.map(path => ({ path, data: {} }))))).toEqual({
+      total: 9, years: ['2025-2026', '2026-2027'],
+      counts: { students: 2, archives: 1, users: 1, settings: 1, structure: 1, assignments: 1, statistics: 1, yearDocuments: 1 },
+    });
+  });
+
+  it('cancels a prepared restore and invalidates it when the mode changes', async () => {
+    document.body.innerHTML = `<p id="firestoreBackupValidationStatus"></p>${reviewMarkup}`;
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const file = { name: '<script>backup</script>.json', text: async () => JSON.stringify({ ...makeBackup(), schoolName: '<img src=x onerror=alert(1)>' }) };
+    await importFirestoreBackupFile(file);
+    expect(document.querySelector('#firestoreBackupReview script, #firestoreBackupReview img')).toBeNull();
+    expect(document.getElementById('firestoreBackupReviewContent')?.textContent).toContain(file.name);
+    document.getElementById('cancelFirestoreBackupBtn')?.click();
+    expect(document.getElementById('firestoreBackupReview')?.hidden).toBe(true);
+    expect(document.getElementById('confirmFirestoreBackupBtn')?.onclick).toBeNull();
+    await importFirestoreBackupFile(file);
+    updateFirestoreBackupModeWarning(FIRESTORE_BACKUP_MODES.MERGE);
+    expect(document.getElementById('firestoreBackupReview')?.hidden).toBe(true);
+    document.getElementById('confirmFirestoreBackupBtn')?.click();
+    expect(confirm).not.toHaveBeenCalled();
+    expect(mockFirestore.state.commits).toHaveLength(0);
     confirm.mockRestore();
   });
 

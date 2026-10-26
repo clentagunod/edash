@@ -188,6 +188,8 @@ describe('learner guardian and contact inputs', () => {
     expect([...document.querySelectorAll('.not-available-hint')].map((hint) => hint.textContent))
       .toEqual(['N/A if not available', 'N/A if not available']);
     expect(normalizeNotAvailableInput('0917-123-4567')).toBe('0917-123-4567');
+    expect(sentenceCaseName('N/A')).toBe('N/A');
+    expect(sentenceCaseName('n / a')).toBe('N/A');
     document.body.innerHTML = '';
   });
 });

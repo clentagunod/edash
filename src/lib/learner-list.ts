@@ -1362,6 +1362,7 @@ export function getLearnerFieldValue(id) {
 }
 
 export function sentenceCaseName(value) {
+  if (normalizeNotAvailableInput(value) === "N/A") return "N/A";
   const text = String(value || "").trim().toLowerCase();
   return text.replace(/(^|[\s.'])([a-zñ])/giu, (_, prefix, letter) => prefix + letter.toUpperCase());
 }

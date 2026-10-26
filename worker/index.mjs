@@ -1,6 +1,7 @@
 import { importX509, jwtVerify } from "jose";
 import providerHelpers from "../functions/eduai-provider.cjs";
 import contextHelpers from "../functions/eduai-context.cjs";
+import { buildEduAiProductGuide } from "../functions/eduai-guide.mjs";
 
 const {
   PROVIDERS,
@@ -13,7 +14,6 @@ const {
   parseProviderResponse,
   validateProviderConfiguration,
 } = providerHelpers;
-const { buildEduAiProductGuide } = contextHelpers;
 const FIREBASE_CERT_URL = "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com";
 const ALLOWED_ROLES = new Set(["School Admin", "Registrar", "Teacher"]);
 const ALLOWED_MODELS = new Set(["gemini-3.5-flash-lite"]);
@@ -366,11 +366,14 @@ function currentSchoolYear(value) {
   return match ? `${match[1]}-${match[2]}` : "";
 }
 
-async function buildTrustedContext(context) {
+export async function buildTrustedContext(context) {
   const profile = await getTenantDocument(context, `users/${encodeURIComponent(context.uid)}`);
   if (profile.status !== "Active" || !ALLOWED_ROLES.has(profile.role)) {
     throw new ApiError(403, "permission-denied", "EduAI is available only to active teachers, registrars, and school administrators.");
   }
+  let toggles;
+  try { toggles = await getTenantDocument(context, 'settings/toggles', true); }
+  catch { /* Missing access/configuration must not be described as a verified setting. */ }
   const yearSetting = await getTenantDocument(context, "settings/currentSchoolYear", true);
   let schoolYear = currentSchoolYear(yearSetting.value);
   if (!schoolYear) {
@@ -382,14 +385,18 @@ async function buildTrustedContext(context) {
       .sort((left, right) => Number(right.schoolYear.replace("-", "")) - Number(left.schoolYear.replace("-", "")));
     schoolYear = validYears.find((year) => year.isCurrent)?.schoolYear || validYears[0]?.schoolYear || "";
   }
-  if (!schoolYear) return { profile, context: loadTrustedEduAiContextContext(profile.role, "", []) };
+  const withAccess = records => ({
+    ...loadTrustedEduAiContextContext(profile.role, schoolYear, records),
+    applicationAccess: contextHelpers.buildEduAiApplicationAccess(profile.role, profile, schoolYear, toggles),
+  });
+  if (!schoolYear) return { profile, context: withAccess([]) };
 
   const learners = profile.role === "Teacher"
     ? await listTeacherLearners(context, schoolYear, teacherAssignments(profile, schoolYear))
     : await listTenantCollection(context, `schoolYears/${encodeURIComponent(schoolYear)}/learners`);
   return {
     profile,
-    context: loadTrustedEduAiContextContext(profile.role, schoolYear, learners),
+    context: withAccess(learners),
   };
 }
 
@@ -612,8 +619,9 @@ async function chat(context, env, input, request) {
   });
   const { profile, context: schoolContext } = await buildTrustedContext(context);
   const productGuide = buildEduAiProductGuide(
-    `${history.slice(-2).map(({ content }) => content).join("\n")}\n${question}`,
+    question,
     profile.role,
+    history,
   );
   const systemInstruction = buildSystemInstruction(schoolContext, productGuide, settings.learnerNameLimit);
   const saved = await readProviderSettings(env.EDUAI_DB, context.schoolId, context.uid);

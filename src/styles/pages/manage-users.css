@@ -294,15 +294,38 @@ body.dark-mode .admin-curriculum-add-subject input { background: #101010; border
 .admin-user-management-heading .btn { width: auto; flex: 0 0 auto; }
 .admin-users-panel { margin-top: 0; }
 .admin-backup-panel { overflow: hidden; }
+.admin-database-accordion { margin-bottom: 16px; }
+.admin-database-accordion > .panel { margin: 0; border: 0; border-top: 1px solid var(--line-200); border-radius: 0; box-shadow: none; }
+.admin-database-accordion > .admin-accordion-summary:hover { background: var(--bg-app); }
+.admin-backup-review { margin: 0 20px 20px; padding: 18px; border: 1px solid var(--line-200); border-radius: 12px; }
+.admin-backup-review[hidden] { display: none; }
+.admin-backup-review h4 { margin: 0 0 8px; color: var(--ink-900); font-size: 14px; }
+.admin-backup-review-note { margin: 10px 0; color: var(--ink-500); font-size: 11px; line-height: 1.65; overflow-wrap: anywhere; }
+.admin-backup-review-metadata, .admin-backup-review-totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 18px 0; }
+.admin-backup-review-metadata dt, .admin-backup-review-totals dt { margin-bottom: 5px; color: var(--ink-500); font-size: 11px; }
+.admin-backup-review-metadata dd, .admin-backup-review-totals dd { margin: 0; color: var(--ink-900); overflow-wrap: anywhere; font-size: 12px; }
+.admin-backup-review-totals { padding: 16px; border-radius: 8px; background: var(--bg-app); }
+.admin-backup-review-totals dd { font-size: 22px; font-weight: 750; }
+.admin-backup-review-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.admin-backup-review-actions .btn { width: auto; }
+@media (max-width: 700px) {
+  .admin-backup-review-metadata, .admin-backup-review-totals { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-backup-review { margin-right: 12px; margin-left: 12px; padding: 14px; }
+  .admin-backup-review-actions .btn { flex: 1; }
+}
 .admin-backup-content { display: flex; align-items: center; gap: 16px; padding: 20px; background: linear-gradient(135deg, var(--bg-card), var(--blue-100)); }
 .admin-backup-icon { display: grid; place-items: center; width: 46px; height: 46px; flex: 0 0 auto; border: 1px solid #cbdaf5; border-radius: 13px; color: var(--blue-600); background: var(--bg-card); }
-.admin-backup-content > div:nth-child(2) { min-width: 0; flex: 1; }
+.admin-backup-content > div { min-width: 0; flex: 1; }
 .admin-backup-content h3 { margin-bottom: 5px; font-size: 16px; }
 .admin-backup-content p { max-width: 700px; margin: 0; color: var(--ink-500); font-size: 12px; line-height: 1.5; }
 .admin-backup-status { display: block; margin-top: 6px; color: var(--blue-600); font-size: 10px; }
 .admin-backup-button { width: auto; flex: 0 0 auto; margin-left: auto; }
 .admin-backup-actions { display: flex; flex: 0 0 auto; gap: 8px; margin-left: auto; }
 .admin-backup-actions .btn { width: auto; text-decoration: none; }
+.admin-backup-panel .admin-backup-toolbar { width: 100%; margin: 0; padding: 16px 20px; align-items: flex-end; flex-wrap: wrap; border-bottom: 1px solid var(--line-200); }
+.admin-backup-toolbar .admin-backup-mode-control { margin-right: auto; }
+.admin-backup-toolbar .admin-backup-button { margin-left: 0; }
+.admin-backup-toolbar + .admin-backup-warning { margin-top: 16px; }
 .admin-backup-mode-control { display: grid; min-width: 112px; gap: 3px; color: var(--ink-500); font-size: 9px; font-weight: 750; }
 .admin-backup-mode-control select { min-height: 36px; padding: 6px 26px 6px 9px; border: 1px solid var(--line-200); border-radius: 8px; color: var(--ink-900); background: var(--bg-card); font: inherit; font-size: 11px; }
 .admin-backup-mode-control select:focus-visible { outline: 3px solid var(--blue-100); outline-offset: 2px; }

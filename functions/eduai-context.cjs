@@ -1,4 +1,4 @@
-const guideEntries = require("./eduai-knowledge.json");
+const rolePolicies = require("./eduai-role-policies.json");
 
 const PROFILE_PERIODS = [
   { key: "bosy", label: "BOSY" },
@@ -9,10 +9,6 @@ const CRLA_CATEGORIES = ["Grade Ready", "Transitioning", "Developing", "High Eme
 const PHIL_IRI_CATEGORIES = ["Independent", "Instructional", "Frustration", "Non reader"];
 const RMA_CATEGORIES = ["Not Proficient", "Low Proficient", "Nearly-Proficient", "Proficient", "High-Proficient"];
 const NUTRITION_CATEGORIES = ["Normal", "Wasted", "Severely Wasted", "Overweight", "Obese"];
-const GUIDE_STOP_WORDS = new Set([
-  "a", "about", "an", "and", "are", "can", "do", "for", "how", "i", "in", "is", "it",
-  "me", "my", "of", "on", "or", "the", "to", "use", "what", "where", "with",
-]);
 
 function normalizeProfileCategory(value) {
   const normalized = String(value ?? "").trim().toLowerCase().replace(/[^a-z]/g, "");
@@ -297,6 +293,10 @@ function isActiveLearner(learner) {
 }
 
 async function loadTrustedEduAiContext(db, role, profile) {
+  if (!Object.hasOwn(rolePolicies, role)) throw new Error('Your account role is not allowed to use EduAI.');
+  let toggles;
+  try { toggles = (await db.collection('settings').doc('toggles').get()).data() || {}; }
+  catch { /* Optional settings remain explicitly unverified when not readable. */ }
   const configuredYearSnapshot = await db.collection("settings").doc("currentSchoolYear").get();
   let schoolYear = normalizeSchoolYear(configuredYearSnapshot.data()?.value);
   if (!schoolYear) {
@@ -310,12 +310,16 @@ async function loadTrustedEduAiContext(db, role, profile) {
     });
     schoolYear = years.find((year) => year.isCurrent)?.schoolYear || years[0]?.schoolYear || "";
   }
-  if (!schoolYear) return buildEduAiContext(role, "", []);
+  const withAccess = learners => ({
+    ...buildEduAiContext(role, schoolYear, learners),
+    applicationAccess: buildEduAiApplicationAccess(role, profile, schoolYear, toggles),
+  });
+  if (!schoolYear) return withAccess([]);
   const collection = db.collection("schoolYears").doc(schoolYear).collection("learners");
   let documents;
   if (role === "Teacher") {
     const assignments = teacherAssignmentsForYear(profile, schoolYear);
-    if (!assignments.length) return buildEduAiContext(role, schoolYear, []);
+    if (!assignments.length) return withAccess([]);
     const snapshots = await Promise.all(assignments.map(({ gradeLevel, section }) =>
       collection.where("gradeLevel", "==", gradeLevel).where("section", "==", section).get()));
     const unique = new Map();
@@ -328,30 +332,34 @@ async function loadTrustedEduAiContext(db, role, profile) {
   const learners = documents
     .map((document) => ({ learnerId: document.id, ...document.data() }))
     .filter(isActiveLearner);
-  return buildEduAiContext(role, schoolYear, learners);
+  return withAccess(learners);
 }
 
-function buildEduAiProductGuide(question, role) {
-  const tokens = (value) => String(value).toLowerCase().match(/[a-z0-9]+/g)
-    ?.filter((token) => token.length > 1 && !GUIDE_STOP_WORDS.has(token)) || [];
-  const queryTokens = new Set(tokens(question));
-  return guideEntries
-    .filter((entry) => !entry.roles || entry.roles.includes(role))
-    .map((entry) => ({
-      entry,
-      score: tokens(`${entry.title} ${entry.keywords.join(" ")} ${entry.guidance}`)
-        .reduce((total, token) => total + (queryTokens.has(token) ? 1 : 0), 0),
-    }))
-    .filter(({ score }) => score > 0)
-    .sort((left, right) => right.score - left.score)
-    .slice(0, 4)
-    .map(({ entry }) => `${entry.title}: ${entry.guidance}`)
-    .join("\n")
-    .slice(0, 7000);
+function buildEduAiApplicationAccess(role, profile, schoolYear, toggles) {
+  if (!Object.hasOwn(rolePolicies, role)) throw new Error('Your account role is not allowed to use EduAI.');
+  const verified = Boolean(toggles && typeof toggles === 'object' && !Array.isArray(toggles));
+  const flag = (key, fallback) => !verified ? null : toggles[key] === undefined ? fallback : typeof toggles[key] === 'boolean' ? toggles[key] : null;
+  const teacherPromotionEnabled = flag('canPromoteStudents', false);
+  const assignments = role === 'Teacher' ? teacherAssignmentsForYear(profile || {}, schoolYear) : [];
+  return {
+    capturedAt: new Date().toISOString(),
+    dataScope: rolePolicies[role].dataScope,
+    capabilities: { ...rolePolicies[role].capabilities, progression: role === 'Teacher' ? teacherPromotionEnabled : true },
+    assignedClasses: assignments.slice(0, 50).map(assignment => ({ gradeLevel: assignment.gradeLevel.slice(0, 80), section: assignment.section.slice(0, 80) })),
+    assignmentCount: assignments.length,
+    assignmentsTruncated: assignments.length > 50,
+    schoolSettings: {
+      status: verified ? 'verified' : 'unavailable',
+      teacherPromotionEnabled,
+      parentPortalEnabled: flag('canParentAccess', true),
+      trashRetention: verified && (toggles.trashConfg === undefined || ['7', '15', '30', 'never'].includes(String(toggles.trashConfg))) ? String(toggles.trashConfg ?? '30') : null,
+      finalGradeRounding: verified && (toggles.roundType === undefined || ['nearest_integer', 'none'].includes(toggles.roundType)) ? (toggles.roundType ?? 'nearest_integer') : null,
+    },
+  };
 }
 
 module.exports = {
   buildEduAiContext,
-  buildEduAiProductGuide,
+  buildEduAiApplicationAccess,
   loadTrustedEduAiContext,
 };
