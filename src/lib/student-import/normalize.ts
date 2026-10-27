@@ -1,4 +1,5 @@
 import { BOOLEAN_FIELDS, cleanText, ENUM_FIELDS, GUARDIAN_CONTACT_FIELDS, headerKey, isUnavailableContact, matchHeader, nameCase, NAME_FIELDS, normalizeGrade, NUMERIC_FIELDS } from './schema';
+import { normalizeNameSuffix, normalizeStudentName } from './names';
 import { type Cell, type ImportOptions, type Mapping, type ScanResult, type StudentRecord, type Table } from './types';
 
 function dateParts(year: number, month: number, day: number): string {
@@ -95,6 +96,7 @@ function normalizeCell(field: string, value: Cell, options: ImportOptions, date1
     return text;
   }
   if (field === 'birthDate') return normalizeBirthDate(value, options.dateOrder, date1904);
+  if (field === 'suffix') return normalizeNameSuffix(value);
   if (NAME_FIELDS.has(field)) return nameCase(value);
   if (field === 'gradeLevel') {
     const grade = normalizeGrade(value);
@@ -136,21 +138,6 @@ function normalizeCell(field: string, value: Cell, options: ImportOptions, date1
     return phone;
   }
   return text;
-}
-
-function splitName(record: StudentRecord, warnings: ScanResult['warnings'], row: number) {
-  if (!record.name || (record.firstName && record.lastName)) return;
-  const parts = String(record.name).split(',').map(cleanText);
-  if (parts.length >= 2 && parts.length <= 3) {
-    record.lastName ||= nameCase(parts[0]);
-    record.firstName ||= nameCase(parts[1]);
-    if (parts[2]) record.middleName ||= nameCase(parts[2]);
-    if (parts.length === 2 && parts[1].includes(' ')) {
-      warnings.push({ row, message: 'Two-part comma name: all given names are kept in First name; verify Middle name in the preview.' });
-    }
-  } else {
-    throw new Error('Full name needs "Last Name, First Name, Middle Name", or separate First name and Last name columns.');
-  }
 }
 
 export function scanStudentTable(table: Table, options: ImportOptions): ScanResult {
@@ -202,7 +189,11 @@ export function scanStudentTable(table: Table, options: ImportOptions): ScanResu
       try { record[mapping.field] = normalizeCell(mapping.field, value, options, table.date1904); }
       catch (error) { result.errors.push({ row: rowNumber, message: `${mapping.label}: ${(error as Error).message}` }); }
     }
-    try { splitName(record, result.warnings, rowNumber); }
+    try {
+      if (normalizeStudentName(record).needsMiddleNameReview) {
+        result.warnings.push({ row: rowNumber, message: 'No separate middle name: all given names are kept in First name; verify Middle name in the preview.' });
+      }
+    }
     catch (error) { result.errors.push({ row: rowNumber, message: (error as Error).message }); }
     if (!record.learnerId) result.errors.push({ row: rowNumber, message: 'A valid 12-digit LRN is required.' });
     if (!record.firstName || !record.lastName) result.errors.push({ row: rowNumber, message: 'First name and Last name are required.' });

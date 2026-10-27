@@ -14,7 +14,11 @@ const ALIASES: Record<string, string[]> = {
   firstName: ['first name', 'given name', 'given names'],
   middleName: ['middle name', 'middle initial'],
   lastName: ['last name', 'surname', 'family name'],
-  suffix: ['name extension', 'extension name', 'suffix'],
+  suffix: [
+    'name extension', 'extension name', 'suffix', 'name suffix', 'suffix name', 'name extension suffix',
+    'name ext', 'name extn', 'ext name', 'ext', 'extn', 'extension', 'learner suffix', 'student suffix',
+    'learner name extension', 'student name extension',
+  ],
   name: ['name', 'full name', 'student name', 'learner name', 'name of learner', 'name of student', 'name last name first name middle name'],
   birthDate: ['birth date', 'birthdate', 'date of birth', 'dob', 'birth date mm dd yyyy', 'birth date dd mm yyyy'],
   age: ['age', 'age as of 1st friday june'],

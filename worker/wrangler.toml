@@ -6,7 +6,7 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 REGISTRY_PROJECT_ID = "e-dash-478ec"
 REGISTRY_FIREBASE_API_KEY = "AIzaSyBCYgtM9go98_cV6LSGoiHRd5RB4cEOJ-I"
-ALLOWED_ORIGINS = "http://localhost:5173,https://edash-temp.vercel.app"
+ALLOWED_ORIGINS = "http://localhost:5173,https://edash-temp.vercel.app,https://www.edash.online"
 
 [[d1_databases]]
 binding = "EDUAI_DB"

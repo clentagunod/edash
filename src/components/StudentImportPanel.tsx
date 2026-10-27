@@ -178,7 +178,8 @@ export default function StudentImportPanel() {
     <section className="panel student-import-panel" aria-labelledby="studentImportTitle">
       <header className="student-import-heading">
         <div><span className="student-import-eyebrow">Student records only</span>
-          <p>Add students from labelled datasets without restoring a whole database. Review matched columns and normalized values before uploading to {APP_CONFIG.branding.schoolName}.</p></div>
+          <p>Add students from labelled datasets without restoring a whole database. Review matched columns and normalized values before uploading to {APP_CONFIG.branding.schoolName}.</p>
+          <p>Common name suffixes such as Jr., Sr., II, and III are separated automatically, including Last, First, Suffix, Middle names. Use a Suffix or Name extension column for custom suffixes or single-letter Roman numerals.</p></div>
         <button className="btn btn-secondary" type="button" disabled={busy || setupBusy || !year || !hasTarget} onClick={() => downloadStudentJson(studentTemplate(year, grade, section), APP_CONFIG.schoolId, year, 'edash-student-template.json')}>Export template</button>
       </header>
 
