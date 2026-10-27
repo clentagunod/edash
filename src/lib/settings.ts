@@ -1,3 +1,6 @@
+import { normalizeUserPreferences, LANDING_PAGES, type UserPreferences } from './user-preferences';
+import { applyUserPreferences, clearRememberedViews } from './preference-runtime';
+import { clearProfilePhotoCache, profilePhotoCacheStats } from './profile-photo-cache';
 import { APP_USER_PROFILE, isSchoolAdmin, storedAppProfile } from './app-config';
 import { displayNameFromEmail, initials } from './auth';
 import { auth } from './firebase';
@@ -264,81 +267,114 @@ function uploadProfileImage(blob: Blob, cloudName: string, preset: string, onPro
   });
 }
 
-function currentTeacherPrefs(profile) {
-  return {
-    theme: isAppTheme(profile?.teacherPrefs?.theme)
-      ? profile.teacherPrefs.theme
-      : 'Light' as AppTheme,
-    inspectLearner: typeof profile?.teacherPrefs?.inspectLearner === 'boolean'
-      ? profile.teacherPrefs.inspectLearner
-      : true,
-  };
-}
-
 export function initPreferencesPage() {
   renderShell('settings', 'Preferences');
-
   const profile = storedAppProfile() || APP_USER_PROFILE || {};
-  let prefs = currentTeacherPrefs(profile);
+  let prefs = normalizeUserPreferences(profile.teacherPrefs);
+  applyUserPreferences(prefs);
   let saving = false;
-  const themeSelect = document.querySelector<HTMLSelectElement>('#themePreferenceSelect');
-  const inspectionToggle = document.querySelector<HTMLInputElement>('#learnerInspectionToggle');
-  const inspectionState = document.getElementById('learnerInspectionState');
-
-  const renderPrefs = () => {
-    if (themeSelect) {
-      themeSelect.value = prefs.theme;
-      themeSelect.disabled = saving;
-    }
-    if (inspectionToggle) {
-      inspectionToggle.checked = prefs.inspectLearner;
-      inspectionToggle.disabled = saving;
-    }
-    if (inspectionState) inspectionState.textContent = prefs.inspectLearner ? 'On' : 'Off';
+  let disposed = false;
+  const bindings = {
+    themePreferenceSelect: 'theme', learnerInspectionToggle: 'inspectLearner',
+    rememberFiltersPreference: 'rememberFilters', landingPagePreference: 'landingPage',
+    tableDensityPreference: 'tableDensity', tablePageSizePreference: 'tablePageSize',
+    textSizePreference: 'textSize', privacyModePreference: 'privacyMode',
+    reduceMotionPreference: 'reduceMotion', photoCachePreference: 'photoCacheEnabled',
+  } as const;
+  const status = document.getElementById('preferencesSaveStatus');
+  const dialog = document.getElementById('resetPreferencesDialog') as HTMLDialogElement | null;
+  const landingSelect = document.getElementById('landingPagePreference') as HTMLSelectElement | null;
+  if (landingSelect) {
+    const staff = ['School Admin', 'Registrar', 'Teacher'].includes(profile.role);
+    landingSelect.replaceChildren(...Object.entries(LANDING_PAGES)
+      .filter(([page]) => staff || ['dashboard.html', 'enrollment-data.html'].includes(page))
+      .map(([page, label]) => new Option(label, page)));
+  }
+  const columns = [...document.querySelectorAll<HTMLInputElement>('[data-learner-column]')];
+  const controls = Object.entries(bindings).map(([id, key]) => ({
+    input: document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null, key,
+  }));
+  const cacheUsage = () => {
+    const usage = profilePhotoCacheStats();
+    const element = document.getElementById('photoCacheUsage');
+    if (element) element.textContent = `${usage.count} cached photo${usage.count === 1 ? '' : 's'} ? ${(usage.bytes / 1024 / 1024).toFixed(1)} MB of ${(usage.maxBytes / 1024 / 1024).toFixed(0)} MB`;
   };
-
-  const savePrefs = async (nextPrefs) => {
+  const renderPrefs = () => {
+    for (const { input, key } of controls) {
+      if (!input) continue;
+      if (input instanceof HTMLInputElement && input.type === 'checkbox') input.checked = Boolean(prefs[key]);
+      else input.value = String(prefs[key]);
+      input.disabled = saving;
+    }
+    columns.forEach(input => { input.checked = !prefs.hiddenLearnerColumns.includes(input.dataset.learnerColumn!); input.disabled = saving; });
+    const inspectionState = document.getElementById('learnerInspectionState');
+    if (inspectionState) inspectionState.textContent = prefs.inspectLearner ? 'On' : 'Off';
+    for (const id of ['resetPreferencesBtn', 'confirmResetPreferencesBtn', 'clearPhotoCacheBtn']) {
+      const button = document.getElementById(id) as HTMLButtonElement | null;
+      if (button) button.disabled = saving;
+    }
+    cacheUsage();
+  };
+  const savePrefs = async (nextPrefs: UserPreferences, reset = false) => {
     if (saving) return;
     const previousPrefs = prefs;
-    const themeChanged = nextPrefs.theme !== previousPrefs.theme;
+    prefs = nextPrefs;
     saving = true;
     renderPrefs();
+    if (status) { status.textContent = 'Saving your preferences...'; status.dataset.state = 'saving'; }
     try {
-      prefs = await fsUpdateMyTeacherPrefs(nextPrefs);
-      if (themeChanged) {
-        const root = document.documentElement;
-        root.classList.add('theme-transitioning');
-        // Force style resolution so the class is active before theme tokens change.
-        void root.offsetWidth;
-        window.setTimeout(() => root.classList.remove('theme-transitioning'), 450);
+      prefs = normalizeUserPreferences(await fsUpdateMyTeacherPrefs(nextPrefs));
+      if (disposed) return;
+      if (reset || !prefs.rememberFilters) clearRememberedViews();
+      if (reset) clearProfilePhotoCache();
+      if (prefs.theme !== previousPrefs.theme && !prefs.reduceMotion && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+        document.documentElement.classList.add('theme-transitioning');
+        window.setTimeout(() => document.documentElement.classList.remove('theme-transitioning'), 450);
       }
       document.body.dataset.theme = appThemeId(prefs.theme);
       document.documentElement.dataset.theme = appThemeId(prefs.theme);
       document.body.classList.toggle('dark-mode', isDarkAppTheme(prefs.theme));
       document.documentElement.classList.remove('dark-mode-preload');
+      applyUserPreferences(prefs);
+      if (reset) dialog?.close();
+      if (status) { status.textContent = reset ? 'Preferences restored to defaults' : 'All changes saved'; status.dataset.state = 'saved'; }
     } catch (error) {
       prefs = previousPrefs;
+      if (disposed) return;
+      if (status) { status.textContent = 'Changes could not be saved'; status.dataset.state = 'error'; }
       showToast(error.message || 'Could not save preferences. Please try again.', 'error');
     } finally {
       saving = false;
-      renderPrefs();
+      if (!disposed) renderPrefs();
     }
   };
-
-  const onThemeChange = () => {
-    const theme = themeSelect?.value;
-    if (isAppTheme(theme)) void savePrefs({ ...prefs, theme });
+  const removers: (() => void)[] = [];
+  const listen = (element: Element | null, event: string, handler: EventListener) => {
+    element?.addEventListener(event, handler);
+    removers.push(() => element?.removeEventListener(event, handler));
   };
-  const onInspectionChange = () => {
-    if (inspectionToggle) void savePrefs({ ...prefs, inspectLearner: inspectionToggle.checked });
-  };
-
-  themeSelect?.addEventListener('change', onThemeChange);
-  inspectionToggle?.addEventListener('change', onInspectionChange);
+  for (const { input, key } of controls) listen(input, 'change', () => {
+    if (!input) return;
+    const value = input instanceof HTMLInputElement && input.type === 'checkbox' ? input.checked
+      : key === 'tablePageSize' ? Number(input.value) : input.value;
+    void savePrefs(normalizeUserPreferences({ ...prefs, [key]: value }));
+  });
+  for (const input of columns) listen(input, 'change', () => {
+    void savePrefs({ ...prefs, hiddenLearnerColumns: columns.filter(column => !column.checked).map(column => column.dataset.learnerColumn!) });
+  });
+  listen(document.getElementById('clearPhotoCacheBtn'), 'click', () => {
+    clearProfilePhotoCache();
+    if (status) { status.textContent = 'Photo cache cleared for this tab'; status.dataset.state = 'saved'; }
+  });
+  listen(document.getElementById('resetPreferencesBtn'), 'click', () => dialog?.showModal());
+  listen(document.getElementById('cancelResetPreferencesBtn'), 'click', () => dialog?.close());
+  listen(document.getElementById('confirmResetPreferencesBtn'), 'click', () => void savePrefs(normalizeUserPreferences(), true));
+  window.addEventListener('edash:photo-cache-change', cacheUsage);
   renderPrefs();
-
   return () => {
-    themeSelect?.removeEventListener('change', onThemeChange);
-    inspectionToggle?.removeEventListener('change', onInspectionChange);
+    disposed = true;
+    removers.forEach(remove => remove());
+    window.removeEventListener('edash:photo-cache-change', cacheUsage);
+    dialog?.close();
   };
 }

@@ -10,6 +10,7 @@ import { APP_CONFIG, isVisitorSession } from './lib/app-config';
 import { auth } from './lib/firebase';
 import { resolveMaintenanceMode, startModeSettingsListener, useModeSettings } from './lib/mode-settings';
 import { clearTenantSession } from './lib/tenant-session';
+import { handlePageLinkClick } from './lib/page-navigation';
 import { clearStoredSchool, getRegisteredSchools, getStoredSchool, sameSchoolRegistration, storeActiveSchool } from './lib/school-registry';
 
 const initialTenantSchool = getStoredSchool();
@@ -282,21 +283,9 @@ export default function App() {
   useEffect(() => startModeSettingsListener(), [modeSettingsRetry]);
 
   useEffect(() => {
-    const handlePageLinkClick = (event: MouseEvent) => {
-      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-      if (!(event.target instanceof Element)) return;
-      const anchor = event.target.closest<HTMLAnchorElement>('a[href]');
-      if (!anchor || anchor.target || anchor.hasAttribute('download')) return;
-
-      const destination = new URL(anchor.href, window.location.href);
-      if (destination.origin !== window.location.origin || !destination.pathname.startsWith('/pages/')) return;
-
-      event.preventDefault();
-      navigate(`${destination.pathname}${destination.search}${destination.hash}`);
-    };
-
-    document.addEventListener('click', handlePageLinkClick);
-    return () => document.removeEventListener('click', handlePageLinkClick);
+    const onPageLinkClick = (event: MouseEvent) => handlePageLinkClick(event, navigate);
+    document.addEventListener('click', onPageLinkClick);
+    return () => document.removeEventListener('click', onPageLinkClick);
   }, [navigate]);
 
   if (resolveMaintenanceMode(modeSettings.isMaintenanceMode)) {

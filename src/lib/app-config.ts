@@ -2,6 +2,8 @@
 import { getActiveSchool, getStoredSchool } from "./school-registry";
 import { DEFAULT_GRADE_TERMS_SETTINGS } from "./grading-config";
 
+import userPreferenceDefaults from "../../shared/user-preferences.json";
+
 const env = import.meta.env;
 const activeSchool = getActiveSchool();
 
@@ -52,10 +54,7 @@ export const APP_CONFIG = Object.freeze({
       }),
     }),
     userDefaults: Object.freeze({
-      teacherPrefs: Object.freeze({
-        theme: "Light",
-        inspectLearner: true,
-      }),
+      teacherPrefs: Object.freeze({ ...userPreferenceDefaults, hiddenLearnerColumns: Object.freeze([]) }),
     }),
     collections: Object.freeze({
       users: "users",

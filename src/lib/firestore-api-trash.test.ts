@@ -23,7 +23,67 @@ vi.stubGlobal('firebase', {
 });
 
 const { setAppUserProfile } = await import('./app-config');
-const { fsGetTrash } = await import('./firestore-api');
+const { fsGetTrash, fsWriteAuditedSettings_, fsUpdateMyTeacherPrefs } = await import('./firestore-api');
+const { LPSApi } = await import('./sheets-api');
+const { normalizeUserPreferences } = await import('./user-preferences');
+
+describe('account preference persistence', () => {
+  afterEach(() => { mockAuth.currentUser = null; sessionStorage.clear(); setAppUserProfile(null); vi.restoreAllMocks(); });
+
+  it('writes complete preferences to the current account without changing access or assignments', async () => {
+    mockAuth.currentUser = { uid: 'teacher-1' };
+    const original = { uid: 'teacher-1', role: 'Teacher', teacherAssignments: [{ schoolYear: '2026-2027', gradeLevel: 'Grade 1', section: 'A' }] };
+    sessionStorage.setItem('lps_user_profile', JSON.stringify(original));
+    const update = vi.fn().mockResolvedValue(undefined);
+    const doc = vi.fn(() => ({ update }));
+    mockDb.collection.mockReturnValue({ doc });
+    const prefs = normalizeUserPreferences({ theme: 'Forest', tablePageSize: 25, hiddenLearnerColumns: ['guardian'] });
+    await expect(fsUpdateMyTeacherPrefs(prefs)).resolves.toEqual(prefs);
+    expect(doc).toHaveBeenCalledWith('teacher-1');
+    expect(update).toHaveBeenCalledWith({ teacherPrefs: prefs });
+    expect(JSON.parse(sessionStorage.getItem('lps_user_profile')!)).toEqual({ ...original, teacherPrefs: prefs });
+  });
+
+  it('rejects malformed preferences before writing anything', async () => {
+    mockAuth.currentUser = { uid: 'teacher-1' };
+    const update = vi.fn();
+    mockDb.collection.mockReturnValue({ doc: () => ({ update }) });
+    await expect(fsUpdateMyTeacherPrefs({ ...normalizeUserPreferences(), tablePageSize: 999 })).rejects.toThrow('Invalid account preferences');
+    expect(update).not.toHaveBeenCalled();
+  });
+});
+
+describe('settings audit writes', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('records changed fields after persistence and excludes server metadata', async () => {
+    const record = vi.spyOn(LPSApi, 'recordAuditEvent').mockResolvedValue({ recorded: true });
+    const ref = {
+      path: 'settings/toggles',
+      get: vi.fn().mockResolvedValue({ exists: true, data: () => ({ canParentAccess: true, roundType: 'nearest' }) }),
+      set: vi.fn().mockResolvedValue(undefined),
+    };
+    await fsWriteAuditedSettings_(ref, { canParentAccess: false, roundType: 'nearest', updatedAt: 'server-time' });
+    expect(record).toHaveBeenCalledWith('SETTINGS_UPDATE', expect.objectContaining({
+      recordId: 'settings/toggles', oldValue: '{"canParentAccess":true}', newValue: '{"canParentAccess":false}',
+    }));
+    expect(ref.set.mock.invocationCallOrder[0]).toBeLessThan(record.mock.invocationCallOrder[0]);
+  });
+
+  it('does not audit unchanged settings or failed writes', async () => {
+    const record = vi.spyOn(LPSApi, 'recordAuditEvent').mockResolvedValue({ recorded: true });
+    const ref = {
+      path: 'settings/toggles',
+      get: vi.fn().mockResolvedValue({ exists: true, data: () => ({ canParentAccess: false }) }),
+      set: vi.fn().mockResolvedValue(undefined),
+    };
+    await fsWriteAuditedSettings_(ref, { canParentAccess: false });
+    expect(record).not.toHaveBeenCalled();
+    ref.set.mockRejectedValueOnce(new Error('Permission denied'));
+    await expect(fsWriteAuditedSettings_(ref, { canParentAccess: true })).rejects.toThrow('Permission denied');
+    expect(record).not.toHaveBeenCalled();
+  });
+});
 
 describe('fsGetTrash teacher scope', () => {
   beforeEach(() => {

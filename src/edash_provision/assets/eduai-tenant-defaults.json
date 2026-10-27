@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "roleDefaults": {
+    "School Admin": {
+      "model": "gemini-3.5-flash-lite",
+      "maxOutputTokens": 768,
+      "timeoutSeconds": 90,
+      "temperature": 0.2,
+      "historyMessages": 8,
+      "learnerNameLimit": 150
+    },
+    "Registrar": {
+      "model": "gemini-3.5-flash-lite",
+      "maxOutputTokens": 768,
+      "timeoutSeconds": 90,
+      "temperature": 0.2,
+      "historyMessages": 8,
+      "learnerNameLimit": 50
+    },
+    "Teacher": {
+      "model": "gemini-3.5-flash-lite",
+      "maxOutputTokens": 512,
+      "timeoutSeconds": 90,
+      "temperature": 0.1,
+      "historyMessages": 6,
+      "learnerNameLimit": 0
+    }
+  },
+  "updatedBy": "provisioning"
+}

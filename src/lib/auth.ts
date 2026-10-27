@@ -1,8 +1,11 @@
 // @ts-nocheck -- ported from the original site; behavior preserved, not yet fully typed.
+import { landingPageForProfile } from "./user-preferences";
+import userPreferenceDefaults from "../../shared/user-preferences.json";
 import { appPageHref, showToast } from './shell';
 import { LPSApi } from './sheets-api';
 import { auth, authPersistenceReady, getPublicStats } from './firebase';
 import { APP_LOGIN_PATH, APP_PAGE_PREFIX, appSessionId, clearVisitorSession, ensureVisitorSession, hasRealUserProfile, isVisitorSession, setAppUserProfile, storedAppProfile } from './app-config';
+import { clearProfilePhotoCache } from "./profile-photo-cache";
 import { LPSCache } from './cache';
 import { clearLoginPublicStats, renderLoginPublicStats } from './login-public-stats';
 
@@ -24,6 +27,8 @@ let profileWatchUnsubscribe = null;
 export function forceLoginPageLightTheme() {
   document.body.classList.remove("dark-mode");
   document.documentElement.classList.remove("dark-mode-preload");
+  for (const key of ['tableDensity', 'textSize', 'privacyMode']) delete document.body.dataset[key];
+  delete document.documentElement.dataset.reduceMotion;
   delete document.body.dataset.theme;
   delete document.documentElement.dataset.theme;
 }
@@ -84,7 +89,13 @@ export function initLoginPage() {
   authPersistenceReady.then(() => {
     if (disposed) return;
     unsubscribeAuth = auth.onAuthStateChanged((user) => {
-    if (user && !user.isAnonymous) window.location.href = `${APP_PAGE_PREFIX}dashboard.html`;
+    if (user && !user.isAnonymous && !submitBtn.disabled) {
+      void LPSApi.getMyProfile(user).then(profile => {
+        if (!disposed && !submitBtn.disabled) window.location.href = `${APP_PAGE_PREFIX}${landingPageForProfile(profile)}`;
+      }).catch(() => {
+        if (!disposed && !submitBtn.disabled) window.location.href = `${APP_PAGE_PREFIX}dashboard.html`;
+      });
+    }
     });
   });
 
@@ -128,7 +139,7 @@ export function initLoginPage() {
       let sessionProfile = {
         email: credential.user.email,
         uid: credential.user.uid,
-        teacherPrefs: { theme: "Light", inspectLearner: true },
+        teacherPrefs: { ...userPreferenceDefaults },
       };
       try {
         const freshProfile = await LPSApi.getMyProfile(credential.user);
@@ -138,7 +149,7 @@ export function initLoginPage() {
             uid: String(freshProfile.userId || freshProfile.uid || credential.user.uid),
             name: freshProfile.name || "",
             role: freshProfile.role || "",
-            teacherPrefs: freshProfile.teacherPrefs || { theme: "Light", inspectLearner: true },
+            teacherPrefs: freshProfile.teacherPrefs || { ...userPreferenceDefaults },
             photoURL: freshProfile.photoURL || "",
             teacherAssignment: freshProfile.teacherAssignment || null,
             teacherAssignments: freshProfile.teacherAssignments || [],
@@ -150,7 +161,7 @@ export function initLoginPage() {
       }
       sessionStorage.setItem(LPS_SESSION_KEY, JSON.stringify(sessionProfile));
       sessionStorage.setItem(LPS_POST_LOGIN_NOTICE_KEY, "1");
-      window.location.href = `${APP_PAGE_PREFIX}dashboard.html`;
+      window.location.href = `${APP_PAGE_PREFIX}${landingPageForProfile(sessionProfile)}`;
     } catch (err) {
       submitBtn.disabled = false;
       submitBtn.textContent = "Sign in";
@@ -360,6 +371,7 @@ export async function handleLogout() {
     }
   } finally {
     clearVisitorSession();
+    clearProfilePhotoCache();
     sessionStorage.removeItem(LPS_SESSION_KEY);
     sessionStorage.removeItem(LPS_GUEST_SESSION_KEY);
     localStorage.removeItem(LPS_GUEST_SESSION_KEY);

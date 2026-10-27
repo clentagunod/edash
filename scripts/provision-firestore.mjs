@@ -4,6 +4,8 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+const USER_PREFERENCE_DEFAULTS = JSON.parse(readFileSync(new URL("../shared/user-preferences.json", import.meta.url), "utf8"));
+
 function option(name, fallback = "") {
   const index = process.argv.indexOf(`--${name}`);
   return index >= 0 ? String(process.argv[index + 1] || "").trim() : fallback;
@@ -563,7 +565,7 @@ async function main() {
       role: "School Admin",
       status: "Active",
       ...(!existingAdmin.exists || !existingAdmin.data()?.teacherPrefs
-        ? { teacherPrefs: { theme: "Light", inspectLearner: true } }
+        ? { teacherPrefs: { ...USER_PREFERENCE_DEFAULTS, hiddenLearnerColumns: [] } }
         : {}),
       createdAt: FieldValue.serverTimestamp(),
     }, { merge: true });

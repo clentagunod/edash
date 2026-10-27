@@ -2,6 +2,8 @@
 apps-script/
 deploy/
 scripts/
+main.py
+src/edash_provision/
 
 # Firebase Hosting and rules are managed separately from Vercel.
 firebase*.json

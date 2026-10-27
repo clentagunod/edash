@@ -1,5 +1,6 @@
 // @ts-nocheck -- ported from the original site; behavior preserved, not yet fully typed.
 import { escapeHtml, renderShell, showToast, startExportIndicator } from './shell';
+import { currentUserPreferences, restoreFilterControls, rememberFilterControls } from './preference-runtime';
 import { LPSApi } from './sheets-api';
 import { requireAuth } from './auth';
 import { APP_CONFIG, appSchoolFilePrefix, paginationPageNumbers } from './app-config';
@@ -14,6 +15,7 @@ export let readingPage = 1;
 export let readingSearch = "";
 export let readingGrade = "";
 export const READING_PAGE_SIZE = 10;
+const readingFilterIds = ["readingPeriodFilter", "readingGradeFilter", "readingSexFilter", "readingStatusFilter", "readingSearch"];
 
 export function readingClassificationOptions(grade = "") {
   const normalizedGrade = normalizeProfileGrade(grade);
@@ -44,6 +46,12 @@ export async function initReadingProfiles() {
 }
 
 export async function loadReadingProfiles(schoolYear) {
+  restoreFilterControls(`reading:${schoolYear}`, readingFilterIds);
+  readingSearch = document.getElementById("readingSearch")?.value.trim().toLowerCase() || "";
+  readingPage = 1;
+  readingGrade = document.getElementById("readingGradeFilter")?.value || "";
+  updateReadingClassificationOptions();
+  restoreFilterControls(`reading:${schoolYear}`, ["readingStatusFilter"]);
   const body = document.getElementById("readingTableBody");
   if (body) {
     body.innerHTML = `<tr><td colspan="7" class="state-row">Loading reading profiles…</td></tr>`;
@@ -63,6 +71,7 @@ export async function loadReadingProfiles(schoolYear) {
 }
 
 export function renderFilteredReading() {
+  rememberFilterControls(`reading:${getSelectedSchoolYear()}`, readingFilterIds);
   const period = document.getElementById("readingPeriodFilter")?.value || "";
   const grade = document.getElementById("readingGradeFilter")?.value || "";
   const sex = document.getElementById("readingSexFilter")?.value || "";
@@ -73,7 +82,7 @@ export function renderFilteredReading() {
   renderReadingCharts(records);
   renderReadingSummary(records);
   records.sort(compareLearnersBySurname);
-  renderReadingTable(records.slice((readingPage - 1) * READING_PAGE_SIZE, readingPage * READING_PAGE_SIZE));
+  renderReadingTable(records.slice((readingPage - 1) * currentUserPreferences().tablePageSize, readingPage * currentUserPreferences().tablePageSize));
   renderProfilePagination("reading", records.length, readingPage, (page) => { readingPage = page; renderFilteredReading(); });
 }
 
@@ -101,11 +110,11 @@ export function renderReadingCharts(records = []) {
 }
 
 export function renderProfilePagination(prefix, total, page, onPageChange) {
-  const pageCount = Math.max(1, Math.ceil(total / READING_PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(total / currentUserPreferences().tablePageSize));
   const info = document.getElementById(prefix + "PageInfo");
   const buttons = document.getElementById(prefix + "PagerBtns");
   if (!info || !buttons) return;
-  info.textContent = total ? `${(page - 1) * READING_PAGE_SIZE + 1}-${Math.min(page * READING_PAGE_SIZE, total)} of ${total}` : "0 learners";
+  info.textContent = total ? `${(page - 1) * currentUserPreferences().tablePageSize + 1}-${Math.min(page * currentUserPreferences().tablePageSize, total)} of ${total}` : "0 learners";
   const pageNumbers = paginationPageNumbers(page, pageCount);
   buttons.innerHTML = `<button type="button" aria-label="Previous page" ${page === 1 ? "disabled" : ""}>‹</button>${pageNumbers.map((value) => value === "..." ? `<span class="pager-ellipsis" aria-hidden="true">…</span>` : `<button type="button" class="${value === page ? "is-active" : ""}" data-page="${value}">${value}</button>`).join("")}<button type="button" aria-label="Next page" ${page === pageCount ? "disabled" : ""}>›</button>`;
   [...buttons.children].forEach((button, index) => { if (!button.disabled && !button.classList.contains("pager-ellipsis")) button.addEventListener("click", () => onPageChange(button.dataset.page ? Number(button.dataset.page) : index === 0 ? page - 1 : page + 1)); });

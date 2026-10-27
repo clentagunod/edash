@@ -1,4 +1,5 @@
 // @ts-nocheck -- ported from the original site; behavior preserved, not yet fully typed.
+import { currentUserPreferences, readRememberedView, rememberView } from './preference-runtime';
 import { LPSApi } from './sheets-api';
 import { getSelectedSchoolYear, initYearSwitcher } from './school-year';
 import { Icon } from './icons';
@@ -548,10 +549,32 @@ async function loadSortedLearnerPage(options, requestToken) {
   };
 }
 
+const LEARNER_VIEW_FIELDS = { search: 'searchInput', gradeLevel: 'gradeFilter', section: 'sectionFilter', sortBy: 'learnerSortFilter', gender: 'genderFilter', programFilter: 'programFilter' };
+function learnerViewKey(year) { return `learners:${LL.program || 'masterlist'}:${year}`; }
+function restoreLearnerView(year) {
+  const saved = readRememberedView(learnerViewKey(year));
+  LL.page = 1;
+  LL.pageSize = currentUserPreferences().tablePageSize;
+  for (const [key, id] of Object.entries(LEARNER_VIEW_FIELDS)) {
+    LL[key] = saved[key] || (key === 'sortBy' ? 'name-asc' : '');
+    const input = document.getElementById(id);
+    if (input && key !== 'section') {
+      input.value = LL[key];
+      if (input instanceof HTMLSelectElement) LL[key] = input.value;
+    }
+  }
+  if (isTeacher()) LL.gradeLevel = '';
+  LL.sectionAssignmentKey = saved.sectionAssignmentKey || '';
+}
+function rememberLearnerView(year) {
+  rememberView(learnerViewKey(year), Object.fromEntries([...Object.keys(LEARNER_VIEW_FIELDS), 'sectionAssignmentKey'].map(key => [key, String(LL[key] || '')])));
+}
+
 export async function initLearnerListPage({ program, activeNavKey, title }) {
   await loadLearnerYearGradeTerms(getSelectedSchoolYear());
   LL.program = program || "";
   LL.sortBy = "name-asc";
+  LL.pageSize = currentUserPreferences().tablePageSize;
   renderShell(activeNavKey, title);
   ensureLearnerToolbarLayout();
   ensureLearnerInspectModal();
@@ -560,7 +583,7 @@ export async function initLearnerListPage({ program, activeNavKey, title }) {
   if (addLearnerButton && !canManageLearners()) addLearnerButton.remove();
   if (canManageLearners()) ensureLearnerBulkControls();
   initYearSwitcher(async (year) => {
-    LL.page = 1;
+    restoreLearnerView(year);
     LL.sectionSchoolYear = year;
     subscribeLearnersLive(year);
     if (isSchoolAdmin()) {
@@ -644,6 +667,7 @@ export async function loadLearners(schoolYear = getSelectedSchoolYear()) {
   const tbody = document.getElementById("learnersTableBody");
   const demoBanner = document.getElementById("demoBanner");
   LL.loadedSchoolYear = schoolYear;
+  rememberLearnerView(schoolYear);
   LL.selectedIds.clear();
   updateLearnerBulkControls();
   if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="state-row">Loading learners…</td></tr>`;
@@ -976,7 +1000,13 @@ export function renderLearnersTable(items) {
   const tbody = document.getElementById("learnersTableBody");
   const hasManagementColumn = canManageLearners();
   const inspectLearner = storedAppProfile()?.teacherPrefs?.inspectLearner !== false;
-  const columnCount = hasManagementColumn ? 11 : 10;
+  const columnCount = (hasManagementColumn ? 11 : 10) - currentUserPreferences().hiddenLearnerColumns.length;
+  const table = tbody.closest('table');
+  const columns = ['learnerId', 'name', 'birthDate', 'age', 'grade', 'gender', 'guardian', 'programs', 'dateAdded', 'actions'];
+  table?.querySelectorAll('thead tr').forEach(row => [...row.children].forEach((cell, index) => {
+    const key = columns[index - (hasManagementColumn ? 1 : 0)];
+    if (key) cell.setAttribute('data-learner-column', key);
+  }));
   if (!items || items.length === 0) {
     tbody.innerHTML = `<tr><td colspan="${columnCount}" class="state-row">No learners match your search or filters.</td></tr>`;
     updateLearnerBulkControls();
@@ -1002,6 +1032,10 @@ export function renderLearnersTable(items) {
       </td>
     </tr>`).join("");
 
+  tbody.querySelectorAll('tr').forEach(row => [...row.children].forEach((cell, index) => {
+    const key = columns[index - (hasManagementColumn ? 1 : 0)];
+    if (key) cell.setAttribute('data-learner-column', key);
+  }));
   tbody.querySelectorAll(".learner-select").forEach((checkbox) => checkbox.addEventListener("change", () => {
     if (checkbox.checked) LL.selectedIds.add(checkbox.value);
     else LL.selectedIds.delete(checkbox.value);

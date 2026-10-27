@@ -15,6 +15,9 @@ vi.mock('./shell', () => ({
 }));
 vi.mock('./sheets-api', () => ({ LPSApi: { getSections: mockGetSections } }));
 vi.mock('./app-config', () => ({
+  APP_CONFIG: { schoolId: 'test-school' },
+  APP_USER_PROFILE: null,
+  storedAppProfile: () => null,
   confirmDiscardChanges: vi.fn(),
   formSnapshot: vi.fn(),
   isSchoolAdmin: vi.fn(),

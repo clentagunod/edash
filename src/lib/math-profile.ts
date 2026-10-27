@@ -1,5 +1,6 @@
 // @ts-nocheck -- ported from the original site; behavior preserved, not yet fully typed.
 import { escapeHtml, renderShell, showToast, startExportIndicator } from './shell';
+import { currentUserPreferences, restoreFilterControls, rememberFilterControls } from './preference-runtime';
 import { LPSApi } from './sheets-api';
 import { requireAuth } from './auth';
 import { APP_CONFIG, appSchoolFilePrefix, paginationPageNumbers } from './app-config';
@@ -14,6 +15,7 @@ export let mathProfiles = [];
 export let mathPage = 1;
 export let mathSearch = "";
 export const MATH_PAGE_SIZE = 10;
+const mathFilterIds = ["mathPeriodFilter", "mathSexFilter", "mathStatusFilter", "mathGradeFilter", "mathSearch"];
 
 export async function initMathProfiles() {
   renderShell("math", "Math Profile");
@@ -28,6 +30,9 @@ export async function initMathProfiles() {
 }
 
 export async function loadMathProfiles(schoolYear) {
+  restoreFilterControls(`math:${schoolYear}`, mathFilterIds);
+  mathSearch = document.getElementById("mathSearch")?.value.trim().toLowerCase() || "";
+  mathPage = 1;
   const body = document.getElementById("mathTableBody");
   if (body) {
     body.innerHTML = `<tr><td colspan="7" class="state-row">Loading math profiles…</td></tr>`;
@@ -47,6 +52,7 @@ export async function loadMathProfiles(schoolYear) {
 }
 
 export function renderFilteredMath() {
+  rememberFilterControls(`math:${getSelectedSchoolYear()}`, mathFilterIds);
   const period = document.getElementById("mathPeriodFilter")?.value || "";
   const sex = document.getElementById("mathSexFilter")?.value || "";
   const status = document.getElementById("mathStatusFilter")?.value || "";
@@ -57,7 +63,7 @@ export function renderFilteredMath() {
   renderMathCharts(records);
   renderMathSummary(records);
   records.sort(compareLearnersBySurname);
-  renderMathTable(records.slice((mathPage - 1) * MATH_PAGE_SIZE, mathPage * MATH_PAGE_SIZE));
+  renderMathTable(records.slice((mathPage - 1) * currentUserPreferences().tablePageSize, mathPage * currentUserPreferences().tablePageSize));
   renderProfilePagination("math", records.length, mathPage, (page) => { mathPage = page; renderFilteredMath(); });
 }
 
@@ -74,11 +80,11 @@ export function renderMathCharts(records = mathProfiles) {
 }
 
 export function renderProfilePagination(prefix, total, page, onPageChange) {
-  const pageCount = Math.max(1, Math.ceil(total / MATH_PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(total / currentUserPreferences().tablePageSize));
   const info = document.getElementById(prefix + "PageInfo");
   const buttons = document.getElementById(prefix + "PagerBtns");
   if (!info || !buttons) return;
-  info.textContent = total ? `${(page - 1) * MATH_PAGE_SIZE + 1}-${Math.min(page * MATH_PAGE_SIZE, total)} of ${total}` : "0 learners";
+  info.textContent = total ? `${(page - 1) * currentUserPreferences().tablePageSize + 1}-${Math.min(page * currentUserPreferences().tablePageSize, total)} of ${total}` : "0 learners";
   const pageNumbers = paginationPageNumbers(page, pageCount);
   buttons.innerHTML = `<button type="button" aria-label="Previous page" ${page === 1 ? "disabled" : ""}>‹</button>${pageNumbers.map((value) => value === "..." ? `<span class="pager-ellipsis" aria-hidden="true">…</span>` : `<button type="button" class="${value === page ? "is-active" : ""}" data-page="${value}">${value}</button>`).join("")}<button type="button" aria-label="Next page" ${page === pageCount ? "disabled" : ""}>›</button>`;
   [...buttons.children].forEach((button, index) => { if (!button.disabled && !button.classList.contains("pager-ellipsis")) button.addEventListener("click", () => onPageChange(button.dataset.page ? Number(button.dataset.page) : index === 0 ? page - 1 : page + 1)); });

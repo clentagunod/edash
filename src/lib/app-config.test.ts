@@ -1,4 +1,5 @@
 
+import preferenceDefaults from '../../shared/user-preferences.json';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockAuth = {
@@ -73,10 +74,7 @@ describe('shared application configuration', () => {
     expect(APP_CONFIG.firestore.settingsDefaults.toggles).toEqual({ canParentAccess: true, canPromoteStudents: false });
     expect(APP_CONFIG.firestore.schoolDefaults.gradeTerms).toEqual({ termCount: 3, passingThreshold: 75, gradeLevels: {} });
     expect(APP_CONFIG.firestore.schoolYearDefaults).toEqual({ gradeTerms: { termCount: 3, passingThreshold: 75, gradeLevels: {} }, isCurrent: false });
-    expect(APP_CONFIG.firestore.userDefaults.teacherPrefs).toEqual({
-      theme: 'Light',
-      inspectLearner: true,
-    });
+    expect(APP_CONFIG.firestore.userDefaults.teacherPrefs).toEqual(preferenceDefaults);
     expect(APP_CONFIG.firestore.learnerFields).toContain('eosyNutritionalStatus');
     expect(APP_CONFIG.firestore.learnerFields).toContain('suffix');
     expect(APP_CONFIG.firestore.schemaVersion).toBe(3);
@@ -612,7 +610,7 @@ describe('year-scoped grade term settings', () => {
 
   it('explains when Firestore rules reject a grade-term write', async () => {
     const permissionError = Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' });
-    const settingsRef = { set: vi.fn().mockRejectedValue(permissionError) };
+    const settingsRef = { get: vi.fn().mockResolvedValue({ exists: false, data: () => undefined }), set: vi.fn().mockRejectedValue(permissionError) };
     const collectionSpy = vi.spyOn(mockDb, 'collection').mockImplementation((name) => {
       if (name === 'settings') {
         return { doc: vi.fn(() => ({ collection: vi.fn(() => ({ doc: vi.fn(() => settingsRef) })) })) };
@@ -700,7 +698,7 @@ describe('year-scoped grade term settings', () => {
         }),
       }),
     };
-    const targetRef = { set: vi.fn().mockResolvedValue(undefined) };
+    const targetRef = { get: vi.fn().mockResolvedValue({ exists: false, data: () => undefined }), set: vi.fn().mockResolvedValue(undefined) };
     const collectionSpy = vi.spyOn(mockDb, 'collection').mockImplementation((name) => {
       if (name === 'settings') {
         return {
@@ -1679,20 +1677,33 @@ describe('visitor session handling', () => {
     const avatar = document.getElementById('profileAvatar') as HTMLElement;
     const { renderProfileAvatar } = await import('./shell');
 
-    renderProfileAvatar(avatar, 'https://res.cloudinary.com/demo/image/upload/photo.jpg', 'admin@school.test');
-    avatar.click();
+    const fetchPhoto = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true, blob: async () => new Blob(['photo'], { type: 'image/png' }),
+    } as Response);
+    try {
+      renderProfileAvatar(avatar, 'https://res.cloudinary.com/demo/image/upload/photo.jpg', 'admin@school.test');
+      avatar.click();
 
-    const viewer = document.querySelector('.profile-photo-viewer');
-    expect(viewer).not.toBeNull();
-    expect(viewer?.querySelector('[role="dialog"]')).not.toBeNull();
-    expect(viewer?.querySelector('img')?.getAttribute('src')).toBe(
-      'https://res.cloudinary.com/demo/image/upload/c_limit,w_1200,h_1200,q_auto,f_auto/photo.jpg',
-    );
-    expect(document.activeElement).toBe(viewer?.querySelector('button'));
+      const viewer = document.querySelector('.profile-photo-viewer');
+      expect(viewer).not.toBeNull();
+      expect(viewer?.querySelector('[role="dialog"]')).not.toBeNull();
+      await vi.waitFor(() => expect(viewer?.querySelector('img')?.getAttribute('src')).toMatch(/^data:image\/png;base64,/));
+      expect(fetchPhoto).toHaveBeenCalledWith(
+        'https://res.cloudinary.com/demo/image/upload/c_limit,w_1200,h_1200,q_auto,f_auto/photo.jpg',
+        expect.anything(),
+      );
+      expect(document.activeElement).toBe(viewer?.querySelector('button'));
 
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-    expect(document.querySelector('.profile-photo-viewer')).toBeNull();
-    expect(document.activeElement).toBe(avatar);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      expect(document.querySelector('.profile-photo-viewer')).toBeNull();
+      expect(document.activeElement).toBe(avatar);
+      avatar.click();
+      expect(document.querySelector('.profile-photo-viewer img')?.getAttribute('src')).toMatch(/^data:image\/png;base64,/);
+      expect(fetchPhoto).toHaveBeenCalledTimes(2); // One thumbnail and one full-size photo.
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    } finally {
+      fetchPhoto.mockRestore();
+    }
   });
 
   it('opens account settings with password and username actions', async () => {

@@ -1,0 +1,13 @@
+{
+  "theme": "Light",
+  "inspectLearner": true,
+  "rememberFilters": true,
+  "landingPage": "dashboard.html",
+  "tableDensity": "comfortable",
+  "tablePageSize": 8,
+  "hiddenLearnerColumns": [],
+  "textSize": "standard",
+  "privacyMode": false,
+  "reduceMotion": false,
+  "photoCacheEnabled": true
+}

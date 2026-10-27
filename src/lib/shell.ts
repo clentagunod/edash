@@ -8,6 +8,8 @@ import { getStoredSchool } from './school-registry';
 import { getModeSettings, subscribeModeSettings } from './mode-settings';
 import { appThemeFromId, appThemeId, isAppTheme, isDarkAppTheme } from './themes';
 import { mountGlobalSearch } from './global-search';
+import { applyUserPreferences } from './preference-runtime';
+import { setCachedProfilePhotoSource } from './profile-photo-cache';
 
 /**
  * ============================================================================
@@ -89,11 +91,13 @@ export function renderProfileAvatar(element, photoURL, email) {
   image.alt = "";
   image.loading = "lazy";
   image.referrerPolicy = "no-referrer";
-  image.src = String(photoURL).replace(
+  const thumbnailSize = element.classList.contains("topbar-avatar") || element.classList.contains("audit-user-avatar") ? 96 : 192;
+  setCachedProfilePhotoSource(image, String(photoURL).replace(
     "/image/upload/",
-    `/image/upload/c_fill,w_${element.classList.contains("topbar-avatar") ? 96 : 192},h_${element.classList.contains("topbar-avatar") ? 96 : 192},g_auto,q_auto,f_auto/`,
-  );
+    `/image/upload/c_fill,w_${thumbnailSize},h_${thumbnailSize},g_auto,q_auto,f_auto/`,
+  ));
   image.addEventListener("error", () => {
+    if (!element.contains(image)) return;
     element.textContent = fallback;
     element.removeAttribute("data-has-photo");
     element.removeAttribute("role");
@@ -138,10 +142,10 @@ function openProfilePhotoViewer(photoURL, trigger) {
   const image = document.createElement("img");
   image.className = "profile-photo-viewer-image";
   image.alt = "Profile photo";
-  image.src = String(photoURL).replace(
+  setCachedProfilePhotoSource(image, String(photoURL).replace(
     "/image/upload/",
     "/image/upload/c_limit,w_1200,h_1200,q_auto,f_auto/",
-  );
+  ));
 
   const close = () => {
     backdrop.remove();
@@ -264,6 +268,7 @@ export function endNetworkLoading() {
 }
 
 export function applySavedTheme() {
+  applyUserPreferences();
   const prefs = (APP_USER_PROFILE || storedAppProfile())?.teacherPrefs;
   const resolvedTheme = isAppTheme(prefs?.theme) ? prefs.theme : "Light";
   document.body.dataset.theme = appThemeId(resolvedTheme);
@@ -374,6 +379,7 @@ export function renderShell(activeKey, pageTitleForMobile) {
           <div class="global-search-results" id="globalSearchResults"></div>
         </div>
       </div>
+      <a class="privacy-mode-indicator" href="${appPageHref("preferences.html")}" aria-label="Privacy mode is on. Open preferences.">Privacy on</a>
       <div class="topbar-user">
         <div class="topbar-avatar">${initials(email)}</div>
         <div class="topbar-user-text">

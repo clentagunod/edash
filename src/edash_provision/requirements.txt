@@ -1,0 +1,2 @@
+# Tkinter is provided by Python/conda. No Firebase Admin SDK or gRPC is needed.
+google-auth[requests]>=2.40.0,<3

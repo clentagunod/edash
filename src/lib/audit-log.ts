@@ -1,9 +1,11 @@
 // @ts-nocheck -- ported from the original site; behavior preserved, not yet fully typed.
+import { restoreFilterControls, rememberFilterControls } from './preference-runtime';
 import { LPSApi } from './sheets-api';
 import { isSchoolAdmin } from './app-config';
 import { requireAuth } from './auth';
 import { APP_CONFIG } from './app-config';
-import { appPageHref, escapeHtml, renderShell } from './shell';
+import { fsGetUsers } from './firestore-api';
+import { appPageHref, escapeHtml, renderProfileAvatar, renderShell } from './shell';
 
 export let auditRecords = [];
 const AUDIT_PAGE_SIZE = 10;
@@ -15,7 +17,7 @@ let auditLoadRequest = 0;
 function auditLoadErrorMessage(error) {
   const message = String(error?.message || "Unable to load the audit log.");
   if (/^firebase authentication failed\.?$/i.test(message.trim())) {
-    return "The Audit Log service could not authenticate this school. Redeploy the latest apps-script/AuditLog.gs and verify its FIREBASE_WEB_API_KEY and FIRESTORE_PROJECT_ID match this school's Firebase project, then sign out and sign in again.";
+    return "The Audit Log service could not authenticate this school. Redeploy the latest gscripts/Auditlog.gs and verify its FIREBASE_WEB_API_KEY and FIRESTORE_PROJECT_ID match this school's Firebase project, then sign out and sign in again.";
   }
   return message;
 }
@@ -26,6 +28,7 @@ export async function initAuditLog({ renderNavigation = true } = {}) {
     return;
   }
   if (renderNavigation) renderShell("audit-log", "Audit Log");
+  restoreFilterControls("audit-search", ["auditSearch"]);
   document.getElementById("auditSearch")?.addEventListener("input", renderFilteredAuditLog);
   document.getElementById("auditRefreshBtn")?.addEventListener("click", () => loadAuditLog(currentPage));
   document.getElementById("auditPreviousPage")?.addEventListener("click", () => {
@@ -52,7 +55,10 @@ export async function loadAuditLog(page = currentPage) {
   if (pageStatus) pageStatus.textContent = "Loading…";
   try {
     if (!APP_CONFIG.auditLogApiUrl) throw new Error("The AuditLog service is not configured yet.");
-    const result = await LPSApi.getAuditLogs(page);
+    const [result, users] = await Promise.all([
+      LPSApi.getAuditLogs(page),
+      fsGetUsers().catch(() => []),
+    ]);
     if (
       !result
       || !Array.isArray(result.records)
@@ -62,10 +68,15 @@ export async function loadAuditLog(page = currentPage) {
       || !Number.isInteger(result.total)
       || !Number.isInteger(result.totalPages)
     ) {
-      throw new Error("The Audit Log service does not support pagination yet. Redeploy the latest apps-script/AuditLog.gs.");
+      throw new Error("The Audit Log service does not support pagination yet. Redeploy the latest gscripts/Auditlog.gs.");
     }
     if (requestId !== auditLoadRequest) return;
-    auditRecords = result.records;
+    auditRecords = result.records.map((record) => {
+      const profile = users.find((user) => record.userId
+        ? user.userId === record.userId
+        : String(user.email || "").toLowerCase() === String(record.user || "").toLowerCase());
+      return { ...record, photoURL: profile ? profile.photoURL || "" : record.photoURL || "" };
+    });
     currentPage = result.page;
     totalPages = result.totalPages;
     totalRecords = result.total;
@@ -82,6 +93,7 @@ export async function loadAuditLog(page = currentPage) {
 }
 
 export function renderFilteredAuditLog() {
+  rememberFilterControls("audit-search", ["auditSearch"]);
   const query = document.getElementById("auditSearch")?.value.trim().toLowerCase() || "";
   const records = query
     ? auditRecords.filter((record) => Object.values(record).some((value) => String(value || "").toLowerCase().includes(query)))
@@ -113,7 +125,7 @@ export function renderAuditTable(records) {
     const action = String(record.action || "—").toUpperCase();
     return `<tr>
       <td>${escapeHtml(record.timestamp || "—")}</td>
-      <td class="cell-name">${escapeHtml(record.user || "—")}</td>
+      <td class="cell-name"><div class="audit-user"><span class="audit-user-avatar"></span><span>${escapeHtml(record.user || "—")}</span></div></td>
       <td><span class="audit-action" data-action="${escapeHtml(action)}">${escapeHtml(action)}</span></td>
       <td>${escapeHtml(record.sheet || "—")}</td>
       <td>${escapeHtml(record.recordId || "—")}</td>
@@ -122,6 +134,11 @@ export function renderAuditTable(records) {
       <td class="audit-value">${escapeHtml(record.ipSession || "—")}</td>
     </tr>`;
   }).join("");
+  body.querySelectorAll(".audit-user-avatar").forEach((element, index) => {
+    const record = records[index];
+    const photoURL = /^https:\/\/[^\s]+$/i.test(record.photoURL || "") ? record.photoURL : "";
+    renderProfileAvatar(element, photoURL, record.user || "");
+  });
   if (meta) {
     const pageSummary = `Showing ${start.toLocaleString()}–${end.toLocaleString()} of ${totalRecords.toLocaleString()} entries`;
     meta.textContent = query

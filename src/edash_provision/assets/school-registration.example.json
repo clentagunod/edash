@@ -1,0 +1,31 @@
+{
+  "id": "sample-elementary",
+  "name": "Sample Elementary School",
+  "nickname": "Sample ES",
+  "tagline": "A welcoming learning community",
+  "colorGradientTag": "#50A61E",
+  "logoUrl": "/assets/edash/edash.png",
+  "videoUrl": "",
+  "canUseEduAI": false,
+  "schoolInfo": {
+    "region": "IX",
+    "divisionOffice": "Schools Division Office of Davao de Oro",
+    "district": "New Bataan"
+  },
+  "schoolHead": {
+    "name": "",
+    "position": "",
+    "email": "",
+    "phoneNumber": ""
+  },
+  "firebaseConfig": {
+    "apiKey": "PUBLIC_WEB_API_KEY",
+    "authDomain": "sample-school.firebaseapp.com",
+    "projectId": "sample-school",
+    "storageBucket": "sample-school.firebasestorage.app",
+    "messagingSenderId": "PUBLIC_SENDER_ID",
+    "appId": "PUBLIC_WEB_APP_ID"
+  },
+  "auditLogApiUrl": "",
+  "feedbackApiUrl": ""
+}

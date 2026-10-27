@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockOpenAccountSettingsModal, mockRenderProfileAvatar, mockRenderShell, mockStoredAppProfile, mockUpdateMyTeacherPrefs, mockShowToast, mockIsSchoolAdmin, mockAppPageHref } = vi.hoisted(() => ({
   mockOpenAccountSettingsModal: vi.fn(),
@@ -15,6 +15,7 @@ const { mockOpenAccountSettingsModal, mockRenderProfileAvatar, mockRenderShell, 
 
 vi.mock('./app-config', () => ({
   APP_USER_PROFILE: null,
+  APP_CONFIG: { schoolId: "test-school" },
   isSchoolAdmin: mockIsSchoolAdmin,
   storedAppProfile: mockStoredAppProfile,
 }));
@@ -36,6 +37,9 @@ vi.mock('./firestore-api', () => ({
   fsUpdateMyTeacherPrefs: mockUpdateMyTeacherPrefs,
 }));
 
+import { normalizeUserPreferences } from './user-preferences';
+import preferencesMarkup from '../pages/markup/preferences.html?raw';
+import { clearProfilePhotoCache, cachedProfilePhotoSource, profilePhotoCacheStats } from './profile-photo-cache';
 import { initPreferencesPage, initSettingsPage } from './settings';
 
 describe('settings page', () => {
@@ -231,10 +235,10 @@ describe('settings page', () => {
 
     themeSelect.value = 'Dark';
     themeSelect.dispatchEvent(new Event('change'));
-    await vi.waitFor(() => expect(mockUpdateMyTeacherPrefs).toHaveBeenCalledWith({
+    await vi.waitFor(() => expect(mockUpdateMyTeacherPrefs).toHaveBeenCalledWith(normalizeUserPreferences({
       theme: 'Dark',
       inspectLearner: true,
-    }));
+    })));
     await vi.waitFor(() => expect(document.body.classList.contains('dark-mode')).toBe(true));
     expect(localStorage.getItem('lps_theme')).toBe('monokai');
     expect(themeSelect.value).toBe('Dark');
@@ -264,10 +268,10 @@ describe('settings page', () => {
       themeSelect.value = 'Dracula';
       themeSelect.dispatchEvent(new Event('change'));
 
-      await vi.waitFor(() => expect(mockUpdateMyTeacherPrefs).toHaveBeenCalledWith({
+      await vi.waitFor(() => expect(mockUpdateMyTeacherPrefs).toHaveBeenCalledWith(normalizeUserPreferences({
         theme: 'Dracula',
         inspectLearner: true,
-      }));
+      })));
     },
   );
 
@@ -309,10 +313,10 @@ describe('settings page', () => {
     themeSelect.value = 'Dracula';
     themeSelect.dispatchEvent(new Event('change'));
 
-    await vi.waitFor(() => expect(mockUpdateMyTeacherPrefs).toHaveBeenCalledWith({
+    await vi.waitFor(() => expect(mockUpdateMyTeacherPrefs).toHaveBeenCalledWith(normalizeUserPreferences({
       theme: 'Dracula',
       inspectLearner: true,
-    }));
+    })));
     await vi.waitFor(() => expect(document.body.dataset.theme).toBe('dracula'));
     expect(document.body.classList.contains('dark-mode')).toBe(true);
     expect(localStorage.getItem('lps_theme')).toBeNull();
@@ -334,12 +338,106 @@ describe('settings page', () => {
     themeSelect.value = 'ClentIndustries Theme';
     themeSelect.dispatchEvent(new Event('change'));
 
-    await vi.waitFor(() => expect(mockUpdateMyTeacherPrefs).toHaveBeenCalledWith({
+    await vi.waitFor(() => expect(mockUpdateMyTeacherPrefs).toHaveBeenCalledWith(normalizeUserPreferences({
       theme: 'ClentIndustries Theme',
       inspectLearner: true,
-    }));
+    })));
     await vi.waitFor(() => expect(document.body.dataset.theme).toBe('clentindustries-theme'));
     expect(document.body.classList.contains('dark-mode')).toBe(true);
     expect(localStorage.getItem('lps_theme')).toBeNull();
+  });
+});
+
+describe('expanded workspace preferences', () => {
+  let cleanup: (() => void) | undefined;
+  let profile: any;
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    clearProfilePhotoCache();
+    document.body.innerHTML = preferencesMarkup;
+    profile = { uid: 'account-1', role: 'Teacher', teacherPrefs: normalizeUserPreferences() };
+    mockStoredAppProfile.mockImplementation(() => profile);
+    mockUpdateMyTeacherPrefs.mockImplementation(async prefs => { profile.teacherPrefs = prefs; return prefs; });
+    const dialog = document.getElementById('resetPreferencesDialog') as HTMLDialogElement;
+    dialog.showModal = vi.fn(() => dialog.setAttribute('open', ''));
+    dialog.close = vi.fn(() => dialog.removeAttribute('open'));
+    cleanup = initPreferencesPage();
+  });
+  afterEach(() => { cleanup?.(); vi.restoreAllMocks(); });
+
+  it('saves each new preference and applies its runtime behavior', async () => {
+    for (const [id, key, value] of [
+      ['rememberFiltersPreference', 'rememberFilters', false],
+      ['landingPagePreference', 'landingPage', 'masterlist.html'],
+      ['tableDensityPreference', 'tableDensity', 'compact'],
+      ['tablePageSizePreference', 'tablePageSize', 25],
+      ['textSizePreference', 'textSize', 'large'],
+      ['privacyModePreference', 'privacyMode', true],
+      ['reduceMotionPreference', 'reduceMotion', true],
+      ['photoCachePreference', 'photoCacheEnabled', false],
+    ] as const) {
+      const input = document.getElementById(id) as HTMLInputElement;
+      if (typeof value === 'boolean') input.checked = value;
+      else input.value = String(value);
+      input.dispatchEvent(new Event('change'));
+      await vi.waitFor(() => expect(input.disabled).toBe(false));
+      expect(mockUpdateMyTeacherPrefs).toHaveBeenLastCalledWith(expect.objectContaining({ [key]: value }));
+    }
+    expect(document.body.dataset.tableDensity).toBe('compact');
+    expect(document.body.dataset.textSize).toBe('large');
+    expect(document.body.dataset.privacyMode).toBe('true');
+    expect(document.documentElement.dataset.reduceMotion).toBe('true');
+    expect(profilePhotoCacheStats().enabled).toBe(false);
+    expect(document.getElementById('preferencesSaveStatus')?.textContent).toBe('All changes saved');
+  });
+
+  it('persists optional columns while keeping identity columns mandatory', async () => {
+    const guardian = document.querySelector<HTMLInputElement>('[data-learner-column="guardian"]')!;
+    guardian.checked = false;
+    guardian.dispatchEvent(new Event('change'));
+    await vi.waitFor(() => expect(guardian.disabled).toBe(false));
+    expect(profile.teacherPrefs.hiddenLearnerColumns).toEqual(['guardian']);
+    expect(document.body.classList.contains('hide-learner-guardian')).toBe(true);
+    expect(document.querySelector('input[data-learner-column="name"]')).toBeNull();
+  });
+
+  it('clears cached photos without changing uploaded profile photos', async () => {
+    profile.photoURL = 'https://images.test/upload.jpg';
+    const fetchPhoto = vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: true, blob: async () => new Blob(['photo'], { type: 'image/png' }) } as Response);
+    await cachedProfilePhotoSource('https://images.test/clear-control.jpg');
+    expect(document.getElementById('photoCacheUsage')?.textContent).toContain('1 cached photo');
+    document.getElementById('clearPhotoCacheBtn')?.click();
+    expect(profilePhotoCacheStats().count).toBe(0);
+    expect(profile.photoURL).toBe('https://images.test/upload.jpg');
+    expect(mockUpdateMyTeacherPrefs).not.toHaveBeenCalled();
+    fetchPhoto.mockRestore();
+  });
+
+  it('requires confirmation to reset and clears only the current account views', async () => {
+    profile.teacherPrefs = normalizeUserPreferences({ theme: 'Dark', privacyMode: true, tablePageSize: 50 });
+    sessionStorage.setItem('lps_view:test-school:account-1:reading:2026-2027', '{"grade":"Grade 1"}');
+    sessionStorage.setItem('lps_view:test-school:other-account:reading:2026-2027', '{}');
+    document.getElementById('resetPreferencesBtn')?.click();
+    expect(document.getElementById('resetPreferencesDialog')?.hasAttribute('open')).toBe(true);
+    expect(mockUpdateMyTeacherPrefs).not.toHaveBeenCalled();
+    document.getElementById('cancelResetPreferencesBtn')?.click();
+    expect(mockUpdateMyTeacherPrefs).not.toHaveBeenCalled();
+    document.getElementById('resetPreferencesBtn')?.click();
+    document.getElementById('confirmResetPreferencesBtn')?.click();
+    await vi.waitFor(() => expect(document.getElementById('resetPreferencesDialog')?.hasAttribute('open')).toBe(false));
+    expect(mockUpdateMyTeacherPrefs).toHaveBeenCalledWith(normalizeUserPreferences());
+    expect(sessionStorage.getItem('lps_view:test-school:account-1:reading:2026-2027')).toBeNull();
+    expect(sessionStorage.getItem('lps_view:test-school:other-account:reading:2026-2027')).toBe('{}');
+  });
+
+  it('restores the control and reports a failed save', async () => {
+    mockUpdateMyTeacherPrefs.mockRejectedValueOnce(new Error('Permission denied'));
+    const size = document.getElementById('textSizePreference') as HTMLSelectElement;
+    size.value = 'extra-large';
+    size.dispatchEvent(new Event('change'));
+    await vi.waitFor(() => expect(size.disabled).toBe(false));
+    expect(size.value).toBe('standard');
+    expect(document.getElementById('preferencesSaveStatus')?.dataset.state).toBe('error');
   });
 });

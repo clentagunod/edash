@@ -1,63 +1,337 @@
 <div class="app-shell">
-  <div id="sidebarMount"></div>
-  <div class="main-area">
-    <div id="topbarMount"></div>
-    <main class="page preferences-page">
-      <div class="page-header">
-        <div>
-          <span class="eyebrow">Personalize your workspace</span>
-          <h1>Preferences</h1>
-          <p class="desc">Choose how E-Dash looks and which learner tools appear in your workspace.</p>
-        </div>
-        <a class="btn btn-secondary preferences-back-link" href="settings.html">← Settings</a>
-      </div>
-
-      <section class="preferences-list" aria-label="Workspace preferences">
-        <section class="panel preferences-card" aria-labelledby="themePreferenceTitle">
-          <div class="preferences-card-heading">
-            <span class="settings-option-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
-            </span>
-            <div>
-              <h2 id="themePreferenceTitle">Themes</h2>
-              <p>Choose the appearance used across your workspace.</p>
-            </div>
-          </div>
-          <label class="preference-theme-field" for="themePreferenceSelect">
-            <span>Theme</span>
-            <select id="themePreferenceSelect" aria-labelledby="themePreferenceTitle">
-              <option value="Light">Light Theme</option>
-              <option value="Dark">Dark Theme</option>
-              <option value="Dracula">Dracula</option>
-              <option value="Monokai">Monokai</option>
-              <option value="Beach">Beach</option>
-              <option value="Nord">Nord</option>
-              <option value="Forest">Forest</option>
-              <option value="ClentIndustries Theme">ClentIndustries Theme</option>
-            </select>
-          </label>
-        </section>
-
-        <section class="panel preferences-card" aria-labelledby="learnerInspectionTitle">
-          <div class="preferences-card-heading">
-            <span class="settings-option-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
-            </span>
-            <div>
-              <h2 id="learnerInspectionTitle">Learner Inspection</h2>
-              <p>Show the Inspect learner action beside Edit and Remove in learner lists.</p>
-            </div>
-          </div>
-          <label class="preference-switch">
-            <span class="preference-switch-copy">
-              <strong id="learnerInspectionState">On</strong>
-              <small>This setting is on by default for new accounts.</small>
-            </span>
-            <input id="learnerInspectionToggle" type="checkbox" role="switch" checked aria-labelledby="learnerInspectionTitle learnerInspectionState" />
-            <span class="preference-switch-track" aria-hidden="true"><span></span></span>
-          </label>
-        </section>
-      </section>
-    </main>
-  </div>
+<div id="sidebarMount">
+</div>
+<div class="main-area">
+<div id="topbarMount">
+</div>
+<main class="page preferences-page">
+<div class="page-header">
+<div>
+<span class="eyebrow">YOUR WORKSPACE, YOUR WAY</span>
+<h1>Preferences</h1>
+<p class="desc">Thoughtful adjustments for a more comfortable school day.</p>
+</div>
+<a class="btn btn-secondary preferences-back-link" href="settings.html">Back to Settings</a>
+</div>
+<div class="pref-layout">
+<aside class="pref-sidebar">
+<nav aria-label="Preference sections">
+<a href="#pref-appearance">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<circle cx="12" cy="12" r="4"/>
+<path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2"/>
+</svg>
+<span>Appearance</span>
+</a>
+<a href="#pref-workspace">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<rect x="3" y="4" width="18" height="16" rx="3"/>
+<path d="M3 10h18M9 10v10"/>
+</svg>
+<span>Workspace</span>
+</a>
+<a href="#pref-privacy">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="m12 3 8 3v6c0 4-4 7-8 9-4-2-8-5-8-9V6l8-3Z"/>
+<path d="m8 12 3 3 5-6"/>
+</svg>
+<span>Privacy</span>
+</a>
+<a href="#pref-storage">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<ellipse cx="12" cy="5" rx="8" ry="3"/>
+<path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/>
+</svg>
+<span>Photo storage</span>
+</a>
+</nav>
+<div class="pref-save-status" id="preferencesSaveStatus" role="status" aria-live="polite">Changes save automatically</div>
+<p class="pref-account-note">Saved to your account.<br>Photo storage and remembered views are specific to this tab.</p>
+</aside>
+<div class="preferences-list">
+<section class="panel pref-section" id="pref-appearance" aria-labelledby="pref-appearance-title">
+<header class="pref-section-heading">
+<span class="pref-section-icon">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<circle cx="12" cy="12" r="4"/>
+<path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l2 2m10 10 2 2M5 19l2-2M17 7l2-2"/>
+</svg>
+</span>
+<div>
+<h2 id="pref-appearance-title">Appearance</h2>
+<p>Make E-Dash comfortable for the way you work.</p>
+</div>
+</header>
+<div class="pref-section-body">
+<div class="pref-row">
+<div class="pref-row-copy">
+<label for="themePreferenceSelect">Theme</label>
+<p>Choose a palette for your workspace.</p>
+</div>
+<div class="pref-control">
+<select id="themePreferenceSelect">
+<option value="Light">Light</option>
+<option value="Dark">Dark</option>
+<option value="Dracula">Dracula</option>
+<option value="Monokai">Monokai</option>
+<option value="Beach">Beach</option>
+<option value="Nord">Nord</option>
+<option value="Forest">Forest</option>
+<option value="ClentIndustries Theme">ClentIndustries Theme</option>
+</select>
+</div>
+</div>
+<div class="pref-row">
+<div class="pref-row-copy">
+<label for="textSizePreference">Text size</label>
+<p>Make table content, controls, and reading text easier to see.</p>
+</div>
+<div class="pref-control">
+<select id="textSizePreference">
+<option value="standard">Standard</option>
+<option value="large">Large</option>
+<option value="extra-large">Extra large</option>
+</select>
+</div>
+</div>
+<div class="pref-row">
+<div class="pref-row-copy">
+<label for="tableDensityPreference">Table spacing</label>
+<p>Choose between more breathing room and denser rows.</p>
+</div>
+<div class="pref-control">
+<select id="tableDensityPreference">
+<option value="comfortable">Comfortable</option>
+<option value="compact">Compact</option>
+</select>
+</div>
+</div>
+<div class="pref-row">
+<div class="pref-row-copy">
+<label for="reduceMotionPreference">Reduce motion</label>
+<p>Minimize animations and transitions throughout the workspace.</p>
+</div>
+<div class="pref-control">
+<label class="preference-switch pref-toggle" for="reduceMotionPreference">
+<input id="reduceMotionPreference" type="checkbox" role="switch"/>
+<span class="preference-switch-track" aria-hidden="true">
+<span>
+</span>
+</span>
+<span class="sr-only">Toggle setting</span>
+</label>
+</div>
+</div>
+<div class="pref-preview" aria-label="Appearance preview">
+<span class="pref-preview-label">WORKSPACE PREVIEW</span>
+<div class="pref-preview-line">
+<span class="pref-preview-avatar" aria-hidden="true">AB</span>
+<div>
+<strong>A comfortable place to work</strong>
+<p>Your theme, spacing, and text size work together.</p>
+</div>
+<span class="pref-preview-badge">Ready</span>
+</div>
+</div>
+</div>
+</section>
+<section class="panel pref-section" id="pref-workspace" aria-labelledby="pref-workspace-title">
+<header class="pref-section-heading">
+<span class="pref-section-icon">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<rect x="3" y="4" width="18" height="16" rx="3"/>
+<path d="M3 10h18M9 10v10"/>
+</svg>
+</span>
+<div>
+<h2 id="pref-workspace-title">Workspace</h2>
+<p>Keep your everyday tools within reach.</p>
+</div>
+</header>
+<div class="pref-section-body">
+<div class="pref-row">
+<div class="pref-row-copy">
+<label for="landingPagePreference">Default landing page</label>
+<p>Choose where you arrive after signing in.</p>
+</div>
+<div class="pref-control">
+<select id="landingPagePreference">
+</select>
+</div>
+</div>
+<div class="pref-row">
+<div class="pref-row-copy">
+<label for="rememberFiltersPreference">Remember filters and sorting</label>
+<p>Keep list filters and sort order when you return during this session. Saved separately by page and school year.</p>
+</div>
+<div class="pref-control">
+<label class="preference-switch pref-toggle" for="rememberFiltersPreference">
+<input id="rememberFiltersPreference" type="checkbox" role="switch"/>
+<span class="preference-switch-track" aria-hidden="true">
+<span>
+</span>
+</span>
+<span class="sr-only">Toggle setting</span>
+</label>
+</div>
+</div>
+<div class="pref-row">
+<div class="pref-row-copy">
+<label for="tablePageSizePreference">Learners per page</label>
+<p>Used in the Masterlist, program lists, and assessment tables. Audit history stays at 10 per page.</p>
+</div>
+<div class="pref-control">
+<select id="tablePageSizePreference">
+<option value="8">8 learners</option>
+<option value="10">10 learners</option>
+<option value="25">25 learners</option>
+<option value="50">50 learners</option>
+</select>
+</div>
+</div>
+<div class="pref-row">
+<div class="pref-row-copy">
+<label for="learnerInspectionToggle">Learner inspection</label>
+<p>Show the Inspect action beside learner records.</p>
+</div>
+<div class="pref-control">
+<label class="preference-switch pref-toggle" for="learnerInspectionToggle">
+<input id="learnerInspectionToggle" type="checkbox" role="switch"/>
+<span class="preference-switch-track" aria-hidden="true">
+<span>
+</span>
+</span>
+<span class="sr-only">Toggle setting</span>
+</label>
+</div>
+</div>
+<span id="learnerInspectionState" class="sr-only">
+</span>
+<fieldset class="pref-columns">
+<legend>Visible learner columns</legend>
+<p>Personalize the Masterlist and program lists. Learner ID, name, grade, and actions stay visible.</p>
+<div class="pref-column-grid">
+<label>
+<input type="checkbox" data-learner-column="birthDate" checked/>
+<span>Birthdate</span>
+</label>
+<label>
+<input type="checkbox" data-learner-column="age" checked/>
+<span>Age</span>
+</label>
+<label>
+<input type="checkbox" data-learner-column="gender" checked/>
+<span>Gender</span>
+</label>
+<label>
+<input type="checkbox" data-learner-column="guardian" checked/>
+<span>Guardian</span>
+</label>
+<label>
+<input type="checkbox" data-learner-column="programs" checked/>
+<span>Programs</span>
+</label>
+<label>
+<input type="checkbox" data-learner-column="dateAdded" checked/>
+<span>Date added</span>
+</label>
+</div>
+</fieldset>
+</div>
+</section>
+<section class="panel pref-section" id="pref-privacy" aria-labelledby="pref-privacy-title">
+<header class="pref-section-heading">
+<span class="pref-section-icon">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<path d="m12 3 8 3v6c0 4-4 7-8 9-4-2-8-5-8-9V6l8-3Z"/>
+<path d="m8 12 3 3 5-6"/>
+</svg>
+</span>
+<div>
+<h2 id="pref-privacy-title">Privacy</h2>
+<p>Take control of what appears on your screen.</p>
+</div>
+</header>
+<div class="pref-section-body">
+<div class="pref-row">
+<div class="pref-row-copy">
+<label for="privacyModePreference">Privacy mode</label>
+<p>Blur table contents and learner detail previews on screen. This is a visual mask; exported files may still contain original data.</p>
+</div>
+<div class="pref-control">
+<label class="preference-switch pref-toggle" for="privacyModePreference">
+<input id="privacyModePreference" type="checkbox" role="switch"/>
+<span class="preference-switch-track" aria-hidden="true">
+<span>
+</span>
+</span>
+<span class="sr-only">Toggle setting</span>
+</label>
+</div>
+</div>
+<div class="pref-note">Use this when presenting or sharing your screen. Access permissions and stored school records stay the same.</div>
+</div>
+</section>
+<section class="panel pref-section" id="pref-storage" aria-labelledby="pref-storage-title">
+<header class="pref-section-heading">
+<span class="pref-section-icon">
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<ellipse cx="12" cy="5" rx="8" ry="3"/>
+<path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/>
+</svg>
+</span>
+<div>
+<h2 id="pref-storage-title">Photo storage</h2>
+<p>Faster photo viewing, with storage you can manage.</p>
+</div>
+</header>
+<div class="pref-section-body">
+<div class="pref-row">
+<div class="pref-row-copy">
+<label for="photoCachePreference">Cache profile photos</label>
+<p>Reuse downloaded avatars and photo previews in this tab for faster navigation.</p>
+</div>
+<div class="pref-control">
+<label class="preference-switch pref-toggle" for="photoCachePreference">
+<input id="photoCachePreference" type="checkbox" role="switch"/>
+<span class="preference-switch-track" aria-hidden="true">
+<span>
+</span>
+</span>
+<span class="sr-only">Toggle setting</span>
+</label>
+</div>
+</div>
+<div class="pref-cache">
+<div>
+<strong id="photoCacheUsage">Checking photo storage...</strong>
+<p>Only photos cached in this tab. Clearing them does not remove uploaded profile pictures.</p>
+</div>
+<button type="button" class="btn btn-secondary" id="clearPhotoCacheBtn">Clear photo cache</button>
+</div>
+</div>
+</section>
+<section class="panel pref-reset">
+<div>
+<h2>Start fresh</h2>
+<p>Restore all personal preferences, clear remembered views, and empty the photo cache.</p>
+</div>
+<button type="button" class="btn btn-danger-outline" id="resetPreferencesBtn">Reset preferences</button>
+</section>
+</div>
+</div>
+<dialog id="resetPreferencesDialog" class="pref-reset-dialog" aria-labelledby="resetPreferencesTitle" aria-describedby="resetPreferencesDescription">
+<div>
+<span class="eyebrow">PERSONAL PREFERENCES</span>
+<h2 id="resetPreferencesTitle">Reset your workspace?</h2>
+<p id="resetPreferencesDescription">Your theme, landing page, table layout, text size, privacy, and motion settings will return to their defaults. Remembered views and cached photos in this tab will be cleared.</p>
+<p>Your account, uploaded profile photo, and school records are kept.</p>
+<div class="pref-dialog-actions">
+<button type="button" class="btn btn-secondary" id="cancelResetPreferencesBtn">Keep preferences</button>
+<button type="button" class="btn btn-danger" id="confirmResetPreferencesBtn">Reset preferences</button>
+</div>
+</div>
+</dialog>
+</main>
+</div>
 </div>

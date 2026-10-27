@@ -23,8 +23,9 @@ service-account*.json
 *-firebase-adminsdk-*.json
 apps-script/
 .env.example
-main.py
 py_source/
+__pycache__/
+*.py[cod]
 
 # Keep Cloudflare Worker source, config, and migrations in Git.
 !worker/

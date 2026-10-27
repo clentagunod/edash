@@ -87,6 +87,7 @@ vi.mock("./firestore-api", () => ({
   FS_DROPOUTS: "dropouts",
   FS_USERS: "users",
   fsInvalidateReadCaches_: vi.fn(),
+  fsAudit_: vi.fn(),
 }));
 vi.mock("./shell", () => ({
   clearButtonLoading: vi.fn(),

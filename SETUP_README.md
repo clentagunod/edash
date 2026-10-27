@@ -52,6 +52,8 @@ Do not use a service-account key as the browser Firebase config. Keep privileged
 
 ## 4. Generate the tenant Firestore structure
 
+For a desktop alternative, run `conda activate provisionenv` and `python main.py` from the root to open **Edash Provision**. Its Tenant provision mode includes the documented defaults, custom JSON structure support, optional service-key authentication, rule/index checkboxes, offline dry run, command preview, and logs. Registration mode handles central school entries separately. The app is self-contained in `main.py` plus `src/edash_provision/`; see the [desktop guide](./src/edash_provision/README.md) for dependencies and how to copy it into another project. Its optional initial administrator profile requires an existing Firebase Authentication UID.
+
 The project constructs the required Firestore documents directly with Firebase Admin; Firestore does not have empty collections to create independently. The bootstrap command creates the structure documents and school-year metadata. It does not import a JSON schema file.
 
 Install project dependencies if needed, then bootstrap an empty school's database. In PowerShell, quote the service-account path:
@@ -628,3 +630,33 @@ Cloudinary's current references: [managing upload presets](https://cloudinary.co
 - Treat learner data, downloaded JSON backups, feedback, audit logs, and Apps Script project settings as restricted school data.
 - Keep Firestore rules restrictive. The app's UI role checks are not a security boundary; Firestore rules and trusted backends must enforce access.
 - Use public Firebase Web App settings only in browser-facing config. Never use service-account credentials as Firebase client settings.
+
+
+## Personal workspace preferences
+
+Personal settings are stored in `users/{uid}.teacherPrefs` for every staff role. `shared/user-preferences.json` defines the defaults used by the website, new account creation, and the Node provisioning scripts. Existing profiles with only `theme` and `inspectLearner` continue to load; the app fills missing defaults and writes the expanded map when the user saves.
+
+```json
+{
+  "theme": "Light",
+  "inspectLearner": true,
+  "rememberFilters": true,
+  "landingPage": "dashboard.html",
+  "tableDensity": "comfortable",
+  "tablePageSize": 8,
+  "hiddenLearnerColumns": [],
+  "textSize": "standard",
+  "privacyMode": false,
+  "reduceMotion": false,
+  "photoCacheEnabled": true
+}
+```
+
+- Landing pages are allowlisted internal routes, with a dashboard fallback for unsupported account roles.
+- Table page sizes are 8, 10, 25, or 50 in learner and assessment lists. Audit history remains 10 per page. Density applies across data tables. Optional learner columns are `birthDate`, `age`, `gender`, `guardian`, `programs`, and `dateAdded`; identity and action columns stay visible.
+- Remembered filters and sort order are kept in session storage, scoped to the school, account, page, and school year. They are not written to Firestore with each keystroke.
+- Privacy mode is a screen mask for table contents and learner inspection details. It is not access control; exported files may still contain original data.
+- The photo cache is bounded to 80 images / approximately 16 MB in the current tab. Its usage and clear action are available in Preferences. Clearing it never deletes an uploaded photo.
+- Reset Preferences requires confirmation, restores the defaults above, and clears the current account's remembered views and tab photo cache. It does not change profile photos, assignments, passwords, or school records.
+
+Deploy the updated root `firestore.rules` to each tenant before publishing this frontend. The rules allow validated personal preference updates without granting users permission to change their roles or assignments. The standalone Python provisioner includes the same rules and a mirrored `assets/user-preferences.json` snapshot; its asset integrity hashes are updated together.

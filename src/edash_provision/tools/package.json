@@ -1,0 +1,7 @@
+{
+  "name": "edash-provision-cli-tools",
+  "private": true,
+  "description": "Optional Firebase CLI for Edash Provision rules/index deployment",
+  "engines": { "node": ">=20" },
+  "dependencies": { "firebase-tools": "15.34.1" }
+}

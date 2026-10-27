@@ -1,5 +1,6 @@
 // @ts-nocheck -- ported from the original site; behavior preserved, not yet fully typed.
 import { escapeHtml, renderShell, showToast, startExportIndicator } from './shell';
+import { currentUserPreferences, restoreFilterControls, rememberFilterControls } from './preference-runtime';
 import { LPSApi } from './sheets-api';
 import { requireAuth } from './auth';
 import { APP_CONFIG, appSchoolFilePrefix, paginationPageNumbers } from './app-config';
@@ -15,6 +16,7 @@ export let nutritionRecords = [];
 export let nutritionPage = 1;
 export let nutritionSearch = "";
 export const PROFILE_PAGE_SIZE = 10;
+const nutritionFilterIds = ["nutritionPeriodFilter", "nutritionGradeFilter", "nutritionSexFilter", "nutritionStatusFilter", "nutritionSearch"];
 
 export async function initNutritionPage() {
   renderShell("nutrition", "Nutritional Status");
@@ -32,6 +34,9 @@ export async function initNutritionPage() {
 }
 
 export async function loadNutritionStatus(schoolYear) {
+  restoreFilterControls(`nutrition:${schoolYear}`, nutritionFilterIds);
+  nutritionSearch = document.getElementById('nutritionSearch')?.value.trim().toLowerCase() || '';
+  nutritionPage = 1;
   const table = document.getElementById("nutritionTableBody");
   const summary = document.getElementById("nutritionSummary");
   table.innerHTML = `<tr><td colspan="6" class="state-row">Loading nutritional records…</td></tr>`;
@@ -48,6 +53,7 @@ export async function loadNutritionStatus(schoolYear) {
 }
 
 export function renderFilteredNutrition() {
+  rememberFilterControls(`nutrition:${getSelectedSchoolYear()}`, nutritionFilterIds);
   const period = document.getElementById("nutritionPeriodFilter")?.value || "";
   const sex = document.getElementById("nutritionSexFilter")?.value || "";
   const status = document.getElementById("nutritionStatusFilter")?.value || "";
@@ -61,17 +67,17 @@ export function renderFilteredNutrition() {
   }).sort(compareLearnersBySurname);
   renderNutritionSummary(records);
   renderNutritionCharts(records);
-  renderNutritionTable(records.slice((nutritionPage - 1) * PROFILE_PAGE_SIZE, nutritionPage * PROFILE_PAGE_SIZE));
+  renderNutritionTable(records.slice((nutritionPage - 1) * currentUserPreferences().tablePageSize, nutritionPage * currentUserPreferences().tablePageSize));
   renderProfilePagination("nutrition", records.length, nutritionPage, (page) => { nutritionPage = page; renderFilteredNutrition(); });
 }
 
 export function renderProfilePagination(prefix, total, page, onPageChange) {
-  const pageCount = Math.max(1, Math.ceil(total / PROFILE_PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(total / currentUserPreferences().tablePageSize));
   const info = document.getElementById(prefix + "PageInfo");
   const buttons = document.getElementById(prefix + "PagerBtns");
   if (!info || !buttons) return;
-  const start = total ? (page - 1) * PROFILE_PAGE_SIZE + 1 : 0;
-  info.textContent = total ? `${start}-${Math.min(page * PROFILE_PAGE_SIZE, total)} of ${total}` : "0 learners";
+  const start = total ? (page - 1) * currentUserPreferences().tablePageSize + 1 : 0;
+  info.textContent = total ? `${start}-${Math.min(page * currentUserPreferences().tablePageSize, total)} of ${total}` : "0 learners";
   const pageNumbers = paginationPageNumbers(page, pageCount);
   buttons.innerHTML = `<button type="button" aria-label="Previous page" ${page === 1 ? "disabled" : ""}>‹</button>${pageNumbers.map((value) => value === "..." ? `<span class="pager-ellipsis" aria-hidden="true">…</span>` : `<button type="button" class="${value === page ? "is-active" : ""}" data-page="${value}" ${value === page ? "aria-current=\"page\"" : ""}>${value}</button>`).join("")}<button type="button" aria-label="Next page" ${page === pageCount ? "disabled" : ""}>›</button>`;
   [...buttons.children].forEach((button, index) => { if (!button.disabled && !button.classList.contains("pager-ellipsis")) button.addEventListener("click", () => onPageChange(button.dataset.page ? Number(button.dataset.page) : index === 0 ? page - 1 : page + 1)); });

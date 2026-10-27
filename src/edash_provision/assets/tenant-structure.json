@@ -1,0 +1,197 @@
+{
+  "format": "edash-tenant-provision",
+  "version": 1,
+  "description": "E-Dash schema v3 bootstrap. Create missing documents only. Based on SETUP_README.md and provisioning defaults, 2026-10-27.",
+  "documents": [
+    {
+      "path": "schoolYears/${schoolYear}",
+      "data": {
+        "schoolYear": "${schoolYear}",
+        "isCurrent": true,
+        "createdAt": {
+          "$serverTimestamp": true
+        }
+      }
+    },
+    {
+      "path": "settings/currentSchoolYear",
+      "data": {
+        "value": "${schoolYear}",
+        "updatedAt": {
+          "$serverTimestamp": true
+        }
+      }
+    },
+    {
+      "path": "settings/curriculumSubjectPool",
+      "data": {
+        "subjects": [],
+        "updatedAt": {
+          "$serverTimestamp": true
+        },
+        "updatedBy": "provisioning"
+      }
+    },
+    {
+      "path": "settings/gradeTerms",
+      "data": {
+        "termCount": 3,
+        "passingThreshold": 75,
+        "updatedAt": {
+          "$serverTimestamp": true
+        },
+        "updatedBy": "provisioning"
+      }
+    },
+    {
+      "path": "settings/gradeTerms/years/${schoolYear}",
+      "data": {
+        "schoolYear": "${schoolYear}",
+        "termCount": 3,
+        "passingThreshold": 75,
+        "gradeLevels": {},
+        "updatedAt": {
+          "$serverTimestamp": true
+        },
+        "updatedBy": "provisioning"
+      }
+    },
+    {
+      "path": "settings/toggles",
+      "data": {
+        "canParentAccess": true,
+        "canPromoteStudents": false,
+        "trashConfg": "30",
+        "roundType": "nearest_integer",
+        "updatedAt": {
+          "$serverTimestamp": true
+        }
+      }
+    },
+    {
+      "path": "settings/cardPrintingPreferences",
+      "data": {
+        "activeTemplate": "sf9",
+        "gradeTemplates": {
+          "kinder": "sf9",
+          "grade1": "sf9",
+          "grade2": "sf9",
+          "grade3": "sf9",
+          "grade4": "sf9",
+          "grade5": "sf9",
+          "grade6": "sf9"
+        },
+        "attendanceMonths": [
+          "Jun",
+          "Jul",
+          "Aug",
+          "Sep",
+          "Oct",
+          "Nov",
+          "Dec",
+          "Jan",
+          "Feb",
+          "Mar",
+          "Apr"
+        ],
+        "attendanceRows": [
+          {
+            "id": "classDays",
+            "label": "Class days"
+          },
+          {
+            "id": "daysPresent",
+            "label": "Present"
+          },
+          {
+            "id": "daysAbsent",
+            "label": "Absent"
+          }
+        ],
+        "updatedAt": {
+          "$serverTimestamp": true
+        },
+        "updatedBy": "provisioning"
+      }
+    },
+    {
+      "path": "settings/eduai",
+      "data": {
+        "schemaVersion": 1,
+        "roleDefaults": {
+          "School Admin": {
+            "model": "gemini-3.5-flash-lite",
+            "maxOutputTokens": 768,
+            "timeoutSeconds": 90,
+            "temperature": 0.2,
+            "historyMessages": 8,
+            "learnerNameLimit": 150
+          },
+          "Registrar": {
+            "model": "gemini-3.5-flash-lite",
+            "maxOutputTokens": 768,
+            "timeoutSeconds": 90,
+            "temperature": 0.2,
+            "historyMessages": 8,
+            "learnerNameLimit": 50
+          },
+          "Teacher": {
+            "model": "gemini-3.5-flash-lite",
+            "maxOutputTokens": 512,
+            "timeoutSeconds": 90,
+            "temperature": 0.1,
+            "historyMessages": 6,
+            "learnerNameLimit": 0
+          }
+        },
+        "updatedBy": "provisioning",
+        "updatedAt": {
+          "$serverTimestamp": true
+        }
+      }
+    },
+    {
+      "path": "publicStats/summary",
+      "data": {
+        "schoolYear": "${schoolYear}",
+        "syncStatus": "Ready",
+        "totalLearners": 0,
+        "programsTracked": 0,
+        "fourPsCount": 0,
+        "ipCount": 0,
+        "snedCount": 0,
+        "aralCount": 0,
+        "muslimCount": 0,
+        "maleCount": 0,
+        "femaleCount": 0,
+        "notTaggedCount": 0,
+        "gradeLevels": [],
+        "recentLearners": [],
+        "enrollmentData": {
+          "schoolYear": "${schoolYear}",
+          "rows": [],
+          "gradeTotals": [],
+          "grandTotal": {
+            "male": 0,
+            "female": 0,
+            "total": 0
+          }
+        },
+        "updatedAt": {
+          "$serverTimestamp": true
+        }
+      }
+    }
+  ],
+  "collectionPaths": [
+    "users/{uid}",
+    "users/{uid}/assignmentHistory/{schoolYear}",
+    "schoolYears/{schoolYear}/learners/{LRN}",
+    "schoolYears/{schoolYear}/dropouts/{LRN}",
+    "schoolYears/{schoolYear}/transferredOut/{LRN}",
+    "schoolYears/{schoolYear}/grades/{gradeKey}",
+    "schoolYears/{schoolYear}/grades/{gradeKey}/sections/{sectionKey}",
+    "schoolYears/{schoolYear}/grades/{gradeKey}/sections/{sectionKey}/teachers/{uid}",
+    "schoolYears/{schoolYear}/trash/{recordId}"
+  ]
+}

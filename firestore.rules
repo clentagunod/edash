@@ -121,12 +121,24 @@ service cloud.firestore {
       return !exists(togglesPath)
         || get(togglesPath).data.get("canParentAccess", true) == true;
     }
+    // Optional keys keep existing two-field preferences compatible during rollout.
     function validTeacherPrefs(prefs) {
       return prefs is map
         && prefs.keys().hasAll(["theme", "inspectLearner"])
-        && prefs.keys().hasOnly(["theme", "inspectLearner"])
+        && prefs.keys().hasOnly(["theme", "inspectLearner", "rememberFilters", "landingPage", "tableDensity", "tablePageSize", "hiddenLearnerColumns", "textSize", "privacyMode", "reduceMotion", "photoCacheEnabled"])
         && prefs.theme in ["Light", "Dark", "Dracula", "Monokai", "Beach", "Nord", "Forest", "ClentIndustries Theme"]
-        && prefs.inspectLearner is bool;
+        && prefs.inspectLearner is bool
+        && prefs.get("rememberFilters", true) is bool
+        && prefs.get("landingPage", "dashboard.html") in ["dashboard.html", "masterlist.html", "enrollment-data.html", "reading-profile.html", "math-profile.html", "grades-profile.html", "nutritional-status.html", "settings.html"]
+        && prefs.get("tableDensity", "comfortable") in ["comfortable", "compact"]
+        && prefs.get("tablePageSize", 8) in [8, 10, 25, 50]
+        && prefs.get("hiddenLearnerColumns", []) is list
+        && prefs.get("hiddenLearnerColumns", []).size() <= 6
+        && prefs.get("hiddenLearnerColumns", []).toSet().hasOnly(["birthDate", "age", "gender", "guardian", "programs", "dateAdded"])
+        && prefs.get("textSize", "standard") in ["standard", "large", "extra-large"]
+        && prefs.get("privacyMode", false) is bool
+        && prefs.get("reduceMotion", false) is bool
+        && prefs.get("photoCacheEnabled", true) is bool;
     }
     function validPhotoURL(photoURL) {
       return photoURL is string

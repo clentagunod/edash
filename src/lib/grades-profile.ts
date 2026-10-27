@@ -1,5 +1,6 @@
 // @ts-nocheck -- ported from the original site; behavior preserved, not yet fully typed.
 import { enrollmentGradeLabel } from './enrollment-data';
+import { currentUserPreferences, restoreFilterControls, rememberFilterControls, readRememberedView } from './preference-runtime';
 import { LPSApi } from './sheets-api';
 import { requireAuth } from './auth';
 import { getSelectedSchoolYear, initYearSwitcher } from './school-year';
@@ -21,6 +22,7 @@ export let gradesSortDirection = "asc";
 export let gradesFilteredProfiles = [];
 export let gradesPage = 1;
 export const GRADES_PAGE_SIZE = 10;
+const gradesFilterIds = ["gradesSearch", "gradesGradeFilter", "gradesProgramFilter", "gradesGenderFilter", "gradesSort", "gradesSortDirection"];
 export let gradesCurriculumAssignments = {};
 export let gradesCurriculumAvailable = false;
 export let gradesCurriculumSubjects = [...CURRICULUM_SUBJECTS];
@@ -63,6 +65,13 @@ export function renderGradesTermNavigation() {
 }
 
 export async function loadGradesProfiles(schoolYear) {
+  restoreFilterControls(`grades:${schoolYear}`, gradesFilterIds);
+  const rememberedTerm = readRememberedView(`grades:${schoolYear}`).selectedTerm;
+  gradesSelectedTerm = gradesTerms.some(term => term.id === rememberedTerm) ? rememberedTerm : FINAL_GRADE_TERM;
+  renderGradesTermNavigation();
+  gradesSortField = document.getElementById('gradesSort')?.value || 'name';
+  gradesSortDirection = document.getElementById('gradesSortDirection')?.value || 'asc';
+  gradesPage = 1;
   const body = document.getElementById("gradesTableBody");
   const requestId = ++gradesRequestId;
   gradesCurriculumAssignments = {};
@@ -244,6 +253,7 @@ export function gradeCell(value) {
 }
 
 export function renderGradesTable(records) {
+  rememberFilterControls(`grades:${getSelectedSchoolYear()}`, gradesFilterIds, { selectedTerm: gradesSelectedTerm });
   const body = document.getElementById("gradesTableBody");
   const subjects = getVisibleGradeSubjects();
   const colspan = 4 + subjects.length;
@@ -254,9 +264,9 @@ export function renderGradesTable(records) {
     return;
   }
   const sortedRecords = records.slice().sort(compareGradeProfiles);
-  const pageCount = Math.max(1, Math.ceil(sortedRecords.length / GRADES_PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(sortedRecords.length / currentUserPreferences().tablePageSize));
   gradesPage = Math.min(gradesPage, pageCount);
-  const pageRecords = sortedRecords.slice((gradesPage - 1) * GRADES_PAGE_SIZE, gradesPage * GRADES_PAGE_SIZE);
+  const pageRecords = sortedRecords.slice((gradesPage - 1) * currentUserPreferences().tablePageSize, gradesPage * currentUserPreferences().tablePageSize);
   body.innerHTML = pageRecords.map((record) => `<tr>
     <td class="cell-name">${escapeHtml(record.name || "—")}</td><td>${escapeHtml(record.gradeLevel || "—")}</td><td>${escapeHtml(record.section || "—")}</td>
     ${subjects.map(({ id }) => `<td class="grade-cell">${getGradeSubjectIds(record.gradeLevel).includes(id) ? gradeCell(record[id]) : `<span class="grade-empty">—</span>`}</td>`).join("")}
@@ -276,7 +286,7 @@ export function renderGradesPagination(total, pageCount) {
   const info = document.getElementById("gradesPageInfo");
   const buttons = document.getElementById("gradesPagerBtns");
   if (!info || !buttons) return;
-  info.textContent = total ? `${(gradesPage - 1) * GRADES_PAGE_SIZE + 1}-${Math.min(gradesPage * GRADES_PAGE_SIZE, total)} of ${total}` : "0 learners";
+  info.textContent = total ? `${(gradesPage - 1) * currentUserPreferences().tablePageSize + 1}-${Math.min(gradesPage * currentUserPreferences().tablePageSize, total)} of ${total}` : "0 learners";
   const pageNumbers = paginationPageNumbers(gradesPage, pageCount);
   buttons.innerHTML = `<button type="button" aria-label="Previous page" ${gradesPage === 1 ? "disabled" : ""}>‹</button>${pageNumbers.map((value) => value === "..." ? `<span class="pager-ellipsis" aria-hidden="true">…</span>` : `<button type="button" class="${value === gradesPage ? "is-active" : ""}" data-page="${value}">${value}</button>`).join("")}<button type="button" aria-label="Next page" ${gradesPage === pageCount ? "disabled" : ""}>›</button>`;
   [...buttons.children].forEach((button, index) => { if (!button.disabled && !button.classList.contains("pager-ellipsis")) button.addEventListener("click", () => { gradesPage = button.dataset.page ? Number(button.dataset.page) : index === 0 ? gradesPage - 1 : gradesPage + 1; renderGradesTable(gradesFilteredProfiles); }); });

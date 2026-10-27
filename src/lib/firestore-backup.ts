@@ -13,6 +13,7 @@ import {
   FS_DROPOUTS,
   FS_USERS,
   fsInvalidateReadCaches_,
+  fsAudit_,
 } from './firestore-api';
 import { clearButtonLoading, setButtonLoading, showToast } from './shell';
 import { clearFirestoreBackupReview, renderFirestoreBackupReview } from './firestore-backup-review';
@@ -394,6 +395,7 @@ export async function restoreFirestoreBackup(value, mode = FIRESTORE_BACKUP_MODE
         else batch.set(ref, data);
       });
     await batch.commit();
+    fsAudit_("DATABASE_RESTORE", { sheet: "settings", recordId: "database", newValue: JSON.stringify({ mode, status: "write_batch_completed", restored: Math.min(FIRESTORE_BATCH_SIZE, documentsToWrite.length - start) }) });
   }
 
   const staleDocuments = mode === FIRESTORE_BACKUP_MODES.REPLACE ? safetyBackup.documents
@@ -404,9 +406,11 @@ export async function restoreFirestoreBackup(value, mode = FIRESTORE_BACKUP_MODE
     staleDocuments.slice(start, start + FIRESTORE_BATCH_SIZE)
       .forEach(({ ref }) => batch.delete(ref));
     await batch.commit();
+    fsAudit_("DATABASE_RESTORE", { sheet: "settings", recordId: "database", newValue: JSON.stringify({ mode, status: "delete_batch_completed", removed: Math.min(FIRESTORE_BATCH_SIZE, staleDocuments.length - start) }) });
   }
 
   fsInvalidateReadCaches_();
+  fsAudit_("DATABASE_RESTORE", { sheet: "settings", recordId: "database", newValue: JSON.stringify({ mode, status: "completed", restored: documentsToWrite.length, removed: staleDocuments.length, skipped }) });
   return {
     mode,
     restored: documentsToWrite.length,

@@ -3,6 +3,8 @@ import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+const USER_PREFERENCE_DEFAULTS = JSON.parse(readFileSync(new URL("../shared/user-preferences.json", import.meta.url), "utf8"));
+
 function option(name, fallback = "") {
   const index = process.argv.indexOf(`--${name}`);
   return index >= 0 ? String(process.argv[index + 1] || "").trim() : fallback;
@@ -193,7 +195,7 @@ async function seedAdminUser(db, userUid, email, name) {
     teacherAssignments: [],
     teacherAssignment: null,
     ...(!existingUser.exists || !existingUser.data()?.teacherPrefs
-      ? { teacherPrefs: { theme: "Light", inspectLearner: true } }
+      ? { teacherPrefs: { ...USER_PREFERENCE_DEFAULTS, hiddenLearnerColumns: [] } }
       : {}),
   });
 }
@@ -217,7 +219,7 @@ async function seedTeacherUser(db, userUid, email, name, assignments) {
     teacherAssignments: normalizedAssignments,
     teacherAssignment: normalizedAssignments[0] || null,
     ...(!existingUser.exists || !existingUser.data()?.teacherPrefs
-      ? { teacherPrefs: { theme: "Light", inspectLearner: true } }
+      ? { teacherPrefs: { ...USER_PREFERENCE_DEFAULTS, hiddenLearnerColumns: [] } }
       : {}),
   });
 

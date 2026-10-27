@@ -1,0 +1,30 @@
+{
+  "snapshotDate": "2026-10-27",
+  "websiteSchemaVersion": 3,
+  "appVersion": "1.0.0",
+  "sources": [
+    "SETUP_README.md",
+    "school-registration.example.json",
+    "scripts/register-school.mjs",
+    "scripts/provision-firestore.mjs",
+    "scripts/provision-test.mjs",
+    "src/lib/app-config.ts",
+    "src/lib/eduai-tenant-defaults.json",
+    "firestore.rules",
+    "school-registry.rules",
+    "firebase.index.json",
+    "shared/user-preferences.json"
+  ],
+  "notes": "Standalone copies, not runtime references. Tenant defaults combine the documented bootstrap paths and current app settings. Tenant writes are create-only. Update snapshots and hashes deliberately when website defaults change.",
+  "sha256": {
+    "school-registration.example.json": "dea4a62953e6c79adfff722643c67e699e590f12e727c1ab9922c3b7430eab75",
+    "school-registry.rules": "35482168afca49969cc402226699325792c19bf1dca10d04396e4820f0f7344e",
+    "firestore.rules": "5a568620f2c2382b7b5f64011a70b7d6903e1ff1f79fb6335020f7bc16cc81e6",
+    "firebase.index.json": "e4c299a23f616afe61d73e95bea999afa2424b0328d64ce0a296f3549e1b4b54",
+    "firebase.registry.json": "098210e158ad5f70aab3ff72f80afe0c631bf314c8e33f425dfc1daf37baccdc",
+    "firebase.tenant.json": "1630fdf22e9fbd47ac8cd7f37bd502f500c3e9a1cc78ce001ee5a016a2c04efe",
+    "eduai-tenant-defaults.json": "3a90f61f61f7ff2a52edc1ac2a7b8ccd6e25bc847248c91fbfd5386ac9fa760a",
+    "tenant-structure.json": "37ded2382d4fa870fe6d533890b783ce570a96c6b9001b662b3fa909474ece03",
+    "user-preferences.json": "a234d4c4ea932b43f825a50b44c0174a6d50ab76db4663575257423d43b38143"
+  }
+}

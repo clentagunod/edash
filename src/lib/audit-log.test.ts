@@ -6,20 +6,27 @@ const { getAuditLogs } = vi.hoisted(() => ({
 
 vi.mock('./sheets-api', () => ({ LPSApi: { getAuditLogs } }));
 vi.mock('./app-config', () => ({
-  APP_CONFIG: { auditLogApiUrl: 'https://example.test/audit' },
+  APP_CONFIG: { auditLogApiUrl: 'https://example.test/audit', schoolId: 'test-school' },
+  APP_USER_PROFILE: null,
+  storedAppProfile: () => null,
   isSchoolAdmin: () => true,
 }));
+vi.mock('./firestore-api', () => ({ fsGetUsers: vi.fn().mockResolvedValue([]) }));
 vi.mock('./auth', () => ({ requireAuth: vi.fn() }));
 vi.mock('./shell', () => ({
   appPageHref: (path: string) => path,
   escapeHtml: (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'),
   renderShell: vi.fn(),
+  renderProfileAvatar: vi.fn(),
 }));
 
+import { fsGetUsers } from './firestore-api';
+import { renderProfileAvatar } from './shell';
 import { initAuditLog, loadAuditLog } from './audit-log';
 
 describe('audit log loading errors', () => {
   beforeEach(() => {
+    sessionStorage.clear();
     document.body.innerHTML = `
       <input id="auditSearch" />
       <div id="auditMeta"></div>
@@ -37,7 +44,7 @@ describe('audit log loading errors', () => {
     await loadAuditLog();
 
     const message = document.querySelector('#auditTableBody')?.textContent || '';
-    expect(message).toContain('Redeploy the latest apps-script/AuditLog.gs');
+    expect(message).toContain('Redeploy the latest gscripts/Auditlog.gs');
     expect(message).toContain('FIREBASE_WEB_API_KEY');
     expect(message).toContain('FIRESTORE_PROJECT_ID');
     expect(document.getElementById('auditMeta')?.textContent).toBe('Audit log unavailable');
@@ -108,5 +115,43 @@ describe('audit log loading errors', () => {
     expect(document.querySelectorAll('#auditTableBody tr')).toHaveLength(1);
     expect(document.querySelector('#auditTableBody')?.textContent).toContain('teacher@example.test');
     expect(document.getElementById('auditMeta')?.textContent).toContain('1 matching entry on this page');
+  });
+  it('places the uploaded photo before the actor email and resolves legacy entries by email', async () => {
+    vi.mocked(fsGetUsers).mockResolvedValueOnce([
+      { userId: 'admin-1', email: 'admin@example.test', photoURL: 'https://images.test/current.jpg' },
+    ]);
+    getAuditLogs.mockResolvedValue({ records: [
+      { user: 'admin@example.test', action: 'SETTINGS_UPDATE' },
+      { user: 'deleted@example.test', photoURL: 'https://images.test/snapshot.jpg', action: 'USER_UPDATE' },
+      { user: 'other@example.test', photoURL: 'javascript:alert(1)', action: 'LOGIN' },
+    ], page: 1, pageSize: 10, total: 3, totalPages: 1 });
+    await loadAuditLog(1);
+    const avatars = document.querySelectorAll('.audit-user-avatar');
+    expect(avatars).toHaveLength(3);
+    expect(avatars[0].nextElementSibling?.textContent).toBe('admin@example.test');
+    expect(renderProfileAvatar).toHaveBeenCalledWith(avatars[0], 'https://images.test/current.jpg', 'admin@example.test');
+    expect(renderProfileAvatar).toHaveBeenCalledWith(avatars[1], 'https://images.test/snapshot.jpg', 'deleted@example.test');
+    expect(renderProfileAvatar).toHaveBeenCalledWith(avatars[2], '', 'other@example.test');
+  });
+
+  it('keeps audit history available when the user directory fails', async () => {
+    vi.mocked(fsGetUsers).mockRejectedValueOnce(new Error('Directory unavailable'));
+    getAuditLogs.mockResolvedValue({ records: [{ user: 'admin@example.test', action: 'LOGIN' }], page: 1, pageSize: 10, total: 1, totalPages: 1 });
+    await loadAuditLog(1);
+    expect(document.querySelector('#auditTableBody')?.textContent).toContain('admin@example.test');
+  });
+
+  it('restores the saved search when returning to audit history', async () => {
+    const result = { records: [{ user: 'admin@example.test', action: 'LOGIN' }, { user: 'teacher@example.test', action: 'LOGIN' }], page: 1, pageSize: 10, total: 2, totalPages: 1 };
+    getAuditLogs.mockResolvedValue(result);
+    await initAuditLog({ renderNavigation: false });
+    const search = document.getElementById('auditSearch') as HTMLInputElement;
+    search.value = 'teacher';
+    search.dispatchEvent(new Event('input'));
+    search.value = '';
+    await initAuditLog({ renderNavigation: false });
+    expect(search.value).toBe('teacher');
+    expect(document.querySelector('#auditTableBody')?.textContent).toContain('teacher@example.test');
+    expect(document.querySelector('#auditTableBody')?.textContent).not.toContain('admin@example.test');
   });
 });

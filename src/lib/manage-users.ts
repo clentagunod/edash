@@ -1,5 +1,6 @@
 // @ts-nocheck -- ported from the original site; behavior preserved, not yet fully typed.
 import { appPageHref, clearButtonLoading, escapeHtml, renderShell, setButtonLoading, showToast } from './shell';
+import { restoreFilterControls, rememberFilterControls } from './preference-runtime';
 import { LPSApi } from './sheets-api';
 import { APP_CONFIG, confirmDiscardChanges, formSnapshot, isSchoolAdmin, normalizeTeacherAssignmentsForStorage, storedAppProfile } from './app-config';
 import { requireAuth } from './auth';
@@ -75,9 +76,10 @@ export async function initManageUsers() {
   }
   renderShell("users", "Admin Console");
   initAdminSectionTabs();
+  restoreFilterControls("admin-users", ["searchInput"]);
   void initTrashRetentionControl();
   ensureUserBulkControls();
-  document.getElementById("searchInput").addEventListener("input", debounce((e) => renderUsersTable(filterUsers(e.target.value)), 250));
+  document.getElementById("searchInput").addEventListener("input", debounce((e) => { rememberFilterControls("admin-users", ["searchInput"]); renderUsersTable(filterUsers(e.target.value)); }, 250));
   wireUserModal();
   await Promise.all([
     loadUsers(),
@@ -129,7 +131,7 @@ export async function loadUsers() {
       MU.users = DEMO_USERS.slice();
       document.getElementById("demoBanner").style.display = "flex";
     }
-    if (requestId === usersLoadRequest) renderUsersTable(MU.users);
+    if (requestId === usersLoadRequest) renderUsersTable(filterUsers(document.getElementById("searchInput")?.value || ""));
     const demoBanner = document.getElementById("demoBanner");
     if (demoBanner && isSheetsApiConfigured()) demoBanner.style.display = "none";
   } catch (err) {

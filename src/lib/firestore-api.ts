@@ -1,4 +1,5 @@
 // @ts-nocheck -- ported from the original site; behavior preserved, not yet fully typed.
+import { normalizeUserPreferences, validUserPreferences } from "./user-preferences";
 import { LPSApi } from './sheets-api';
 import { displayNameFromEmail } from './auth';
 import { PROGRAM_FIELD_MAP } from './learner-list';
@@ -121,7 +122,7 @@ export async function fsGetTrashRetention() {
 export async function fsSetTrashRetention(value) {
   if (!FS_TRASH_RETENTION_OPTIONS.includes(String(value))) throw new Error("Choose a valid Trash retention period.");
   try {
-    await db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles).set({ trashConfg: String(value) }, { merge: true });
+    await fsWriteAuditedSettings_(db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles), { trashConfg: String(value) });
     return String(value);
   } catch (error) { throw fsError_("Update Trash retention", error); }
 }
@@ -264,6 +265,25 @@ export function fsInvalidateReadCaches_(schoolYear = "") {
   LPSCache.remove("firestore_users");
   LPSCache.remove("firestore_school_years");
   if (schoolYear) LPSCache.remove(`firestore_learners_${schoolYear}`);
+}
+
+/** Record the changed fields only, after a successful settings write. */
+export async function fsWriteAuditedSettings_(ref, value) {
+  const snapshot = await ref.get();
+  const previous = snapshot.exists ? snapshot.data() || {} : {};
+  await ref.set(value, { merge: true });
+  const oldValue = {};
+  const newValue = {};
+  for (const [key, next] of Object.entries(value)) {
+    if (["updatedAt", "updatedBy"].includes(key)) continue;
+    if (JSON.stringify(previous[key]) === JSON.stringify(next)) continue;
+    oldValue[key] = previous[key] ?? null;
+    newValue[key] = next;
+  }
+  if (Object.keys(newValue).length) fsAudit_("SETTINGS_UPDATE", {
+    sheet: "settings", recordId: ref.path || ref.id,
+    oldValue: JSON.stringify(oldValue), newValue: JSON.stringify(newValue),
+  });
 }
 
 /** Best-effort audit log write to the existing Sheets-backed AuditLog. Never blocks the caller. */
@@ -709,7 +729,7 @@ export async function fsAddUser(record) {
     }
     try { await creationAuth.signOut(); } catch (signOutError) { /* Secondary auth cleanup is best effort. */ }
     fsInvalidateReadCaches_();
-    fsAudit_("USER_ADD", { sheet: "users", recordId: userId, newValue: JSON.stringify({ name: record.name, email: normalizedEmail, role: record.role, status: record.status || "Invited" }) });
+    fsAudit_("USER_ADD", { sheet: "users", recordId: userId, newValue: JSON.stringify({ name: record.name, email: normalizedEmail, role: record.role, status: record.status || "Invited", teacherAssignments: record.teacherAssignments || [] }) });
     return { userId };
   } catch (error) {
     if (createdUser) {
@@ -797,17 +817,13 @@ export async function fsUpdateMyProfileName(name) {
 }
 
 export function fsNormalizeTeacherPrefs(prefs = {}) {
-  const defaults = APP_CONFIG.firestore.userDefaults.teacherPrefs;
-  return {
-    theme: isAppTheme(prefs?.theme) ? prefs.theme : defaults.theme,
-    inspectLearner: typeof prefs?.inspectLearner === "boolean" ? prefs.inspectLearner : defaults.inspectLearner,
-  };
+  return normalizeUserPreferences(prefs);
 }
 
 export async function fsUpdateMyTeacherPrefs(prefs) {
   const user = firebase.auth().currentUser;
   if (!user?.uid) throw new Error("Not signed in.");
-  if (!prefs || !isAppTheme(prefs.theme) || typeof prefs.inspectLearner !== "boolean") {
+  if (!validUserPreferences(prefs)) {
     throw new Error("Invalid account preferences.");
   }
   const teacherPrefs = fsNormalizeTeacherPrefs(prefs);
@@ -864,7 +880,7 @@ export async function fsDeleteUser(userId) {
     await LPSApi.deleteAuthUsers([userId]);
 
     fsInvalidateReadCaches_();
-    fsAudit_("USER_DELETE", { sheet: "users", recordId: userId });
+    fsAudit_("USER_DELETE", { sheet: "users", recordId: userId, oldValue: JSON.stringify(profile.data() || {}) });
     return { deleted: true };
   } catch (error) {
     throw fsError_("Remove user", error);
@@ -887,7 +903,7 @@ export async function fsDeleteUsers(userIds) {
     await batch.commit();
 
     fsInvalidateReadCaches_();
-    fsAudit_("USER_DELETE", { sheet: "users", recordId: userIds.join(", ") });
+    userIds.forEach((id, index) => fsAudit_("USER_DELETE", { sheet: "users", recordId: id, oldValue: JSON.stringify(profiles[index].data() || {}) }));
     return { deleted: userIds.length };
   } catch (error) {
     throw fsError_("Remove users", error);
@@ -1251,6 +1267,7 @@ export async function fsCreateSchoolYear(schoolYear, makeCurrent = false, copyFr
   await db.collection(FS_SCHOOL_YEARS).doc(normalized).set({ schoolYear: normalized, isCurrent: false }, { merge: true });
   const rollover = makeCurrent ? await fsSetCurrentSchoolYear(normalized) : { resetTeacherAssignments: 0, preservedTeacherAssignments: 0 };
   fsInvalidateReadCaches_();
+  fsAudit_("SCHOOL_YEAR_ADD", { sheet: "schoolYears", recordId: normalized, newValue: JSON.stringify({ schoolYear: normalized, sourceYear, copiedSections, copiedCurriculumGrades, copiedGradingLevels, copiedTeacherAssignments }) });
   return { schoolYear: normalized, isCurrent: Boolean(makeCurrent), copiedSections, copiedCurriculumGrades, copiedGradingLevels, copiedTeacherAssignments, ...rollover };
 }
 
@@ -1292,6 +1309,7 @@ export async function fsSetCurrentSchoolYear(schoolYear) {
   batch.set(db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.currentSchoolYear), { value: normalized }, { merge: true });
   await batch.commit();
   fsInvalidateReadCaches_();
+  if (!alreadyCurrent) fsAudit_("SCHOOL_YEAR_CURRENT", { sheet: "schoolYears", recordId: normalized, oldValue: JSON.stringify({ schoolYear: currentSetting.data()?.value || "" }), newValue: JSON.stringify({ schoolYear: normalized, preservedTeacherAssignments }) });
   return { schoolYear: normalized, isCurrent: true, resetTeacherAssignments: 0, preservedTeacherAssignments };
 }
 
@@ -1400,6 +1418,7 @@ export async function fsAddCurriculumSubject(label) {
   FS_DYNAMIC_CURRICULUM_SUBJECT_IDS = subjects
     .map(({ id }) => id)
     .filter((id) => !FS_LEARNER_FIELD_ORDER.includes(id));
+  fsAudit_("CURRICULUM_SUBJECT_ADD", { sheet: "settings", recordId: candidate.id, newValue: JSON.stringify({ subjectId: candidate.id, label: candidate.label }) });
   return { subject: candidate, subjects };
 }
 
@@ -1435,6 +1454,7 @@ export async function fsRemoveCurriculumSubject(subjectId) {
   FS_DYNAMIC_CURRICULUM_SUBJECT_IDS = subjects
     .map(({ id }) => id)
     .filter((id) => !FS_LEARNER_FIELD_ORDER.includes(id));
+  fsAudit_("CURRICULUM_SUBJECT_DELETE", { sheet: "settings", recordId: subjectId, oldValue: JSON.stringify({ subjectId, label: removedSubject.label }) });
   return { subject: removedSubject, subjects };
 }
 
@@ -1452,6 +1472,7 @@ export async function fsSaveGradeSubjectAssignment(schoolYear, gradeLevel, subje
     throw new Error("One or more selected subjects are not in the approved subject pool.");
   }
   const gradeRef = fsGradesCollection_(year).doc(fsNormalizeKey_(grade));
+  const before = await gradeRef.get();
   try {
     await gradeRef.set({
       schoolYear: year,
@@ -1467,6 +1488,7 @@ export async function fsSaveGradeSubjectAssignment(schoolYear, gradeLevel, subje
   }
   if (typeof LPSCache !== "undefined") LPSCache.remove(`firestore_curriculum_subjects_${year}`);
   fsInvalidateReadCaches_(year);
+  fsAudit_("CURRICULUM_UPDATE", { sheet: "schoolYears", recordId: `${year}|${grade}`, oldValue: JSON.stringify({ subjectIds: before.data()?.subjectIds || [] }), newValue: JSON.stringify({ schoolYear: year, gradeLevel: grade, subjectIds: normalizedSubjectIds }) });
   return { schoolYear: year, gradeLevel: grade, subjectIds: normalizedSubjectIds, configured: true };
 }
 
@@ -1485,6 +1507,7 @@ export async function fsSaveSection(section) {
   const oldLocation = String(section.id || "").split("|");
   const oldGradeKey = oldLocation[1] || "";
   const oldSectionKey = oldLocation[2] || "";
+  const before = await (section.id ? fsGradesCollection_(schoolYear).doc(oldGradeKey).collection(FS_PATHS.sections).doc(oldSectionKey) : sectionRef).get();
   if (section.id) {
     if (oldGradeKey && oldSectionKey &&
       (oldGradeKey !== fsNormalizeKey_(gradeLevel) || oldSectionKey !== fsNormalizeKey_(sectionName))) {
@@ -1514,6 +1537,7 @@ export async function fsSaveSection(section) {
     }
   }
   fsInvalidateReadCaches_(schoolYear);
+  fsAudit_(before.exists ? "SECTION_UPDATE" : "SECTION_ADD", { sheet: "sections", recordId: fsSectionId_(schoolYear, gradeLevel, sectionName), oldValue: JSON.stringify(before.data() || {}), newValue: JSON.stringify({ schoolYear, gradeLevel, section: sectionName, adviser }) });
   return { id: fsSectionId_(schoolYear, gradeLevel, sectionName), schoolYear, gradeLevel, section: sectionName, adviser };
 }
 
@@ -1522,12 +1546,14 @@ export async function fsDeleteSection(sectionId) {
   const [schoolYear, gradeKey, sectionKey] = String(sectionId).split("|");
   if (!schoolYear || !gradeKey || !sectionKey) throw new Error("Invalid section ID.");
   const sectionRef = fsGradesCollection_(schoolYear).doc(gradeKey).collection(FS_PATHS.sections).doc(sectionKey);
+  const before = await sectionRef.get();
   const teachers = await sectionRef.collection(FS_PATHS.teachers).get();
   const batch = db.batch();
   teachers.docs.forEach((teacherDoc) => batch.delete(teacherDoc.ref));
   batch.delete(sectionRef);
   await batch.commit();
   fsInvalidateReadCaches_(schoolYear);
+  if (before.exists) fsAudit_("SECTION_DELETE", { sheet: "sections", recordId: sectionId, oldValue: JSON.stringify(before.data()) });
   return { deleted: true };
 }
 
@@ -1878,9 +1904,9 @@ export async function fsGetParentAccessEnabled() {
 export async function fsSetParentAccessEnabled(enabled) {
   if (typeof enabled !== "boolean") throw new Error("Parent Access must be enabled or disabled.");
   try {
-    await db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles).set({
+    await fsWriteAuditedSettings_(db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles), {
       canParentAccess: enabled,
-    }, { merge: true });
+    });
     return enabled;
   } catch (error) {
     throw fsError_("Update Parent Access", error);
@@ -1899,9 +1925,9 @@ export async function fsGetPromotionConfiguration() {
 export async function fsSetCanPromoteStudents(enabled) {
   if (typeof enabled !== "boolean") throw new Error("Promotion access must be enabled or disabled.");
   try {
-    await db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles).set({
+    await fsWriteAuditedSettings_(db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles), {
       canPromoteStudents: enabled,
-    }, { merge: true });
+    });
     return enabled;
   } catch (error) {
     throw fsError_("Update Promotion access", error);
@@ -1918,7 +1944,7 @@ export async function fsGetRoundType() {
 export async function fsSetRoundType(roundType) {
   if (!GRADE_ROUND_TYPES.includes(roundType)) throw new Error("Choose a valid grade rounding option.");
   try {
-    await db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles).set({ roundType }, { merge: true });
+    await fsWriteAuditedSettings_(db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles), { roundType });
     return roundType;
   } catch (error) {
     throw fsError_("Update grade rounding", error);
@@ -1974,7 +2000,7 @@ export async function fsSetCardPrintingPreferences(preferences) {
     updatedBy: auth.currentUser?.uid || "",
   };
   try {
-    await db.collection(FS_SETTINGS).doc("cardPrintingPreferences").set(value, { merge: true });
+    await fsWriteAuditedSettings_(db.collection(FS_SETTINGS).doc("cardPrintingPreferences"), value);
     return await fsGetCardPrintingPreferences();
   } catch (error) {
     throw fsError_("Update Card Printing preferences", error);
@@ -2120,12 +2146,12 @@ export async function fsSetGradeTermCount(termCount, schoolYear = "") {
     || "";
   if (!/^\d{4}-\d{4}$/.test(year)) throw new Error("A valid school year is required to save grade terms.");
   try {
-    await fsGradeTermsYearRef_(year).set({
+    await fsWriteAuditedSettings_(fsGradeTermsYearRef_(year), {
       schoolYear: year,
       termCount,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedBy: auth.currentUser?.uid || "",
-    }, { merge: true });
+    });
     return termCount;
   } catch (error) {
     if (error?.code === "permission-denied") {
@@ -2156,12 +2182,12 @@ export async function fsSetPassingThreshold(passingThreshold, schoolYear = "") {
   const year = fsNormalizeSchoolYear_(schoolYear);
   if (!/^\d{4}-\d{4}$/.test(year)) throw new Error("A valid school year is required to save the passing threshold.");
   try {
-    await fsGradeTermsYearRef_(year).set({
+    await fsWriteAuditedSettings_(fsGradeTermsYearRef_(year), {
       schoolYear: year,
       passingThreshold: threshold,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedBy: auth.currentUser?.uid || "",
-    }, { merge: true });
+    });
     return threshold;
   } catch (error) {
     if (error?.code === "permission-denied") {
@@ -2215,12 +2241,12 @@ export async function fsSetGradeLevelGradingConfiguration(schoolYear, gradeLevel
       throw new Error(`Invalid grade-level grading settings for ${year}.`);
     }
     const gradeLevels = { ...current, [gradeKey]: { gradeLevel: String(gradeLevel).trim(), ...normalized } };
-    await ref.set({
+    await fsWriteAuditedSettings_(ref, {
       schoolYear: year,
       gradeLevels,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedBy: auth.currentUser?.uid || "",
-    }, { merge: true });
+    });
     return { schoolYear: year, gradeKey, configuration: gradeLevels[gradeKey] };
   } catch (error) {
     if (error?.code === "permission-denied") {
@@ -2246,12 +2272,12 @@ export async function fsCopyGradeLevelGradingConfigurations(sourceYear, targetYe
     gradeLevels[key] = { gradeLevel: String(value.gradeLevel || key), ...normalizeGradeLevelGrading(value) };
   }
   if (!Object.keys(gradeLevels).length) return 0;
-  await fsGradeTermsYearRef_(targetYear).set({
+  await fsWriteAuditedSettings_(fsGradeTermsYearRef_(targetYear), {
     schoolYear: targetYear,
     gradeLevels,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     updatedBy: auth.currentUser?.uid || "",
-  }, { merge: true });
+  });
   return Object.keys(gradeLevels).length;
 }
 
