@@ -1,4 +1,5 @@
 .student-card-app {
+  --studio-accent-ink: #fff;
   min-height: 100vh;
   color: var(--ink-700);
   background: var(--bg-app);
@@ -18,7 +19,8 @@
 .student-card-topbar h1 {
   margin: 2px 0 4px;
   color: var(--ink-900);
-  font-size: 24px;
+  font-size: clamp(22px, 2vw, 28px);
+  letter-spacing: -.04em;
   line-height: 1.2;
 }
 
@@ -106,7 +108,7 @@
 .student-card-button--primary {
   border-color: var(--blue-600);
   background: var(--blue-600);
-  color: var(--navy-900);
+  color: var(--studio-accent-ink);
 }
 
 .student-card-button:disabled {
@@ -116,7 +118,7 @@
 
 .student-card-workspace {
   display: grid;
-  grid-template-columns: minmax(340px, 390px) minmax(0, 1fr);
+  grid-template-columns: 320px minmax(0, 1fr);
   align-items: start;
   gap: 18px;
   padding: 18px;
@@ -124,11 +126,14 @@
 
 .student-card-editor {
   display: flex;
-  max-height: calc(100vh - 100px);
+  max-height: calc(100vh - 150px);
   flex-direction: column;
   gap: 12px;
   overflow: auto;
   padding-right: 3px;
+  position: sticky;
+  top: 18px;
+  scrollbar-width: thin;
 }
 
 .student-card-editor-section {
@@ -554,8 +559,12 @@
 }
 
 .student-card-canvas-stage {
-  padding: 18px;
-  background: var(--bg-card);
+  padding: 30px;
+  overflow: auto;
+  max-height: 75vh;
+  background-color: var(--bg-app);
+  background-image: radial-gradient(var(--line-200) 1px, transparent 1px);
+  background-size: 12px 12px;
 }
 
 .student-card-paper-canvas {
@@ -596,6 +605,75 @@
   outline: 2px solid var(--blue-600);
   outline-offset: 2px;
 }
+
+.student-card-editor-section[hidden] { display: none; }
+
+.student-card-editor-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 5px;
+  border: 1px solid var(--line-200);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+
+.student-card-editor-tabs button {
+  flex: 1;
+  min-height: 36px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-500);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.student-card-editor-tabs button[aria-pressed="true"] {
+  background: var(--blue-100);
+  color: var(--blue-600);
+}
+
+.student-card-edit-details { width: 100%; margin-top: 12px; text-align: left; overflow-wrap: anywhere; }
+.student-card-edit-note { color: var(--ink-500); font-size: 11px; line-height: 1.6; }
+.student-card-history { display: flex; gap: 6px; margin-left: auto; }
+.student-card-button { transition: background-color .15s, border-color .15s; font-family: inherit; }
+.student-card-button:hover:not(:disabled):not(.student-card-button--primary) { background: var(--bg-app); border-color: var(--ink-300); }
+.student-card-app button:focus-visible, .student-card-app select:focus-visible { outline: 2px solid var(--blue-600); outline-offset: 3px; }
+
+.student-card-layout-inspector {
+  display: grid;
+  grid-template-columns: minmax(130px, 1.7fr) repeat(4, minmax(65px, 1fr));
+  gap: 12px;
+  margin: 16px 20px 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-200);
+  border-radius: var(--radius-md);
+  background: var(--bg-app);
+}
+
+.student-card-layout-inspector legend { padding: 0 6px; color: var(--ink-700); font-size: 11px; font-weight: 700; }
+.student-card-layout-inspector legend span { margin-left: 8px; color: var(--ink-500); font-weight: 400; }
+.student-card-layout-inspector:disabled { opacity: .55; }
+.student-card-layout-inspector .student-card-field input { padding: 8px; font-variant-numeric: tabular-nums; }
+.student-card-toggle { display: inline-flex; align-items: center; gap: 7px; color: var(--ink-700); font-size: 11px; white-space: nowrap; }
+.student-card-toggle input { accent-color: var(--blue-600); }
+.student-card-align-actions { grid-column: 2 / -1; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.student-card-text-button { border: 0; padding: 4px 0; background: transparent; color: var(--blue-600); cursor: pointer; font: inherit; font-size: 11px; font-weight: 650; text-align: left; }
+.student-card-text-button:hover { text-decoration: underline; }
+.student-card-text-button:disabled { cursor: not-allowed; }
+
+.student-card-view-tools { display: flex; align-items: center; gap: 16px; padding: 12px 20px; border-bottom: 1px solid var(--line-200); }
+.student-card-view-hint { flex: 1; color: var(--ink-500); font-size: 11px; }
+.student-card-zoom { display: flex; align-items: center; gap: 8px; margin-left: auto; color: var(--ink-500); font-size: 11px; }
+.student-card-zoom select { padding: 6px; border: 1px solid var(--line-200); border-radius: 6px; background: var(--bg-card); color: var(--ink-900); font: inherit; }
+.student-card-print-guides { position: absolute; z-index: 3; border: 1px dashed rgb(47 111 237 / 45%); pointer-events: none; }
+.student-card-paper-canvas.is-editing .student-card-canvas-card.is-selected { outline: 2px solid var(--blue-600); outline-offset: 2px; }
+.student-card-paper-canvas.is-editing .student-card-canvas-card:not(.is-selected) .student-card-canvas-label { background: var(--ink-500); }
+.student-card-canvas-label { color: var(--studio-accent-ink); }
+body:is([data-theme="dracula"], [data-theme="monokai"], [data-theme="beach"], [data-theme="nord"], [data-theme="forest"], [data-theme="clentindustries-theme"]) .student-card-app { --studio-accent-ink: #16213a; }
+.student-card-canvas-empty { margin: 16px; text-align: center; color: #6b7690; }
 
 .student-card-canvas-label {
   position: absolute;
@@ -745,9 +823,15 @@
 
 @media (max-width: 1050px) {
   .student-card-workspace {
-    grid-template-columns: minmax(300px, 350px) minmax(0, 1fr);
+    grid-template-columns: 290px minmax(0, 1fr);
     padding: 12px;
   }
+
+  .student-card-layout-inspector { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .student-card-layout-inspector > .student-card-field:first-of-type { grid-column: 1 / -1; }
+  .student-card-layout-inspector .student-card-toggle { grid-column: 1 / -1; }
+  .student-card-align-actions { grid-column: 1 / -1; }
+  .student-card-view-hint { display: none; }
 }
 
 @media (max-width: 780px) {
@@ -767,7 +851,11 @@
 
   .student-card-editor {
     max-height: none;
+    position: static;
   }
+
+  .student-card-canvas-stage { padding: 18px; }
+  .student-card-history { margin-left: 0; }
 
   .student-card-preview-scroll {
     max-height: 75vh;

@@ -23,6 +23,7 @@ import {
 import { getRegisteredSchools, getStoredSchool } from '../lib/school-registry';
 import type { RegisteredSchool, SchoolInfo } from '../lib/school-registry';
 import { isLetterGradedLevel } from '../lib/student-card';
+import { applySavedTheme } from '../lib/shell';
 import { formatLearnerName } from '../lib/learner-sorting';
 import {
   CARD_BASE_HEIGHT_MM,
@@ -32,6 +33,7 @@ import {
   getLearnerIndexForSheetSlot,
   getPaperDimensions,
   makeDefaultCardLayouts,
+  updateCardLayout,
   PAPER_SIZES,
   type CardLayout,
   type PaperOrientation,
@@ -300,6 +302,26 @@ function downloadBlob(blob: Blob, fileName: string): void {
 
 type TermColumn = { id: string; label: string };
 type SheetSide = 'front' | 'back';
+
+function CardGeometryInput({ label, value, min, max, onCommit }: { label: string; value: number; min: number; max: number; onCommit: (value: number) => void }) {
+  const formatted = String(Number(value.toFixed(2)));
+  const [draft, setDraft] = useState(formatted);
+  useEffect(() => setDraft(formatted), [formatted]);
+  return <label className="student-card-field">
+    <span>{label}</span>
+    <input type="number" step="0.5" min={min} max={max} value={draft}
+      onChange={(event) => setDraft(event.currentTarget.value)}
+      onBlur={() => {
+        if (draft.trim() && Number.isFinite(Number(draft))) onCommit(Number(draft));
+        setDraft(formatted);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') { event.preventDefault(); event.currentTarget.blur(); }
+        if (event.key === 'Escape') { event.stopPropagation(); setDraft(formatted); }
+      }}
+    />
+  </label>;
+}
 
 const TEMPLATE_PREVIEW_MONTHS = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'];
 const TEMPLATE_PREVIEW_SUBJECTS: Subject[] = [
@@ -660,6 +682,7 @@ export default function PrintCardPage() {
     startX: number;
     startY: number;
     layout: CardLayout;
+    recorded: boolean;
   } | null>(null);
   const yearLoadRequest = useRef(0);
   const [students, setStudents] = useState<LearnerRecord[]>([]);
@@ -689,6 +712,13 @@ export default function PrintCardPage() {
   const [studioMode, setStudioMode] = useState<'edit' | 'view'>('edit');
   const [activeSheetSide, setActiveSheetSide] = useState<SheetSide>('front');
   const [cardLayoutsBySide, setCardLayoutsBySide] = useState<Record<SheetSide, CardLayout[]>>({ front: [], back: [] });
+  const [layoutPast, setLayoutPast] = useState<Array<Record<SheetSide, CardLayout[]>>>([]);
+  const [layoutFuture, setLayoutFuture] = useState<Array<Record<SheetSide, CardLayout[]>>>([]);
+  const [selectedSlot, setSelectedSlot] = useState(0);
+  const [lockAspect, setLockAspect] = useState(true);
+  const [showGuides, setShowGuides] = useState(true);
+  const [zoom, setZoom] = useState(100);
+  const [editorTab, setEditorTab] = useState<'learners' | 'details'>('learners');
   const [search, setSearch] = useState('');
   const [gradeFilter, setGradeFilter] = useState('');
   const [programFilter, setProgramFilter] = useState('');
@@ -719,6 +749,9 @@ export default function PrintCardPage() {
 
   useEffect(() => {
     setCardLayoutsBySide(layoutDefaults);
+    setLayoutPast([]);
+    setLayoutFuture([]);
+    setSelectedSlot(0);
   }, [layoutDefaults]);
 
   useEffect(() => {
@@ -736,6 +769,7 @@ export default function PrintCardPage() {
       try {
         await requireAuth();
         if (!active) return;
+        applySavedTheme();
         unsubscribeAuth = auth.onAuthStateChanged((user) => {
           if (!active || (user && !user.isAnonymous)) return;
           sessionStorage.removeItem('lps_user_profile');
@@ -983,9 +1017,39 @@ export default function PrintCardPage() {
     });
   }
 
+  function rememberLayout() {
+    setLayoutPast((past) => [...past.slice(-39), cardLayoutsBySide]);
+    setLayoutFuture([]);
+  }
+
+  function travelLayout(direction: 'undo' | 'redo') {
+    const source = direction === 'undo' ? layoutPast : layoutFuture;
+    const snapshot = source[source.length - 1];
+    if (!snapshot || studioMode !== 'edit') return;
+    if (direction === 'undo') {
+      setLayoutPast(source.slice(0, -1));
+      setLayoutFuture((future) => [...future, cardLayoutsBySide]);
+    } else {
+      setLayoutFuture(source.slice(0, -1));
+      setLayoutPast((past) => [...past, cardLayoutsBySide]);
+    }
+    setCardLayoutsBySide(snapshot);
+  }
+
+  function editLayout(field: keyof CardLayout, value: number) {
+    if (!cardLayouts[selectedSlot] || studioMode !== 'edit') return;
+    const next = updateCardLayout(cardLayouts[selectedSlot], field, value, paperWidth, paperHeight, lockAspect);
+    if ((Object.keys(next) as Array<keyof CardLayout>).every((key) => next[key] === cardLayouts[selectedSlot][key])) return;
+    rememberLayout();
+    setCardLayoutsBySide((previous) => ({ ...previous, [activeSheetSide]: previous[activeSheetSide].map((layout, index) =>
+      index === selectedSlot ? next : layout),
+    }));
+  }
+
   function beginCardAdjustment(event: ReactPointerEvent<HTMLElement>, index: number, mode: 'move' | 'resize') {
     const layout = cardLayouts[index];
     if (studioMode !== 'edit' || !layout) return;
+    setSelectedSlot(index);
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -996,13 +1060,16 @@ export default function PrintCardPage() {
       startX: event.clientX,
       startY: event.clientY,
       layout,
+      recorded: false,
     };
   }
 
   function adjustCardWithKeyboard(index: number, event: ReactKeyboardEvent<HTMLElement>, resize = false) {
     if (studioMode !== 'edit' || !['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return;
     event.preventDefault();
+    event.stopPropagation();
     const step = event.shiftKey ? 5 : 1;
+    rememberLayout();
     setCardLayoutsBySide((previous) => ({
       ...previous,
       [activeSheetSide]: previous[activeSheetSide].map((layout, layoutIndex) => {
@@ -1010,11 +1077,7 @@ export default function PrintCardPage() {
       if (resize) {
         const widthDelta = event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0;
         const heightDelta = event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0;
-        return {
-          ...layout,
-          width: Math.max(18, Math.min(paperWidth - layout.x - DEFAULT_SHEET_MARGIN, layout.width + widthDelta)),
-          height: Math.max(18, Math.min(paperHeight - layout.y - DEFAULT_SHEET_MARGIN, layout.height + heightDelta)),
-        };
+        return updateCardLayout(layout, widthDelta ? 'width' : 'height', widthDelta ? layout.width + widthDelta : layout.height + heightDelta, paperWidth, paperHeight, lockAspect);
       }
       const deltaX = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0;
       const deltaY = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0;
@@ -1035,6 +1098,11 @@ export default function PrintCardPage() {
     if (!rect.width || !rect.height) return;
     const deltaX = (event.clientX - activePointer.startX) / rect.width * paperWidth;
     const deltaY = (event.clientY - activePointer.startY) / rect.height * paperHeight;
+    if (!activePointer.recorded) {
+      if (Math.abs(deltaX) < .1 && Math.abs(deltaY) < .1) return;
+      rememberLayout();
+      activePointer.recorded = true;
+    }
     const { index, layout, mode, side } = activePointer;
 
     setCardLayoutsBySide((previous) => ({
@@ -1049,11 +1117,8 @@ export default function PrintCardPage() {
         };
       }
 
-      return {
-        ...cardLayout,
-        width: Math.max(18, Math.min(paperWidth - layout.x - DEFAULT_SHEET_MARGIN, layout.width + deltaX)),
-        height: Math.max(18, Math.min(paperHeight - layout.y - DEFAULT_SHEET_MARGIN, layout.height + deltaY)),
-      };
+      const resized = updateCardLayout(layout, 'width', layout.width + deltaX, paperWidth, paperHeight, lockAspect);
+      return lockAspect ? resized : updateCardLayout(resized, 'height', layout.height + deltaY, paperWidth, paperHeight);
       }),
     }));
   }
@@ -1157,12 +1222,19 @@ export default function PrintCardPage() {
   const schoolLogoUrl = appBrandAssetUrl(school?.logoUrl || APP_CONFIG.branding.schoolLogoUrl);
 
   return (
-    <main className="student-card-app">
+    <main className="student-card-app" onKeyDown={(event) => {
+      const target = event.target as HTMLElement;
+      if (target.closest('input, textarea, select, [contenteditable="true"]')) return;
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        travelLayout(event.shiftKey ? 'redo' : 'undo');
+      }
+    }}>
       <header className="student-card-topbar">
         <div>
           <span className="student-card-eyebrow">Academic records</span>
-          <h1>Print Student Card</h1>
-          <p>Choose a learner, complete any missing details, then print the school-year performance report.</p>
+          <h1>Card print studio</h1>
+          <p>Prepare learner reports. Fine-tune every detail. Print with confidence.</p>
           {mobileViewport && <p className="student-card-mobile-print-note" role="status">Card printing is disabled on mobile. Open this workspace on a desktop to print.</p>}
         </div>
         <div className="student-card-top-actions">
@@ -1206,7 +1278,11 @@ export default function PrintCardPage() {
 
       <div className="student-card-workspace">
         <aside className="student-card-editor" aria-label="Student card editor">
-          <section className="student-card-editor-section">
+          <div className="student-card-editor-tabs" role="group" aria-label="Editor panel">
+            <button type="button" aria-pressed={editorTab === 'learners'} onClick={() => setEditorTab('learners')}>01 / Learners</button>
+            <button type="button" aria-pressed={editorTab === 'details'} onClick={() => setEditorTab('details')}>02 / Card details</button>
+          </div>
+          <section className="student-card-editor-section" hidden={editorTab !== 'learners'}>
             <div className="student-card-section-heading">
               <div><span className="student-card-eyebrow">1 · Select</span><h2>Find a learner</h2></div>
               <span className="student-card-result-count">{filteredStudents.length}</span>
@@ -1273,13 +1349,17 @@ export default function PrintCardPage() {
               }) : <p className="student-card-list-state">{students.length ? 'No learners match these filters.' : 'No learners are available for this school year.'}</p>}
             </div>
             <p className="student-card-print-selection">{selectedPrintIds.length}/{maxPrintLearners} learner{maxPrintLearners === 1 ? '' : 's'} selected{maxPrintLearners === 1 ? ' for individual A5 printing.' : ' for side-by-side printing.'}</p>
+            {(search || gradeFilter || genderFilter || programFilter) && <button type="button" className="student-card-text-button" onClick={() => { setSearch(''); setGradeFilter(''); setGenderFilter(''); setProgramFilter(''); }}>Clear filters</button>}
+            {selectedLearner && <button type="button" className="student-card-button student-card-edit-details" onClick={() => setEditorTab('details')}>Edit {learnerName(selectedLearner)} →</button>}
           </section>
 
+          {editorTab === 'details' && (!selectedLearner || templateUnavailable) && <section className="student-card-editor-section"><p className="student-card-list-state">{templateUnavailable ? 'This learner uses a letter grade template that is not yet available.' : 'Select a learner to edit their card details.'}</p></section>}
           {selectedLearner && !templateUnavailable && (
-            <section className="student-card-editor-section">
+            <section className="student-card-editor-section" hidden={editorTab !== 'details'}>
               <div className="student-card-section-heading">
                 <div><span className="student-card-eyebrow">2 · Customize</span><h2>Card information</h2>                </div>
               </div>
+              <p className="student-card-edit-note">Changes apply to this card in the current workspace. Learner records remain unchanged.</p>
               <div className="student-card-form-grid">
                 <label className="student-card-field student-card-field--wide"><span>Learner name</span><input value={manual.studentName} onChange={(event) => updateManual('studentName', getInputValue(event))} /></label>
                 <label className="student-card-field"><span>LRN</span><input value={manual.learnerId} onChange={(event) => updateManual('learnerId', getInputValue(event))} /></label>
@@ -1385,10 +1465,32 @@ export default function PrintCardPage() {
                 ))}
               </div>
             </div>
-            <button type="button" className="student-card-button student-card-button--quiet" onClick={() => setCardLayoutsBySide(layoutDefaults)} disabled={!selectedPrintLearners.length}>
-              Default setup
+            <button type="button" className="student-card-button student-card-button--quiet" onClick={() => { rememberLayout(); setCardLayoutsBySide(layoutDefaults); }} disabled={!selectedPrintLearners.length || studioMode !== 'edit'}>
+              Reset layout
             </button>
+            <div className="student-card-history" role="group" aria-label="Layout history">
+              <button type="button" className="student-card-button" disabled={!layoutPast.length || studioMode !== 'edit'} onClick={() => travelLayout('undo')}>↶ Undo</button>
+              <button type="button" className="student-card-button" disabled={!layoutFuture.length || studioMode !== 'edit'} onClick={() => travelLayout('redo')}>↷ Redo</button>
+            </div>
           </div>
+
+          {cardLayouts.length > 0 && cardLayouts.length === printCards.length && cardLayouts[selectedSlot] && <fieldset className="student-card-layout-inspector" disabled={studioMode !== 'edit'}>
+            <legend>Card geometry <span>millimeters</span></legend>
+            <label className="student-card-field"><span>Selected card</span><select value={selectedSlot} onChange={(event) => setSelectedSlot(Number(event.currentTarget.value))}>
+              {cardLayouts.map((_, index) => <option key={index} value={index}>{index + 1}. {learnerName(printCards[getLearnerIndexForSheetSlot(index, printCards.length, activeSheetSide)].learner)}</option>)}
+            </select></label>
+            {(['x', 'y', 'width', 'height'] as const).map((field) => <CardGeometryInput key={`${activeSheetSide}-${selectedSlot}-${field}`}
+              label={({ x: 'X position', y: 'Y position', width: 'Width', height: 'Height' })[field]}
+              min={field === 'x' || field === 'y' ? DEFAULT_SHEET_MARGIN : 18}
+              max={field === 'x' || field === 'width' ? paperWidth - DEFAULT_SHEET_MARGIN : paperHeight - DEFAULT_SHEET_MARGIN}
+              value={cardLayouts[selectedSlot][field]} onCommit={(value) => editLayout(field, value)}
+            />)}
+            <label className="student-card-toggle"><input type="checkbox" checked={lockAspect} onChange={(event) => setLockAspect(event.currentTarget.checked)} />Lock proportions</label>
+            <div className="student-card-align-actions">
+              <button type="button" className="student-card-text-button" onClick={() => editLayout('x', (paperWidth - cardLayouts[selectedSlot].width) / 2)}>Center horizontally</button>
+              <button type="button" className="student-card-text-button" onClick={() => editLayout('y', (paperHeight - cardLayouts[selectedSlot].height) / 2)}>Center vertically</button>
+            </div>
+          </fieldset>}
 
           <nav className="student-card-sheet-tabs" aria-label="Preview sheet">
             <button type="button" aria-pressed={activeSheetSide === 'front'} className={activeSheetSide === 'front' ? 'is-active' : ''} onClick={() => setActiveSheetSide('front')}>
@@ -1399,16 +1501,23 @@ export default function PrintCardPage() {
             </button>
           </nav>
 
+          <div className="student-card-view-tools">
+            <label className="student-card-toggle"><input type="checkbox" checked={showGuides} onChange={(event) => setShowGuides(event.currentTarget.checked)} />Print guides</label>
+            <span className="student-card-view-hint">{studioMode === 'edit' ? 'Select a card to adjust its layout' : 'Print preview'}</span>
+            <label className="student-card-zoom"><span>Zoom</span><select value={zoom} onChange={(event) => setZoom(Number(event.currentTarget.value))}><option value={75}>75%</option><option value={100}>Fit page</option><option value={125}>125%</option><option value={150}>150%</option><option value={200}>200%</option></select></label>
+          </div>
+
           <div className="student-card-canvas-stage">
             <div
               className={`student-card-paper-canvas${studioMode === 'edit' ? ' is-editing' : ''}`}
               ref={canvasRef}
               aria-label={`${paper.label} ${paperOrientation} ${activeSheetSide} sheet preview`}
-              style={{ aspectRatio: `${paperWidth} / ${paperHeight}` }}
+              style={{ aspectRatio: `${paperWidth} / ${paperHeight}`, width: `${zoom}%`, maxWidth: 'none' }}
               onPointerMove={updateCardAdjustment}
               onPointerUp={finishCardAdjustment}
               onPointerCancel={finishCardAdjustment}
             >
+              {showGuides && <div className="student-card-print-guides" aria-hidden="true" style={{ inset: `${DEFAULT_SHEET_MARGIN / paperHeight * 100}% ${DEFAULT_SHEET_MARGIN / paperWidth * 100}%` }} />}
               {printCards.map((_, slotIndex) => {
                 const learnerIndex = getLearnerIndexForSheetSlot(slotIndex, printCards.length, activeSheetSide);
                 const { learner, manual: cardManual, subjects, unavailable } = printCards[learnerIndex];
@@ -1434,11 +1543,12 @@ export default function PrintCardPage() {
                 return (
                   <div
                     key={asText(learner.learnerId)}
-                    className="student-card-canvas-card"
+                    className={`student-card-canvas-card${selectedSlot === slotIndex ? ' is-selected' : ''}`}
                     style={positionStyle}
                     role="group"
                     aria-label={`${learnerName(learner)} ${activeSheetSide} card`}
                     tabIndex={studioMode === 'edit' ? 0 : undefined}
+                    onFocus={() => setSelectedSlot(slotIndex)}
                     onPointerDown={(event) => beginCardAdjustment(event, slotIndex, 'move')}
                     onKeyDown={(event) => adjustCardWithKeyboard(slotIndex, event)}
                   >

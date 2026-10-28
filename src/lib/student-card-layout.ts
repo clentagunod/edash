@@ -16,6 +16,24 @@ export const CARD_BASE_HEIGHT_PX = 884;
 export const CARD_BASE_WIDTH_MM = 470 * 25.4 / 96;
 export const CARD_BASE_HEIGHT_MM = 884 * 25.4 / 96;
 
+/** Keep precision edits inside the printable area, including linked resizing. */
+export function updateCardLayout(layout: CardLayout, field: keyof CardLayout, value: number, paperWidth: number, paperHeight: number, lockAspect = false): CardLayout {
+  if (!Number.isFinite(value)) return layout;
+  const margin = DEFAULT_SHEET_MARGIN;
+  const next = { ...layout };
+  if (field === 'x' || field === 'y') {
+    next[field] = Math.max(margin, Math.min(value, (field === 'x' ? paperWidth - layout.width : paperHeight - layout.height) - margin));
+  } else if (lockAspect) {
+    const ratio = layout.width / layout.height;
+    const width = field === 'width' ? value : value * ratio;
+    next.width = Math.max(Math.max(18, 18 * ratio), Math.min(width, paperWidth - layout.x - margin, (paperHeight - layout.y - margin) * ratio));
+    next.height = next.width / ratio;
+  } else {
+    next[field] = Math.max(18, Math.min(value, (field === 'width' ? paperWidth - layout.x : paperHeight - layout.y) - margin));
+  }
+  return next;
+}
+
 export function getPaperDimensions(paperSizeId: PaperSizeId, orientation: PaperOrientation): { width: number; height: number } {
   const { width, height } = PAPER_SIZES[paperSizeId];
   return orientation === 'landscape' ? { width, height } : { width: height, height: width };

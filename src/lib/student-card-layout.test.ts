@@ -6,10 +6,34 @@ import {
   getPaperDimensions,
   makeDefaultCardLayouts,
   PAPER_SIZES,
+  updateCardLayout,
   type PaperSizeId,
 } from './student-card-layout';
 
 describe('student card paper layouts', () => {
+  it('clamps precision edits to the printable area and ignores invalid values', () => {
+    const layout = { x: 4, y: 4, width: 100, height: 180 };
+    expect(updateCardLayout(layout, 'x', 500, 297, 210).x).toBe(193);
+    expect(updateCardLayout(layout, 'y', -5, 297, 210).y).toBe(4);
+    expect(updateCardLayout(layout, 'height', 900, 297, 210).height).toBe(202);
+    expect(updateCardLayout(layout, 'width', NaN, 297, 210)).toEqual(layout);
+  });
+
+  it('preserves proportions when either dimension reaches a paper edge', () => {
+    const layout = { x: 4, y: 4, width: 100, height: 180 };
+    for (const field of ['width', 'height'] as const) {
+      const result = updateCardLayout(layout, field, 900, 297, 210, true);
+      expect(result.width / result.height).toBeCloseTo(100 / 180);
+      expect(result.x + result.width).toBeLessThanOrEqual(293);
+      expect(result.y + result.height).toBeLessThanOrEqual(206);
+    }
+  });
+
+  it('enforces minimum dimensions while keeping proportions', () => {
+    const result = updateCardLayout({ x: 4, y: 4, width: 100, height: 180 }, 'height', 1, 297, 210, true);
+    expect(result.width).toBe(18);
+    expect(result.height).toBeCloseTo(32.4);
+  });
   it('uses the selected paper dimensions and orientation', () => {
     expect(getPaperDimensions('a4', 'landscape')).toEqual({ width: 297, height: 210 });
     expect(getPaperDimensions('letter', 'portrait')).toEqual({ width: 215.9, height: 279.4 });
