@@ -109,6 +109,8 @@ def validate_registration(value: dict, central_project: str) -> Document:
         result[key] = _text(result, key, limit, required=True)
     if "tagline" in result:
         result["tagline"] = _text(result, "tagline", 240)
+    if "projectName" in result:
+        result["projectName"] = _text(result, "projectName", 120)
     if "canUseEduAI" in result and not isinstance(result["canUseEduAI"], bool):
         raise ProvisionError("canUseEduAI must be a JSON boolean.")
     if "colorGradientTag" in result and (not isinstance(result["colorGradientTag"], str) or not re.fullmatch(r"#[0-9a-fA-F]{6}", result["colorGradientTag"])):

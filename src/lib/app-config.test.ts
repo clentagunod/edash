@@ -1729,13 +1729,14 @@ describe('visitor session handling', () => {
     expect(document.getElementById('accountCurrentPassword')).not.toBeNull();
   });
 
-  it('renders the currently selected school logo in the shared dashboard sidebar', async () => {
+  it('renders the currently selected school logo and project name in the shared dashboard sidebar', async () => {
     const previousSchool = localStorage.getItem('edash.activeSchool');
     localStorage.setItem('edash.activeSchool', JSON.stringify({
       id: 'sample-school',
       enabled: true,
       name: 'Sample School',
       nickname: 'Sample',
+      projectName: '  Project <Achieve>  ',
       logoUrl: '/assets/sample-school/logo.png',
       videoUrl: '',
       firebaseConfig: {
@@ -1762,6 +1763,8 @@ describe('visitor session handling', () => {
       expect(document.querySelector<HTMLImageElement>('.sidebar-brand-mark img')?.getAttribute('src'))
         .toBe('/assets/sample-school/logo.png');
       expect(document.querySelector('.sidebar-brand-text .name')?.textContent).toBe('Sample');
+      expect(document.querySelector('.sidebar-brand-text .sub')?.textContent).toBe('Project <Achieve>');
+      expect(document.querySelector('.sidebar-brand-text .sub')?.children).toHaveLength(0);
     } finally {
       if (previousSchool === null) localStorage.removeItem('edash.activeSchool');
       else localStorage.setItem('edash.activeSchool', previousSchool);

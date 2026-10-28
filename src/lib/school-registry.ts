@@ -23,6 +23,7 @@ export interface RegisteredSchool {
   enabled: true;
   name: string;
   nickname: string;
+  projectName?: string;
   tagline?: string;
   colorGradientTag?: string;
   logoUrl: string;
@@ -118,6 +119,7 @@ export function isRegisteredSchool(value: unknown): value is RegisteredSchool {
     school.name.length <= 120 &&
     typeof school.nickname === "string" &&
     school.nickname.length <= 64 &&
+    (school.projectName === undefined || (typeof school.projectName === "string" && school.projectName.length <= 120)) &&
     (school.tagline === undefined || (typeof school.tagline === "string" && school.tagline.length <= 240)) &&
     (school.colorGradientTag === undefined ||
       (typeof school.colorGradientTag === "string" && /^#[0-9a-fA-F]{6}$/.test(school.colorGradientTag))) &&

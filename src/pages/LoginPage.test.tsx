@@ -9,6 +9,8 @@ const { auth, loginSchool, navigate } = vi.hoisted(() => ({
   },
   loginSchool: {
     name: 'Sample Elementary School',
+    nickname: 'Sample ES',
+    projectName: undefined as string | undefined,
     logoUrl: '',
     videoUrl: '',
     colorGradientTag: '#50A61E' as string | undefined,
@@ -45,6 +47,7 @@ describe('LoginPage school accent', () => {
   let root: Root;
 
   beforeEach(() => {
+    loginSchool.projectName = undefined;
     loginSchool.colorGradientTag = '#50A61E';
     container = document.createElement('div');
     document.body.append(container);
@@ -77,5 +80,21 @@ describe('LoginPage school accent', () => {
     const loginShell = container.querySelector<HTMLElement>('.login-shell');
     expect(loginShell?.style.getPropertyValue('--school-accent')).toBe('#667064');
     expect(loginShell?.dataset.schoolAccent).toBe('true');
+  });
+
+  it('displays the registry project name as text beside the school logo', async () => {
+    loginSchool.projectName = '  Project <Achieve>  ';
+    await act(async () => root.render(createElement(LoginPage)));
+
+    expect(container.querySelector('#loginProjectName')?.textContent).toBe('Project <Achieve>');
+    expect(container.querySelector('#loginProjectName')?.children).toHaveLength(0);
+    expect(container.querySelector('#loginSchoolName')?.textContent).toBe(loginSchool.name);
+  });
+
+  it.each([undefined, '', '   '])('uses the school nickname when projectName is %s', async (projectName) => {
+    loginSchool.projectName = projectName;
+    await act(async () => root.render(createElement(LoginPage)));
+
+    expect(container.querySelector('#loginProjectName')?.textContent).toBe('Sample ES');
   });
 });

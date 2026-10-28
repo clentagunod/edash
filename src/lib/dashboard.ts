@@ -8,6 +8,7 @@ import { Icon } from './icons';
 import { fsGetLearners, fsGetPublicStats, fsNormalizeSchoolYear_, fsRefreshPublicStats, fsSubscribeLearners } from './firestore-api';
 import { initYearSwitcher } from './school-year';
 import { initGraphEnhancements } from './graph-enhancements';
+import { compareGradeLevelLabels } from './grade-level-order';
 
 export let dashboardLearnerUnsubscribe = null;
 export let dashboardPublicStatsUnsubscribe = null;
@@ -458,6 +459,7 @@ export function renderDonut(s) {
 
 export function renderBarChart(s) {
   const levels = (s.gradeLevels || []).map((grade) => ({ label: grade.label || grade.gradeLevel || "—", value: Number(grade.value ?? grade.total) || 0 }));
+  levels.sort((first, second) => compareGradeLevelLabels(first.label, second.label));
   const max = Math.max(...levels.map((g) => g.value), 1);
   document.getElementById("gradeBarChart").innerHTML = levels.map((g) => `
     <div class="bar-col" tabindex="0" role="img" aria-label="${g.label}: ${g.value} learners" title="${g.label}: ${g.value} learners">

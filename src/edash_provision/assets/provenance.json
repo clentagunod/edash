@@ -17,7 +17,7 @@
   ],
   "notes": "Standalone copies, not runtime references. Tenant defaults combine the documented bootstrap paths and current app settings. Tenant writes are create-only. Update snapshots and hashes deliberately when website defaults change.",
   "sha256": {
-    "school-registration.example.json": "dea4a62953e6c79adfff722643c67e699e590f12e727c1ab9922c3b7430eab75",
+    "school-registration.example.json": "a4feb3c1f8de717552e24dffc6f2c36c717f3f85f1ddcc30b1b45f207cef3b9a",
     "school-registry.rules": "35482168afca49969cc402226699325792c19bf1dca10d04396e4820f0f7344e",
     "firestore.rules": "5a568620f2c2382b7b5f64011a70b7d6903e1ff1f79fb6335020f7bc16cc81e6",
     "firebase.index.json": "e4c299a23f616afe61d73e95bea999afa2424b0328d64ce0a296f3549e1b4b54",

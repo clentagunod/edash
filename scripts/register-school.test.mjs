@@ -28,6 +28,13 @@ const validRegistration = {
 };
 
 describe("school registration schema", () => {
+  it("validates and trims an optional projectName for the central registry", () => {
+    expect(validateRegistration(validRegistration)).not.toHaveProperty("projectName");
+    expect(validateRegistration({ ...validRegistration, projectName: " Project Achieve " }).projectName).toBe("Project Achieve");
+    for (const projectName of [7, null, "a".repeat(121)]) {
+      expect(() => validateRegistration({ ...validRegistration, projectName })).toThrow("projectName must be a string");
+    }
+  });
   it("preserves colorGradientTag in the document written to the central registry", () => {
     expect(validateRegistration({ ...validRegistration, colorGradientTag: "#50a61e" }).colorGradientTag)
       .toBe("#50a61e");

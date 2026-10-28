@@ -21,6 +21,8 @@ npm test
 
 The app reads enabled school registrations from `schools/{schoolId}` in the central project's Firestore. For the complete new-school procedure—including automatic Firestore bootstrap, the shared tenant rules, school registration JSON, Apps Script endpoints for audit logs and feedback, JSON database backup/restore, and deployment—see [SETUP_README.md](./SETUP_README.md).
 
+Set `projectName` (a string of up to 120 characters) on each central registry document `schools/{schoolId}` to customize the project name beside the logo on its login page. For example, `projectName: "Sample Learning Hub"`. Missing or blank names fall back to the school nickname, then the school name. The login page refreshes this branding when it verifies the current registry registration.
+
 ## Project scripts
 
 | Command | Purpose |

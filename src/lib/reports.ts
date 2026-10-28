@@ -7,6 +7,7 @@ import { DEMO_BREAKDOWN, DEMO_SUMMARY, isSheetsApiConfigured } from './demo-data
 import { APP_CONFIG, appSchoolFilePrefix, paginationPageNumbers } from './app-config';
 import { fsGetReportsData, fsSubscribeLearners } from './firestore-api';
 import { initGraphEnhancements } from './graph-enhancements';
+import { compareGradeLevelLabels } from './grade-level-order';
 
 export let REPORTS_DATA = null;
 export let EOSY_SORT_DESCENDING = false;
@@ -147,6 +148,7 @@ export function renderStatPills(s) {
 
 export function renderBarChart(s) {
   const levels = (s.gradeLevels || []).map((grade) => ({ label: grade.label || grade.gradeLevel || "—", value: Number(grade.value ?? grade.total) || 0 }));
+  levels.sort((first, second) => compareGradeLevelLabels(first.label, second.label));
   const max = Math.max(...levels.map((g) => g.value), 1);
   document.getElementById("gradeBarChart").innerHTML = levels.map((g) => `
     <div class="bar-col" tabindex="0" role="img" aria-label="${g.label}: ${g.value} learners" title="${g.label}: ${g.value} learners">

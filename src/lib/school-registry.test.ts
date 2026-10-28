@@ -60,6 +60,16 @@ describe('school directory tenant selection', () => {
     expect(isRegisteredSchool({ ...school, tagline: 7 })).toBe(false);
   });
 
+  it('persists project names and allows branding updates without changing the tenant configuration', () => {
+    const school = { ...validSchool, projectName: 'Project Achieve' };
+    expect(isRegisteredSchool(school)).toBe(true);
+    storeActiveSchool(school);
+    expect(getStoredSchool()?.projectName).toBe('Project Achieve');
+    expect(sameSchoolRegistration(validSchool, school)).toBe(true);
+    expect(isRegisteredSchool({ ...school, projectName: 7 })).toBe(false);
+    expect(isRegisteredSchool({ ...school, projectName: 'a'.repeat(121) })).toBe(false);
+  });
+
   it('accepts an optional EduAI feature flag and rejects a non-boolean value', () => {
     const school = { ...validSchool, canUseEduAI: true };
 

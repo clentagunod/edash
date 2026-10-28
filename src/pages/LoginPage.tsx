@@ -46,6 +46,7 @@ export default function LoginPage() {
     const schoolName = container?.querySelector<HTMLHeadingElement>('#loginSchoolName');
     const schoolTagline = container?.querySelector<HTMLParagraphElement>('#loginSchoolTagline');
     const schoolLabel = container?.querySelector<HTMLDivElement>('.login-brand-text .eyebrow');
+    const projectName = container?.querySelector<HTMLDivElement>('#loginProjectName');
     const footer = container?.querySelector<HTMLParagraphElement>('.site-footer p');
     const media = container?.querySelector<HTMLElement>('#loginSchoolMedia');
     const changeSchoolButton = container?.querySelector<HTMLButtonElement>('#changeSchoolBtn');
@@ -63,6 +64,7 @@ export default function LoginPage() {
       schoolTagline.hidden = !tagline;
     }
     if (schoolLabel) schoolLabel.textContent = 'Your school workspace';
+    if (projectName) projectName.textContent = school.projectName?.trim() || school.nickname?.trim() || school.name;
     if (image && fallbackIcon) {
       image.style.display = schoolLogoUrl ? '' : 'none';
       fallbackIcon.style.display = schoolLogoUrl ? 'none' : 'block';

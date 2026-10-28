@@ -44,6 +44,9 @@ export function validateRegistration(value) {
   const name = String(value.name || "").trim();
   const nickname = String(value.nickname || "").trim();
   const tagline = value.tagline === undefined ? "" : value.tagline;
+  if (value.projectName !== undefined && (typeof value.projectName !== "string" || value.projectName.length > 120)) {
+    throw new Error("projectName must be a string of at most 120 characters.");
+  }
   if (!name || name.length > 120) throw new Error("name is required and must be at most 120 characters.");
   if (!nickname || nickname.length > 64) throw new Error("nickname is required and must be at most 64 characters.");
   if (typeof tagline !== "string" || tagline.length > 240) {
@@ -109,6 +112,7 @@ export function validateRegistration(value) {
     enabled: true,
     name,
     nickname,
+    ...(value.projectName === undefined ? {} : { projectName: value.projectName.trim() }),
     ...(value.tagline === undefined ? {} : { tagline: tagline.trim() }),
     ...(value.colorGradientTag === undefined ? {} : { colorGradientTag }),
     logoUrl: value.logoUrl.trim(),

@@ -164,7 +164,8 @@ function SchoolRegistrationGate({ children }: { children: ReactNode }) {
         const registeredSchool = registeredSchools.find((registered) => registered.id === school.id);
         if (registeredSchool && sameSchoolRegistration(registeredSchool, school)) {
           setEduAiEnabled(registeredSchool.canUseEduAI === true);
-          if (registeredSchool.colorGradientTag !== school.colorGradientTag) {
+          if (registeredSchool.colorGradientTag !== school.colorGradientTag ||
+            registeredSchool.projectName !== school.projectName) {
             storeActiveSchool(registeredSchool);
             if (location.pathname === '/login') {
               window.location.reload();

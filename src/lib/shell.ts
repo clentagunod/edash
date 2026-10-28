@@ -282,6 +282,7 @@ export function renderShell(activeKey, pageTitleForMobile) {
   const activeSchool = getStoredSchool();
   const schoolLogoUrl = activeSchool?.logoUrl || APP_CONFIG.branding.schoolLogoUrl;
   const schoolNickname = activeSchool?.nickname || APP_CONFIG.branding.nickname;
+  const projectName = activeSchool?.projectName?.trim() || APP_CONFIG.branding.dashboardName;
   updateSchoolFavicon(schoolLogoUrl);
   const scrollKey = `lps_scroll_${window.location.pathname}`;
   let savedScroll = 0;
@@ -359,7 +360,7 @@ export function renderShell(activeKey, pageTitleForMobile) {
         </div>
         <div class="sidebar-brand-text">
           <div class="name">${escapeHtml(schoolNickname)}</div>
-          <div class="sub">${escapeHtml(APP_CONFIG.branding.dashboardName)}</div>
+          <div class="sub">${escapeHtml(projectName)}</div>
         </div>
       </div>
       <nav class="sidebar-nav">${navHtml}</nav>
