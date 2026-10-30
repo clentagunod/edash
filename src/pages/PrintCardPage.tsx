@@ -1131,7 +1131,7 @@ export default function PrintCardPage() {
     if (!selectedLearner || templateUnavailable || exporting) return;
     const card = document.querySelector<HTMLElement>('.student-card-export-source .sf9-report-card');
     if (!card) {
-      setExportError('The student card preview is not available to export.');
+      setExportError('The learner card preview is not available to export.');
       return;
     }
 
@@ -1183,7 +1183,7 @@ export default function PrintCardPage() {
         downloadBlob(await Packer.toBlob(document), `${fileBase}.docx`);
       }
     } catch (exportFailure) {
-      setExportError(exportFailure instanceof Error ? exportFailure.message : 'Could not export the student card.');
+      setExportError(exportFailure instanceof Error ? exportFailure.message : 'Could not export the learner card.');
     } finally {
       setExporting(false);
     }
@@ -1277,7 +1277,7 @@ export default function PrintCardPage() {
       </header>
 
       <div className="student-card-workspace">
-        <aside className="student-card-editor" aria-label="Student card editor">
+        <aside className="student-card-editor" aria-label="Learner card editor">
           <div className="student-card-editor-tabs" role="group" aria-label="Editor panel">
             <button type="button" aria-pressed={editorTab === 'learners'} onClick={() => setEditorTab('learners')}>01 / Learners</button>
             <button type="button" aria-pressed={editorTab === 'details'} onClick={() => setEditorTab('details')}>02 / Card details</button>
@@ -1593,7 +1593,7 @@ export default function PrintCardPage() {
           {printBatchHasUnavailableTemplate && <p className="student-card-alert student-card-alert--warning" role="status">One or more selected learners use a Letter Grade template that is not available for printing.</p>}
         </section>
 
-        <section className="student-card-preview-pane student-card-export-source" aria-label="Student card export source" aria-hidden="true">
+        <section className="student-card-preview-pane student-card-export-source" aria-label="Learner card export source" aria-hidden="true">
           <div className="student-card-preview-toolbar"><div><span className="student-card-eyebrow">Live preview</span><strong>{selectedLearner ? learnerName(selectedLearner) : 'Select a learner to begin'}</strong></div><span>Reference size · front / back</span></div>
           <div className="student-card-preview-scroll">
             <div className="student-card-preview-fit" ref={previewRef} style={{ height: `${900 * previewScale}px` }}>

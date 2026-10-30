@@ -42,7 +42,7 @@ export const NAV_ITEMS = [
   { group: "Movement", key: "retention", label: "Retention", icon: "rotateCcw", href: "retention.html" },
   { group: "Movement", key: "transfer-info", label: "Transfer Info", icon: "transfer", href: "transfer-info.html" },
   { group: "Movement", key: "dropout", label: "Dropout Info", icon: "alertTriangle", href: "dropout.html" },
-  { group: "Printables", key: "student-card", label: "Student Card", icon: "clipboard", href: "student-card.html" },
+  { group: "Printables", key: "student-card", label: "Learner Card", icon: "clipboard", href: "student-card.html" },
   { group: "Printables", key: "good-moral", label: "Good Moral", icon: "sheet", href: "good-moral.html" },
   { group: "Printables", key: "certificate-of-enrollment", label: "Certificate of Enrollment", icon: "graduationCap", href: "certificate-of-enrollment.html" },
   { group: "Utilities", key: "data", label: "Data", icon: "download", href: "data.html" },

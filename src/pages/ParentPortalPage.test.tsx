@@ -85,6 +85,35 @@ describe('ParentPortalPage', () => {
     expect(container.querySelector('.parent-portal-intro')?.textContent).toContain('San Roque Elementary School');
   });
 
+  it('shows anecdotal records last and shares the visibility toggle, resetting for each lookup', async () => {
+    const records = 'Participates actively in class.\nNeeds support with group activities.';
+    getParentLearner.mockResolvedValueOnce({ learnerId: '128528250041', anecdotalRecords: records, extra: { note: 'Additional information' } });
+    await act(async () => root.render(createElement(ParentPortalPage)));
+    async function lookup(lrn: string) {
+      const input = container.querySelector<HTMLInputElement>('#parentLearnerId')!;
+      act(() => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, lrn);
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await act(async () => container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+    }
+    await lookup('128528250041');
+    expect(container.querySelector('.parent-result')?.lastElementChild?.classList.contains('parent-anecdotal-records')).toBe(true);
+    expect(container.querySelector('.parent-anecdotal-text')?.textContent).toBe('Hidden');
+    expect(container.textContent).not.toContain(records);
+    act(() => container.querySelector<HTMLButtonElement>('.parent-visibility-toggle')!.click());
+    expect(container.querySelector('.parent-anecdotal-text')?.textContent).toBe(records);
+    expect(container.querySelector('.parent-visibility-toggle')?.getAttribute('aria-pressed')).toBe('true');
+    act(() => container.querySelector<HTMLButtonElement>('.parent-visibility-toggle')!.click());
+    expect(container.textContent).not.toContain(records);
+    act(() => container.querySelector<HTMLButtonElement>('.parent-visibility-toggle')!.click());
+    await lookup('128528250042');
+    expect(container.querySelector('.parent-anecdotal-text')?.textContent).toBe('Hidden');
+    expect(container.textContent).not.toContain(records);
+    act(() => container.querySelector<HTMLButtonElement>('.parent-visibility-toggle')!.click());
+    expect(container.querySelector('.parent-anecdotal-text')?.textContent).toBe('No anecdotal records recorded.');
+  });
+
   it('looks up an exact learner document for the configured current school year', async () => {
     await act(async () => root.render(createElement(ParentPortalPage)));
     const input = container.querySelector<HTMLInputElement>('#parentLearnerId');
