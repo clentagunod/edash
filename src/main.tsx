@@ -3,8 +3,16 @@
 const isRegistration = window.location.hostname === 'register.edash.online' ||
   /^\/register\/?$/.test(window.location.pathname);
 
-if (isRegistration) {
-  void import('./registration-entry');
-} else {
-  void import('./application-entry');
+// Keep separate async boundaries. Combining the imports into a conditional
+// expression lets production optimization merge Vite's CSS preload metadata,
+// which can attach the application stylesheet to the registration entry.
+async function mountRegistration() {
+  await import('./registration-entry');
 }
+
+async function mountApplication() {
+  await import('./application-entry');
+}
+
+if (isRegistration) void mountRegistration();
+else void mountApplication();
