@@ -1,0 +1,6 @@
+.parent-portal-link-panel { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line-200); }
+.parent-portal-link-panel > label { color: var(--ink-900); font-size: 12px; font-weight: 700; }
+.parent-portal-link-panel > p { margin: 8px 0; color: var(--ink-500); font-size: 12px; line-height: 1.6; }
+.parent-portal-link-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.parent-portal-link-actions input { box-sizing: border-box; flex: 1 1 240px; min-width: 0; width: 100%; min-height: 40px; padding: 9px 12px; border: 1px solid var(--line-200); border-radius: 8px; background: var(--bg-card); color: var(--ink-900); font: inherit; font-size: 12px; }
+.parent-portal-link-actions .btn { width: auto; min-height: 40px; }

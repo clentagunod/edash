@@ -66,7 +66,8 @@ export async function uploadStudents(
         // All reads precede writes, as required by Firestore transactions.
         for (const { student, current } of decisions) {
           if (current.exists && mode === 'skip') { counts.skipped++; continue; }
-          const data: StudentRecord = current.exists ? { ...student } : { enrollmentStatus: 'ACTIVE', ...student };
+          const data: StudentRecord = current.exists ? { ...student } : { enrollmentStatus: 'ACTIVE', anecdotalRecords: '', ...student };
+          if (current.exists && !String(data.anecdotalRecords ?? '').trim()) delete data.anecdotalRecords;
           for (const field of GUARDIAN_CONTACT_FIELDS) {
             if (!isUnavailableContact(data[field])) continue;
             // A placeholder fills missing details without erasing known values.

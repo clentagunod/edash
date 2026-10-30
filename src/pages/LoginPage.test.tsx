@@ -8,6 +8,7 @@ const { auth, loginSchool, navigate } = vi.hoisted(() => ({
     sendPasswordResetEmail: vi.fn(),
   },
   loginSchool: {
+    id: 'sample-school',
     name: 'Sample Elementary School',
     nickname: 'Sample ES',
     projectName: undefined as string | undefined,

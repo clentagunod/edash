@@ -69,11 +69,20 @@ describe('ParentPortalPage', () => {
   afterEach(async () => {
     await act(async () => root.unmount());
     container.remove();
+    window.history.replaceState(null, '', '/');
   });
 
   beforeEach(() => {
     auth.onAuthStateChanged.mockReset();
     auth.signInAnonymously.mockReset();
+  });
+
+  it('keeps the direct school-entry navigation focused on parents', async () => {
+    window.history.replaceState(null, '', '/parent/san-roque-es');
+    await act(async () => root.render(createElement(ParentPortalPage)));
+    expect(container.querySelector('.parent-portal-back')?.getAttribute('href')).toBe('/select-school');
+    expect(container.querySelector('.parent-portal-back')?.textContent).toContain('Choose another school');
+    expect(container.querySelector('.parent-portal-intro')?.textContent).toContain('San Roque Elementary School');
   });
 
   it('looks up an exact learner document for the configured current school year', async () => {

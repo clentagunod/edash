@@ -35,6 +35,7 @@ const ALIASES: Record<string, string[]> = {
   isMuslim: ['muslim learner', 'is muslim'],
   enrollmentStatus: ['enrollment status', 'enrolment status'],
   eosyStatus: ['eosy status', 'end of school year status'],
+  anecdotalRecords: ['anecdotal records', 'anecdotal record'],
 };
 
 export const BOOLEAN_FIELDS = new Set(['is4Ps', 'isIP', 'isSNED', 'isARAL', 'isMuslim']);

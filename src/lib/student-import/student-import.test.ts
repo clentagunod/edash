@@ -213,7 +213,20 @@ describe('file content parsing', () => {
     expect(parsed.schoolId).toBe('school-a');
     const scan = scanStudentTable(parsed.tables[0], options);
     expect(scan.errors).toEqual([]);
-    expect(scan.students[0]).toMatchObject(students[0]);
+    const { anecdotalRecords, ...requiredAndProvidedFields } = students[0];
+    expect(anecdotalRecords).toBe('');
+    expect(scan.students[0]).toMatchObject(requiredAndProvidedFields);
+    // Blank optional values stay omitted so merge imports preserve existing records.
+    expect(scan.students[0].anecdotalRecords).toBeUndefined();
+  });
+
+  it('recognizes Anecdotal Records and preserves multi-line saved information', () => {
+    const scan = scanStudentTable(table([
+      ['LRN', 'First name', 'Last name', 'Anecdotal Records'],
+      ['123456789012', 'Juan', 'Cruz', 'Verified observation.\nFollow-up completed.'],
+    ]), options);
+    expect(scan.errors).toEqual([]);
+    expect(scan.students[0].anecdotalRecords).toBe('Verified observation.\nFollow-up completed.');
   });
 
   it('accepts JSON Lines and header/data matrices', () => {

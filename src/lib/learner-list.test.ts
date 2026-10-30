@@ -23,6 +23,13 @@ const {
   buildLearnerDetailSections,
   applyAutomaticFinalGrades,
   ensureSubjectInputs,
+  ensureIdentityInputs,
+  ensureSuffixInputs,
+  ensureNutritionInputs,
+  ensureReadingInputs,
+  ensureMathInputs,
+  ensureTransferInputs,
+  ensureLearnerStatusInputs,
   ensureLearnerInspectModal,
   filterLearnersByTeacherScope,
   filterDemoLearners,
@@ -35,6 +42,11 @@ const {
   wireGuardianContactFields,
 } = await import('./learner-list');
 const { showToast } = await import('./shell');
+const { fsCanonicalLearner_ } = await import('./firestore-api');
+const { ensureAnecdotalRecordsInput, organizeLearnerForm } = await import('./learner-form-layout');
+const { openArchiveEditor } = await import('./archive-editor');
+const { LPSApi } = await import('./sheets-api');
+const learnerPageMarkup = import.meta.glob('../pages/markup/{masterlist,program-*}.html', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>;
 
 describe('learner list sorting and teacher scope', () => {
   it('sorts names by surname and preserves lowercase after hyphens', () => {
@@ -85,6 +97,63 @@ describe('learner list sorting and teacher scope', () => {
     expect(filterLearnersByTeacherScope(learners, [
       { gradeLevel: '1', section: 'A' },
     ]).map(({ learnerId }) => learnerId)).toEqual(['assigned']);
+  });
+});
+
+describe('shared learner forms and Anecdotal Records', () => {
+  it.each(Object.entries(learnerPageMarkup))('keeps controls and validation intact while grouping %s', (_path, markup) => {
+    document.body.innerHTML = markup;
+    ensureIdentityInputs();
+    ensureSuffixInputs();
+    ensureNutritionInputs();
+    ensureReadingInputs();
+    ensureMathInputs();
+    ensureSubjectInputs();
+    ensureTransferInputs();
+    ensureLearnerStatusInputs();
+    const form = document.querySelector<HTMLFormElement>('#learnerForm')!;
+    ensureAnecdotalRecordsInput(form);
+    const input = document.querySelector<HTMLTextAreaElement>('#f_anecdotalRecords')!;
+    input.value = 'no recorded disciplinary violations';
+    const onInput = vi.fn();
+    input.addEventListener('input', onInput);
+    const controls = () => [...form.querySelectorAll<HTMLInputElement>('input, select, textarea')]
+      .map((control) => ({ id: control.id, value: control.value, required: control.required, checked: control.checked }));
+    const before = controls().sort((a, b) => a.id.localeCompare(b.id));
+    organizeLearnerForm(form);
+    organizeLearnerForm(form);
+    expect(controls().sort((a, b) => a.id.localeCompare(b.id))).toEqual(before);
+    expect(document.querySelectorAll('#f_anecdotalRecords')).toHaveLength(1);
+    expect([...form.querySelectorAll('[data-learner-section]')].slice(-2).map((section) => section.getAttribute('data-learner-section'))).toEqual(['transfer', 'anecdotal']);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(onInput).toHaveBeenCalledOnce();
+    form.reset();
+    expect(input.value).toBe('');
+  });
+
+  it('keeps Anecdotal Records in canonical Firestore data with an empty default for older records', () => {
+    expect(fsCanonicalLearner_({ learnerId: '123456789012', anecdotalRecords: 'no recorded violations' }).anecdotalRecords).toBe('no recorded violations');
+    expect(fsCanonicalLearner_({ learnerId: '123456789012' }).anecdotalRecords).toBe('');
+  });
+
+  it('loads and clears records correctly when switching between archived learners', () => {
+    document.body.innerHTML = '';
+    openArchiveEditor('transferredOut', '2026-2027', { learnerId: '123', anecdotalRecords: 'Saved archive record' }, vi.fn());
+    expect(document.querySelector<HTMLTextAreaElement>('#archiveAnecdotalRecords')?.value).toBe('Saved archive record');
+    expect(document.querySelector('#archiveAnecdotalRecords')?.closest('[data-learner-section]')?.getAttribute('data-learner-section')).toBe('anecdotal');
+    openArchiveEditor('dropout', '2026-2027', { learnerId: '456' }, vi.fn());
+    expect(document.querySelector<HTMLTextAreaElement>('#archiveAnecdotalRecords')?.value).toBe('');
+  });
+
+  it('saves edited Anecdotal Records with the correct archived learner', async () => {
+    document.body.innerHTML = '';
+    const update = vi.spyOn(LPSApi, 'updateArchiveRecord').mockResolvedValue({ updated: true });
+    try {
+      openArchiveEditor('transferredOut', '2026-2027', { learnerId: '123456789012', firstName: 'Alex', lastName: 'Cruz', gender: 'Male' }, vi.fn());
+      document.querySelector<HTMLTextAreaElement>('#archiveAnecdotalRecords')!.value = 'Verified observation.\nFollow-up completed.';
+      document.querySelector('#archiveEditorForm')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      await vi.waitFor(() => expect(update).toHaveBeenCalledWith('transferredOut', '2026-2027', '123456789012', expect.objectContaining({ anecdotalRecords: 'Verified observation.\nFollow-up completed.' })));
+    } finally { update.mockRestore(); }
   });
 });
 

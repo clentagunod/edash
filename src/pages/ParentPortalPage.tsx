@@ -135,6 +135,8 @@ export default function ParentPortalPage() {
   const schoolName = activeSchool?.name || APP_CONFIG.branding.schoolName;
   const schoolNickname = activeSchool?.nickname || APP_CONFIG.branding.nickname;
   const schoolLogoUrl = activeSchool?.logoUrl || APP_CONFIG.branding.schoolLogoUrl;
+  const directSchoolEntry = window.location.pathname.startsWith('/parent/');
+  const backHref = directSchoolEntry ? '/select-school' : '/login';
   const [learnerId, setLearnerId] = useState('');
   const [learner, setLearner] = useState<Learner | null>(null);
   const [message, setMessage] = useState('');
@@ -253,7 +255,7 @@ export default function ParentPortalPage() {
     <>
       <main className={`parent-portal-shell${isDarkMode ? ' parent-portal-dark' : ''}`}>
       <header className="parent-portal-header">
-        <a className="parent-portal-brand" href="/login" aria-label="Back to login">
+        <a className="parent-portal-brand" href={backHref} aria-label={directSchoolEntry ? 'Choose another school' : 'Back to login'}>
           <span className="parent-portal-brand-mark">
             <img src={appBrandAssetUrl(schoolLogoUrl)} alt={`${schoolNickname} logo`} width="30" height="30" onError={(event) => { event.currentTarget.style.display = 'none'; const fallback = event.currentTarget.nextElementSibling as SVGElement | null; if (fallback) fallback.style.display = 'block'; }} />
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z" /></svg>
@@ -271,9 +273,9 @@ export default function ParentPortalPage() {
           >
             {isDarkMode ? <span aria-hidden="true" dangerouslySetInnerHTML={{ __html: Icon.sun }} /> : <span aria-hidden="true" dangerouslySetInnerHTML={{ __html: Icon.moon }} />}
           </button>
-          <a className="parent-portal-back" href="/login">
+          <a className="parent-portal-back" href={backHref} aria-label={directSchoolEntry ? 'Choose another school' : 'Back to sign in'}>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
-            <span>Back to sign in</span>
+            <span>{directSchoolEntry ? 'Choose another school' : 'Back to sign in'}</span>
           </a>
         </div>
       </header>
@@ -281,7 +283,7 @@ export default function ParentPortalPage() {
         <section className="parent-portal-intro">
           <span className="parent-portal-kicker">Read-only access</span>
           <h1>Find your child&apos;s school record.</h1>
-          <p>Enter the learner reference number provided by {APP_CONFIG.branding.schoolName} to view the latest available information.</p>
+          <p>Enter the learner reference number provided by {schoolName} to view the latest available information.</p>
         </section>
         <form className="parent-search-card" onSubmit={handleSubmit}>
           <label htmlFor="parentLearnerId">Learner reference number</label>
@@ -316,7 +318,7 @@ export default function ParentPortalPage() {
           </section>
         )}
       </div>
-      <footer className="parent-portal-footer">© {new Date().getFullYear()} {APP_CONFIG.branding.schoolName} · Courtesy of <a href="https://clentindustries.vercel.app/" target="_blank" rel="noopener noreferrer">ClentIndustries</a></footer>
+      <footer className="parent-portal-footer">© {new Date().getFullYear()} {schoolName} · Courtesy of <a href="https://clentindustries.vercel.app/" target="_blank" rel="noopener noreferrer">ClentIndustries</a></footer>
       </main>
       <TestModeStamp />
     </>

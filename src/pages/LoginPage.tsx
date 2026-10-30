@@ -9,6 +9,7 @@ import { appDocumentTitle, clearVisitorSession, ensureVisitorSession, updateScho
 import { clearTenantSession } from '../lib/tenant-session';
 import { clearStoredSchool, getStoredSchool } from '../lib/school-registry';
 import TestModeStamp from '../components/TestModeStamp';
+import { parentPortalPath } from '../lib/parent-portal-links';
 
 function safeMediaUrl(value: string): string | null {
   try {
@@ -114,7 +115,7 @@ export default function LoginPage() {
     };
     const onParentClick = () => {
       clearVisitorSession();
-      window.location.href = 'parent.html';
+      window.location.href = parentPortalPath(school.id);
     };
     const onChangeSchool = async () => {
       const alertBox = container?.querySelector<HTMLElement>('#loginAlert');

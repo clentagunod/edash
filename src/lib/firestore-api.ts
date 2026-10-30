@@ -11,6 +11,7 @@ import { isAppTheme } from './themes';
 import { DEFAULT_GRADE_TERM_COUNT, DEFAULT_ROUND_TYPE, GRADE_ROUND_TYPES, MAX_GRADE_TERM_COUNT, MIN_GRADE_TERM_COUNT } from './academic-grades';
 import { DEFAULT_PASSING_THRESHOLD, gradeLevelConfigKey, normalizeGradeLevelGrading, normalizePassingThreshold } from './grading-config';
 import { formatLearnerName } from './learner-sorting';
+import { CERTIFICATE_PREFERENCES_DOCUMENT, normalizeCertificatePreferences, validateCertificatePreferences, type CertificatePreferences } from './certificate-preferences';
 
 /**
  * ============================================================================
@@ -1962,6 +1963,28 @@ const DEFAULT_CARD_PRINTING_PREFERENCES = {
   ],
 };
 
+export async function fsGetCertificatePreferences(): Promise<CertificatePreferences> {
+  const snapshot = await db.collection(FS_SETTINGS).doc(CERTIFICATE_PREFERENCES_DOCUMENT).get();
+  return normalizeCertificatePreferences(snapshot.exists ? snapshot.data() : undefined);
+}
+
+/** Each open studio receives policy changes from the tenant's shared settings. */
+export function fsSubscribeCertificatePreferences(next: (value: CertificatePreferences) => void, error: (failure: Error) => void): () => void {
+  return db.collection(FS_SETTINGS).doc(CERTIFICATE_PREFERENCES_DOCUMENT).onSnapshot(
+    (snapshot) => next(normalizeCertificatePreferences(snapshot.exists ? snapshot.data() : undefined)), error,
+  );
+}
+
+export async function fsSetCertificatePreferences(input: unknown): Promise<CertificatePreferences> {
+  const preferences = validateCertificatePreferences(input);
+  await fsWriteAuditedSettings_(db.collection(FS_SETTINGS).doc(CERTIFICATE_PREFERENCES_DOCUMENT), {
+    ...preferences,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedBy: auth.currentUser?.uid || '',
+  });
+  return preferences;
+}
+
 export async function fsGetCardPrintingPreferences() {
   const doc = await db.collection(FS_SETTINGS).doc("cardPrintingPreferences").get();
   const value = doc.exists ? doc.data() : {};
@@ -2490,7 +2513,7 @@ export async function fsGetLearnerSchema(schoolYear) {
   const knownFields = new Set([
     "learnerId", "firstName", "middleName", "lastName", "suffix", "birthDate", "age", "gradeLevel", "section", "gender",
     "enrollmentStatus", "eosyStatus", "guardian", "contact", "dateAdded", "is4Ps", "isIP", "isSNED", "isARAL", "isMuslim",
-    "extra",
+    "anecdotalRecords", "extra",
     ...FS_DYNAMIC_CURRICULUM_SUBJECT_IDS,
   ]);
   const extraFields = new Set();

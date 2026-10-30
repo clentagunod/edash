@@ -2,6 +2,16 @@ import { describe, expect, it } from 'vitest';
 import markup from './markup/manage-users.html?raw';
 
 describe('Admin Console collapsible sections', () => {
+  it('provides a linked Certificates Preferences tab and React panel mount', () => {
+    const document = new DOMParser().parseFromString(markup, 'text/html');
+    const tab = document.querySelector('#adminCertificatePreferencesTab')!;
+    const panel = document.querySelector('#adminCertificatePreferencesPanel')!;
+    expect(tab.textContent).toContain('Certificates Preferences');
+    expect(tab.getAttribute('aria-controls')).toBe(panel.id);
+    expect(panel.getAttribute('aria-labelledby')).toBe(tab.id);
+    expect(panel.hidden).toBe(true);
+    expect(panel.querySelector('#adminCertificatePreferencesRoot')).not.toBeNull();
+  });
   it('keeps tenant backup collapsed with a hidden summary and separate restore action', () => {
     const document = new DOMParser().parseFromString(markup, 'text/html');
     const accordion = document.querySelector<HTMLDetailsElement>('#tenantBackupAccordion')!;
@@ -34,6 +44,7 @@ describe('Admin Console collapsible sections', () => {
 
     expect(accessAccordions).toHaveLength(2);
     expect(settingsAccordion.querySelector('#adminParentAccessToggle')).not.toBeNull();
+    expect(settingsAccordion.querySelector('#adminParentPortalLinkRoot')?.closest('section')?.getAttribute('aria-labelledby')).toBe('adminParentAccessTitle');
     expect(settingsAccordion.querySelector('#adminPromotionAccessToggle')).not.toBeNull();
     expect(settingsAccordion.querySelector('#adminTrashRetentionSelect')).not.toBeNull();
     expect(usersAccordion.querySelector('#addUserBtn')).not.toBeNull();

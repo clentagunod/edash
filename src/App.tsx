@@ -1,8 +1,7 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
-import { Link, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Routes, Route, Navigate, matchPath, useLocation, useNavigate } from 'react-router-dom';
 import LoginPage from './pages/LoginPage';
 import SchoolSelectionPage from './pages/SchoolSelectionPage';
-import ParentPortalPage from './pages/ParentPortalPage';
 import RouteErrorBoundary from './components/RouteErrorBoundary';
 import RouteLoadingFallback from './components/RouteLoadingFallback';
 import MaintenancePage from './pages/MaintenancePage';
@@ -11,7 +10,8 @@ import { auth } from './lib/firebase';
 import { resolveMaintenanceMode, startModeSettingsListener, useModeSettings } from './lib/mode-settings';
 import { clearTenantSession } from './lib/tenant-session';
 import { handlePageLinkClick } from './lib/page-navigation';
-import { clearStoredSchool, getRegisteredSchools, getStoredSchool, sameSchoolRegistration, storeActiveSchool } from './lib/school-registry';
+import { clearStoredSchool, getRegisteredSchool, getRegisteredSchools, getStoredSchool, sameSchoolRegistration, storeActiveSchool, storeParentPortalSchool } from './lib/school-registry';
+import { replaceWithParentPortal } from './lib/parent-portal-links';
 
 const initialTenantSchool = getStoredSchool();
 
@@ -73,6 +73,7 @@ function EduAiAvailabilityNotice({ schoolId }: { schoolId: string }) {
 }
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const ParentPortalPage = lazy(() => import('./pages/ParentPortalPage'));
 const MasterlistPage = lazy(() => import('./pages/MasterlistPage'));
 const Program4psPage = lazy(() => import('./pages/Program4psPage'));
 const ProgramIpPage = lazy(() => import('./pages/ProgramIpPage'));
@@ -85,6 +86,8 @@ const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const EosyReportPage = lazy(() => import('./pages/EosyReportPage'));
 const GradesProfilePage = lazy(() => import('./pages/GradesProfilePage'));
 const PrintCardPage = lazy(() => import('./pages/PrintCardPage'));
+const PrintablesPage = lazy(() => import('./pages/PrintablesPage'));
+const PrintCertificatePage = lazy(() => import('./pages/PrintCertificatePage'));
 const ReadingProfilePage = lazy(() => import('./pages/ReadingProfilePage'));
 const MathProfilePage = lazy(() => import('./pages/MathProfilePage'));
 const NutritionalStatusPage = lazy(() => import('./pages/NutritionalStatusPage'));
@@ -104,8 +107,9 @@ const EduaiPage = lazy(() => import('./pages/EduaiPage'));
 const PreferencesPage = lazy(() => import('./pages/PreferencesPage'));
 const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
 
-function SchoolRegistrationGate({ children }: { children: ReactNode }) {
+export function SchoolRegistrationGate({ children }: { children: ReactNode }) {
   const location = useLocation();
+  const parentSchoolId = matchPath('/parent/:schoolId', location.pathname)?.params.schoolId;
   const [retry, setRetry] = useState(0);
   const [status, setStatus] = useState<'checking' | 'active' | 'denied' | 'unavailable'>('checking');
   const [verifiedPath, setVerifiedPath] = useState<string | null>(null);
@@ -128,6 +132,37 @@ function SchoolRegistrationGate({ children }: { children: ReactNode }) {
 
     const verifyRegistration = async () => {
       const run = ++verificationRun;
+      if (parentSchoolId !== undefined) {
+        try {
+          const registeredSchool = await getRegisteredSchool(parentSchoolId);
+          if (disposed || run !== verificationRun) return;
+          if (!registeredSchool) {
+            setStatus('denied');
+            setVerifiedPath(location.pathname);
+            return;
+          }
+          const storedSchool = getStoredSchool();
+          if (!initialTenantSchool || !storedSchool ||
+            !sameSchoolRegistration(initialTenantSchool, registeredSchool) ||
+            !sameSchoolRegistration(storedSchool, registeredSchool)) {
+            // Tenant SDKs initialize at module load. Never render this portal
+            // against the previous school's Firebase instances.
+            clearTenantSession();
+            storeParentPortalSchool(registeredSchool);
+            replaceWithParentPortal(registeredSchool.id);
+            return;
+          }
+          storeParentPortalSchool(registeredSchool);
+          setStatus('active');
+          setVerifiedPath(location.pathname);
+        } catch (error) {
+          if (disposed || run !== verificationRun) return;
+          setStatus('unavailable');
+          setVerifiedPath(location.pathname);
+          console.error('Could not open the school parent portal:', error);
+        }
+        return;
+      }
       const school = getStoredSchool();
       if (!school || !initialTenantSchool || !sameSchoolRegistration(initialTenantSchool, school)) {
         if (!school) clearStoredSchool();
@@ -228,7 +263,7 @@ function SchoolRegistrationGate({ children }: { children: ReactNode }) {
       window.clearInterval(interval);
       window.removeEventListener('storage', onStorageChange);
     };
-  }, [isPublicRoute, location.pathname, retry]);
+  }, [isPublicRoute, location.pathname, parentSchoolId, retry]);
 
   if (isPublicRoute) return children;
   const routeStatus = verifiedPath === location.pathname ? status : 'checking';
@@ -245,7 +280,7 @@ function SchoolRegistrationGate({ children }: { children: ReactNode }) {
       </>
     );
   }
-  if (routeStatus === 'denied') return <Navigate to="/select-school" replace />;
+  if (routeStatus === 'denied' && parentSchoolId === undefined) return <Navigate to="/select-school" replace />;
 
   if (routeStatus === 'checking') {
     return <RouteLoadingFallback pageLoading={location.pathname.startsWith('/pages/')} />;
@@ -254,14 +289,15 @@ function SchoolRegistrationGate({ children }: { children: ReactNode }) {
   return (
     <main className="school-access-error" role="alert" aria-live="assertive">
       <div className="school-access-error-content">
-        <strong>School access could not be verified</strong>
-        <span>The school directory is temporarily unavailable. Access is paused to protect school data.</span>
+        <strong>{parentSchoolId !== undefined ? 'This school’s parent portal is unavailable' : 'School access could not be verified'}</strong>
+        <span>{parentSchoolId !== undefined ? 'Check the school link or try again. If the problem continues, contact your school office.' : 'The school directory is temporarily unavailable. Access is paused to protect school data.'}</span>
         <button className="school-access-retry" type="button" onClick={() => setRetry((value) => value + 1)}>
           <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
             <path d="M16.2 8A6.5 6.5 0 1 0 16.5 10M16.2 4.5V8h-3.5" />
           </svg>
           Try again
         </button>
+        {parentSchoolId !== undefined && <Link to="/select-school">Choose another school</Link>}
       </div>
     </main>
   );
@@ -320,6 +356,7 @@ export default function App() {
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/parent.html" element={<ParentPortalPage />} />
+          <Route path="/parent/:schoolId" element={<ParentPortalPage />} />
 
           <Route path="/pages/dashboard.html" element={<DashboardPage />} />
           <Route path="/pages/masterlist.html" element={<MasterlistPage />} />
@@ -334,6 +371,11 @@ export default function App() {
           <Route path="/pages/eosy-report.html" element={<EosyReportPage />} />
           <Route path="/pages/grades-profile.html" element={<GradesProfilePage />} />
           <Route path="/pages/print-card.html" element={<PrintCardPage />} />
+          <Route path="/pages/student-card.html" element={<PrintablesPage key="student-card" kind="student-card" />} />
+          <Route path="/pages/good-moral.html" element={<PrintablesPage key="good-moral" kind="good-moral" />} />
+          <Route path="/pages/certificate-of-enrollment.html" element={<PrintablesPage key="enrollment" kind="enrollment" />} />
+          <Route path="/pages/print-good-moral.html" element={<PrintCertificatePage key="good-moral" kind="good-moral" />} />
+          <Route path="/pages/print-enrollment.html" element={<PrintCertificatePage key="enrollment" kind="enrollment" />} />
           <Route path="/pages/reading-profile.html" element={<ReadingProfilePage />} />
           <Route path="/pages/math-profile.html" element={<MathProfilePage />} />
           <Route path="/pages/nutritional-status.html" element={<NutritionalStatusPage />} />

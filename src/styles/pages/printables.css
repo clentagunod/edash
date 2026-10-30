@@ -1,0 +1,5 @@
+.printable-intro { max-width: 850px; }
+.printable-intro .panel-body { padding: 24px; }
+.printable-intro p { max-width: 680px; color: var(--ink-700); line-height: 1.75; }
+.printable-intro .printable-intro-note { color: var(--ink-500); font-size: 13px; margin-bottom: 24px; }
+.printable-intro .btn { display: inline-flex; gap: 12px; width: auto; white-space: normal; text-align: left; text-decoration: none; }

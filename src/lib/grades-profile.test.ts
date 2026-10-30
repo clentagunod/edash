@@ -20,9 +20,8 @@ vi.mock('./firestore-api', () => ({
 import {
   createGradeProfileFromLearner,
   gradeSubjectsForFilter,
-  openStudentCardWorkspace,
 } from './grades-profile';
-import { getSelectedSchoolYear } from './school-year';
+import gradesMarkup from '../pages/markup/grades-profile.html?raw';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -30,14 +29,9 @@ afterEach(() => {
 });
 
 describe('grade profile curricula', () => {
-  it('opens the card workspace in a new tab for the selected school year', () => {
-    vi.mocked(getSelectedSchoolYear).mockReturnValue('2026-2027');
-    const open = vi.spyOn(window, 'open').mockReturnValue(null);
-
-    openStudentCardWorkspace();
-
-    expect(open).toHaveBeenCalledWith('/pages/print-card.html?schoolYear=2026-2027', '_blank');
-    expect(shellMocks.showToast).toHaveBeenCalledWith('Allow pop-ups to open the Student Card workspace.', 'error');
+  it('keeps grade export available after relocating card printing to Printables', () => {
+    expect(gradesMarkup).toContain('id="exportGradesBtn"');
+    expect(gradesMarkup).not.toContain('printStudentCardBtn');
   });
 
   it('shows only the selected grade subject assignment', () => {

@@ -12,9 +12,19 @@ export interface FirebaseWebConfig {
 
 export interface SchoolInfo {
   [field: string]: unknown;
+  /** Official school ID, distinct from the registry document ID used in URLs. */
+  id?: string | number;
   region: string;
   divisionOffice: string;
   district: string;
+  schoolAddr?: string;
+  address?: string;
+  contactNumber?: string;
+  email?: string;
+  fbPage?: string;
+  motto?: string;
+  divisionLogoUrl?: string;
+  districtLogoUrl?: string;
 }
 
 export interface RegisteredSchool {
@@ -45,6 +55,7 @@ export interface RegisteredSchool {
 
 const env = import.meta.env as Record<string, string | undefined>;
 const ACTIVE_SCHOOL_KEY = "edash.activeSchool";
+const PARENT_PORTAL_SCHOOL_KEY = "edash.parentPortalSchool";
 const registryFirebaseConfig = readFirebaseConfig("VITE_REGISTRY_FIREBASE");
 
 function readFirebaseConfig(prefix: string): FirebaseWebConfig {
@@ -106,13 +117,19 @@ const REGISTRY_CACHE_TTL_MS = 30_000;
 let cachedSchools: RegisteredSchool[] | null = null;
 let cacheExpiresAt = 0;
 let pendingRegistryRead: Promise<RegisteredSchool[]> | null = null;
+const schoolReads = new Map<string, Promise<RegisteredSchool | null>>();
+const schoolCache = new Map<string, { school: RegisteredSchool | null; expiresAt: number }>();
+
+export function isSchoolRegistryId(value: string): boolean {
+  return /^[a-z0-9][a-z0-9-]{1,62}$/.test(value);
+}
 
 export function isRegisteredSchool(value: unknown): value is RegisteredSchool {
   if (!value || typeof value !== "object") return false;
   const school = value as Partial<RegisteredSchool>;
   return (
     typeof school.id === "string" &&
-    /^[a-z0-9][a-z0-9-]{1,62}$/.test(school.id) &&
+    isSchoolRegistryId(school.id) &&
     school.enabled === true &&
     typeof school.name === "string" &&
     school.name.trim().length > 0 &&
@@ -137,7 +154,10 @@ export function isRegisteredSchool(value: unknown): value is RegisteredSchool {
       (!!school.schoolInfo &&
         typeof school.schoolInfo === "object" &&
         !Array.isArray(school.schoolInfo) &&
-        ["region", "divisionOffice", "district"].every((field) =>
+        (school.schoolInfo.id === undefined ||
+          typeof school.schoolInfo.id === "string" ||
+          (typeof school.schoolInfo.id === "number" && Number.isSafeInteger(school.schoolInfo.id) && school.schoolInfo.id >= 0)) &&
+        ["region", "divisionOffice", "district", "schoolAddr", "address", "contactNumber", "email", "fbPage", "motto", "divisionLogoUrl", "districtLogoUrl"].every((field) =>
           school.schoolInfo?.[field] === undefined || typeof school.schoolInfo[field] === "string",
         ))) &&
     (school.schoolHead === undefined ||
@@ -188,6 +208,8 @@ export function getActiveSchool(): RegisteredSchool {
   if (!configIsUsable(registryFirebaseConfig)) {
     throw new Error("Central E-Dash registry Firebase configuration is missing. Configure VITE_REGISTRY_FIREBASE_* before starting the app.");
   }
+  const parentSchool = getParentPortalSchool();
+  if (parentSchool) return parentSchool;
   try {
     const saved = JSON.parse(localStorage.getItem(ACTIVE_SCHOOL_KEY) || "null");
     if (isRegisteredSchool(saved)) return saved;
@@ -199,6 +221,8 @@ export function getActiveSchool(): RegisteredSchool {
 }
 
 export function getStoredSchool(): RegisteredSchool | null {
+  const parentSchool = getParentPortalSchool();
+  if (parentSchool) return parentSchool;
   try {
     const saved = JSON.parse(localStorage.getItem(ACTIVE_SCHOOL_KEY) || "null");
     if (isRegisteredSchool(saved)) return saved;
@@ -208,6 +232,21 @@ export function getStoredSchool(): RegisteredSchool | null {
     localStorage.removeItem(ACTIVE_SCHOOL_KEY);
     return null;
   }
+}
+
+/** A QR link pins its tenant to this tab without changing other school tabs. */
+function getParentPortalSchool(): RegisteredSchool | null {
+  const match = /^\/parent\/([^/]+)\/?$/.exec(window.location.pathname);
+  if (!match) return null;
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(PARENT_PORTAL_SCHOOL_KEY) || 'null');
+    return isRegisteredSchool(saved) && saved.id === decodeURIComponent(match[1]) ? saved : null;
+  } catch { return null; }
+}
+
+export function storeParentPortalSchool(school: RegisteredSchool): void {
+  if (!isRegisteredSchool(school)) throw new Error('The school link has invalid registration settings.');
+  sessionStorage.setItem(PARENT_PORTAL_SCHOOL_KEY, JSON.stringify(school));
 }
 
 export function storeActiveSchool(school: RegisteredSchool): void {
@@ -252,4 +291,22 @@ export async function getRegisteredSchools(): Promise<RegisteredSchool[]> {
   } finally {
     pendingRegistryRead = null;
   }
+}
+
+/** Direct links read one registration, regardless of the number of schools. */
+export async function getRegisteredSchool(schoolId: string): Promise<RegisteredSchool | null> {
+  if (!isSchoolRegistryId(schoolId)) throw new Error('Invalid school link.');
+  const cached = schoolCache.get(schoolId);
+  if (cached && cached.expiresAt > Date.now()) return cached.school;
+  const pending = schoolReads.get(schoolId);
+  if (pending) return pending;
+  const read = (async () => {
+    const snapshot = await getCentralRegistryFirestore().collection('schools').doc(schoolId).get();
+    const school = snapshot.exists ? { ...snapshot.data(), id: snapshot.id } : null;
+    if (school && !isRegisteredSchool(school)) throw new Error('This school registration is unavailable or incomplete.');
+    schoolCache.set(schoolId, { school, expiresAt: Date.now() + REGISTRY_CACHE_TTL_MS });
+    return school as RegisteredSchool | null;
+  })();
+  schoolReads.set(schoolId, read);
+  try { return await read; } finally { schoolReads.delete(schoolId); }
 }

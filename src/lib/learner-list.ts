@@ -12,6 +12,7 @@ import { CURRICULUM_SUBJECTS, LEGACY_CURRICULUM_SUBJECT_IDS, curriculumSubjectId
 import { computeNumericalFinalGrades, DEFAULT_GRADE_TERM, FINAL_GRADE_TERM, GRADE_TERMS, gradeTermsForCount, gradesForTerm, mergeGradesForTerm } from './academic-grades';
 import { DEFAULT_GRADE_LEVEL_GRADING, gradeLevelConfigKey, normalizeGradeLevelGrading } from './grading-config';
 import { compareLearnersBySurname, formatLearnerName } from './learner-sorting';
+import { ensureAnecdotalRecordsInput, organizeLearnerForm } from './learner-form-layout';
 
 /**
  * ============================================================================
@@ -84,6 +85,7 @@ const LEARNER_DETAIL_GROUPS = [
   { title: "Nutrition", matches: (key) => /^(bosy|mosy|eosy)(height|weight|nutritionalstatus)$/i.test(key) },
   { title: "Academic grades", matches: (key) => CURRICULUM_SUBJECT_IDS.has(key) || key === "gradesByTerm" },
   { title: "Transfer information", matches: (key) => ["transferType", "transferIn", "transferOut", "transferSchool", "transferDate", "transferReason", "transferNotes"].includes(key) },
+  { title: "Anecdotal Records", matches: (key) => key === "anecdotalRecords" },
 ];
 
 const LEARNER_DETAIL_LABELS = {
@@ -112,6 +114,7 @@ const LEARNER_DETAIL_LABELS = {
   gradesByTerm: "Grades by term",
   transferIn: "Transfer in",
   transferOut: "Transfer out",
+  anecdotalRecords: "Anecdotal Records",
   ...Object.fromEntries(CURRICULUM_SUBJECTS.map(({ id, label }) => [id, label])),
 };
 
@@ -322,6 +325,8 @@ export async function renderExtraFieldInputs(existingExtra) {
   if (!container) return;
 
   LL.extraFieldHeaders = [];
+  const section = container.closest("[data-learner-section='additional']");
+  if (section) section.hidden = false;
   container.style.display = "grid";
   container.innerHTML = `<div class="field extra-fields-loading"><span class="inline-spinner" aria-hidden="true"></span> Loading additional fields…</div>`;
   try {
@@ -335,6 +340,7 @@ export async function renderExtraFieldInputs(existingExtra) {
   }
 
   if (LL.extraFieldHeaders.length === 0) {
+    if (section) section.hidden = true;
     container.style.display = "none";
     container.innerHTML = "";
     return;
@@ -1164,6 +1170,7 @@ export function wireModal() {
   ensureSubjectInputs();
   ensureTransferInputs();
   ensureLearnerStatusInputs();
+  ensureAnecdotalRecordsInput(form);
   ensureSectionInput();
   wireGuardianContactFields();
   normalizeHeightInputs();
@@ -1218,6 +1225,7 @@ export function wireModal() {
     void updateSubjectInputVisibility(getSelectedSchoolYear(), true);
   });
   wireLearnerArrowNavigation(form);
+  organizeLearnerForm(form);
 
   // Delete modal
   const delBackdrop = document.getElementById("deleteModalBackdrop");
@@ -1344,6 +1352,7 @@ export async function openEditModal(learnerId) {
   setLearnerFieldValue("f_transferDate", learner.transferDate);
   setLearnerFieldValue("f_transferReason", learner.transferReason);
   setLearnerFieldValue("f_transferNotes", learner.transferNotes);
+  setLearnerFieldValue("f_anecdotalRecords", learner.anecdotalRecords);
   updateTransferVisibility();
   updateLearnerAge();
   document.getElementById("f_section").value = learner.section || "";
@@ -1594,6 +1603,7 @@ export async function handleLearnerFormSubmit(e) {
     transferDate: getLearnerFieldValue("f_transferDate"),
     transferReason: getLearnerFieldValue("f_transferReason").trim(),
     transferNotes: getLearnerFieldValue("f_transferNotes").trim(),
+    anecdotalRecords: getLearnerFieldValue("f_anecdotalRecords").trim(),
     extra: collectExtraFieldValues(),
     };
     Object.assign(learner, applyAutomaticFinalGrades(learner, selectedGrade));

@@ -10,6 +10,9 @@ import '../lib/firestore-backup';
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import StudentImportPanel from '../components/StudentImportPanel';
+import CertificatePreferencesPanel from '../components/CertificatePreferencesPanel';
+import { isSchoolAdmin } from '../lib/app-config';
+import ParentPortalLinkPanel from '../components/ParentPortalLinkPanel';
 
 export default function ManageUsersPage() {
   const [ready, setReady] = useState(false);
@@ -18,14 +21,24 @@ export default function ManageUsersPage() {
       html={html}
       title="Admin Console"
       portalSelector="#adminCardTemplateChooser"
-      children={<><AdminCardTemplateChooser />{ready && <StudentImportPortal />}</>}
+      children={<><AdminCardTemplateChooser />{ready && <><StudentImportPortal /><CertificatePreferencesPortal /><ParentPortalLinkPortal /></>}</>}
       onMount={async () => {
         await requireAuth();
-        setReady(true);
+        setReady(isSchoolAdmin());
         await Promise.all([initManageUsers(), initAdminOptions()]);
       }}
     />
   );
+}
+
+function CertificatePreferencesPortal() {
+  const target = document.getElementById('adminCertificatePreferencesRoot');
+  return target ? createPortal(<CertificatePreferencesPanel />, target) : null;
+}
+
+function ParentPortalLinkPortal() {
+  const target = document.getElementById('adminParentPortalLinkRoot');
+  return target ? createPortal(<ParentPortalLinkPanel />, target) : null;
 }
 
 function StudentImportPortal() {

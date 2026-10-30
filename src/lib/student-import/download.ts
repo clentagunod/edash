@@ -18,5 +18,6 @@ export function studentTemplate(year: string, grade: string, section: string): S
     birthDate: '2014-06-15', gender: 'Male', gradeLevel: grade || 'Grade 6', section: section || 'YOUR SECTION',
     schoolYear: year, guardian: 'Maria Dela Cruz', contact: '09123456789',
     enrollmentStatus: 'ACTIVE', is4Ps: false, isIP: false, isSNED: false, isARAL: false, isMuslim: false,
+    anecdotalRecords: '',
   }];
 }
