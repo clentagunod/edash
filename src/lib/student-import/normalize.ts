@@ -88,7 +88,9 @@ function headerBounds(table: Table, depth: number): [number, number] {
 
 function normalizeCell(field: string, value: Cell, options: ImportOptions, date1904: boolean): string | number | boolean {
   if (typeof value === 'object' && value !== null) throw new Error('Expected a scalar value, not an object or array.');
-  const text = cleanText(value);
+  const text = field === 'anecdotalRecords'
+    ? String(value ?? '').normalize('NFKC').replace(/\r\n?/g, '\n').trim()
+    : cleanText(value);
   if (text.length > 2000) throw new Error('Value exceeds 2,000 characters.');
   if ((field === 'guardian' || field === 'contact') && isUnavailableContact(value)) return 'N/A';
   if (field === 'learnerId') {

@@ -125,7 +125,6 @@ const CURATED = [
   E('EOSY Status Report', 'EOSY table', 'eosy-report.html', '#eosyStatusTableBody', 'clipboard', 'statuses table'),
 
   /* ---- Grades Profile ---------------------------------------------------- */
-  E('Grades Profile', 'Print Card', 'grades-profile.html', '#printStudentCardBtn', 'edit', 'print student card report card'),
   E('Grades Profile', 'Export Excel', 'grades-profile.html', '#exportGradesBtn', 'download', 'export grades excel'),
   E('Grades Profile', 'Search learners', 'grades-profile.html', '#gradesSearch', 'search', 'search name lrn'),
   E('Grades Profile', 'Filter by grade level', 'grades-profile.html', '#gradesGradeFilter', 'search', 'grade filter'),
@@ -238,7 +237,9 @@ const CURATED = [
   E('Admin Console', 'Add User', 'manage-users.html', '#addUserBtn', 'plus', 'new user account', 'admin'),
 
   /* ---- Print Card -------------------------------------------------------- */
-  E('Print Card', 'Printable learner card', 'print-card.html', null, 'edit', 'print report card learner grades', 'grades'),
+  E('Student Card', 'Print Card', 'student-card.html', '#openPrintableStudio', 'clipboard', 'print report card learner grades printables', 'grades'),
+  E('Good Moral', 'Print Good Moral', 'good-moral.html', '#openPrintableStudio', 'sheet', 'certificate good moral conduct printables'),
+  E('Certificate of Enrollment', 'Print Certificate of Enrollment', 'certificate-of-enrollment.html', '#openPrintableStudio', 'graduationCap', 'certificate enrollment coe printables'),
 ];
 
 /* ============================================================================

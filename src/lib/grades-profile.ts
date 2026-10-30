@@ -34,7 +34,6 @@ export async function initGradesProfile() {
   if (!gradesTerms.some(({ id }) => id === gradesSelectedTerm)) gradesSelectedTerm = FINAL_GRADE_TERM;
   renderGradesTermNavigation();
   document.getElementById("exportGradesBtn").addEventListener("click", exportGradesExcel);
-  document.getElementById("printStudentCardBtn").addEventListener("click", openStudentCardWorkspace);
   document.getElementById("gradesSort").addEventListener("change", (event) => { gradesSortField = event.target.value; renderGradesTable(gradesFilteredProfiles); });
   document.getElementById("gradesSortDirection").addEventListener("change", (event) => { gradesSortDirection = event.target.value; renderGradesTable(gradesFilteredProfiles); });
   document.getElementById("gradesSort").value = gradesSortField;
@@ -46,13 +45,6 @@ export async function initGradesProfile() {
     if (button) selectGradesTerm(button.dataset.gradeTerm);
   });
   initYearSwitcher(loadGradesProfiles);
-}
-
-export function openStudentCardWorkspace() {
-  const schoolYear = getSelectedSchoolYear();
-  const query = schoolYear ? `?schoolYear=${encodeURIComponent(schoolYear)}` : "";
-  const cardWindow = window.open(`/pages/print-card.html${query}`, "_blank");
-  if (!cardWindow) showToast("Allow pop-ups to open the Student Card workspace.", "error");
 }
 
 export function renderGradesTermNavigation() {

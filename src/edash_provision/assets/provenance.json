@@ -1,5 +1,5 @@
 {
-  "snapshotDate": "2026-10-27",
+  "snapshotDate": "2026-10-30",
   "websiteSchemaVersion": 3,
   "appVersion": "1.0.0",
   "sources": [
@@ -24,7 +24,7 @@
     "firebase.registry.json": "098210e158ad5f70aab3ff72f80afe0c631bf314c8e33f425dfc1daf37baccdc",
     "firebase.tenant.json": "1630fdf22e9fbd47ac8cd7f37bd502f500c3e9a1cc78ce001ee5a016a2c04efe",
     "eduai-tenant-defaults.json": "3a90f61f61f7ff2a52edc1ac2a7b8ccd6e25bc847248c91fbfd5386ac9fa760a",
-    "tenant-structure.json": "37ded2382d4fa870fe6d533890b783ce570a96c6b9001b662b3fa909474ece03",
+    "tenant-structure.json": "f47dfbeb143cc1ebea081b8db8b54ee9d7b708a91361a20a42dccf655c05ba72",
     "user-preferences.json": "a234d4c4ea932b43f825a50b44c0174a6d50ab76db4663575257423d43b38143"
   }
 }

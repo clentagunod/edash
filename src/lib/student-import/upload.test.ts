@@ -47,15 +47,17 @@ describe('student upload', () => {
     expect(result).toEqual({ created: 1, updated: 0, skipped: 1, processed: 2 });
     expect(documents.get('learners/123456789012')?.guardian).toBe('Keep Me');
     expect(documents.get('learners/123456789013')?.enrollmentStatus).toBe('ACTIVE');
+    expect(documents.get('learners/123456789013')?.anecdotalRecords).toBe('');
     expect(documents.get('learners/123456789013')).toMatchObject({ guardian: 'N/A', contact: 'N/A' });
     expect(store.refresh).toHaveBeenCalledWith(year);
   });
 
   it('merges only supplied fields, preserving existing grades and contact', async () => {
     const { store, documents } = createStore();
-    documents.set('learners/123456789012', { ...student(), firstName: 'Old', math: 92, contact: '09123456789', guardian: 'Keep Me' });
+    documents.set('learners/123456789012', { ...student(), firstName: 'Old', math: 92, contact: '09123456789', guardian: 'Keep Me', anecdotalRecords: 'Verified saved records' });
     expect(await uploadStudents(store, year, [{ ...student(), firstName: 'New' }], 'merge')).toMatchObject({ updated: 1 });
     expect(documents.get('learners/123456789012')).toMatchObject({ firstName: 'New', math: 92, contact: '09123456789', guardian: 'Keep Me' });
+    expect(documents.get('learners/123456789012')?.anecdotalRecords).toBe('Verified saved records');
   });
 
   it('fills missing saved contact details but never overwrites known details with N/A', async () => {

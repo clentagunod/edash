@@ -1648,6 +1648,7 @@ describe('visitor session handling', () => {
       expect.stringContaining('Statistics'),
       expect.stringContaining('Profiles'),
       expect.stringContaining('Movement'),
+      expect.stringContaining('Printables'),
       expect.stringContaining('Utilities'),
     ]);
     expect(document.querySelector('.nav-category[data-nav-category] a[href="pages/data.html"]')?.textContent).toContain('Data');
@@ -1655,6 +1656,7 @@ describe('visitor session handling', () => {
     expect(movementLinks.map((link) => link.textContent?.trim())).toEqual(["Promotion", "Retention", "Transfer Info", "Dropout Info"]);
     expect(movementLinks.map((link) => link.getAttribute("href"))).toEqual(["pages/promotion.html", "pages/retention.html", "pages/transfer-info.html", "pages/dropout.html"]);
     expect(movementLinks[0]?.closest('.nav-category')?.querySelector('.nav-category-trigger')?.textContent).toContain('Movement');
+    expect(Array.from(document.querySelectorAll('#nav-category-printables a'), (link) => link.textContent?.trim())).toEqual(['Student Card', 'Good Moral', 'Certificate of Enrollment']);
     expect(document.querySelector('.nav-feedback a[href="pages/feedback.html"]')?.textContent).toContain('Feedback');
 
     document.getElementById('menuToggle')?.click();

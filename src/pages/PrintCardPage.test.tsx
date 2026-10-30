@@ -11,7 +11,7 @@ vi.mock('../lib/firestore-api', () => ({
   fsGetCardPrintingPreferences: vi.fn(),
   fsGetGradeTermCount: vi.fn(),
   fsGetGradeSubjectAssignments: vi.fn(),
-  fsGetLearners: vi.fn(),
+  fsGetLearners: vi.fn(), 
   fsGetPassingThreshold: vi.fn(),
   fsGetRoundType: vi.fn(),
   fsGetSchoolYears: vi.fn(),

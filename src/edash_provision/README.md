@@ -41,6 +41,8 @@ Registration is a field-level upsert. The same school ID updates that document; 
 
 ## Tenant provision
 
+Learner documents use the application’s canonical field list in `src/lib/app-config.ts`. This includes `anecdotalRecords`, a plain-text string with an empty-string default, saved in `schoolYears/{schoolYear}/learners/{LRN}` and retained in archived records. The structure template's `recordSchemas` describes these learner fields for future tenants; it is reference metadata and does not seed sample learners or modify existing learner documents. Good Moral certificates read the saved value, with per-print corrections available in the studio.
+
 1. Create the school's Firebase project and **(default), Firestore Native mode database** in Firebase Console first.
 2. Select **Tenant provision**, enter the school's project ID, and choose that project's service key (or use ADC).
 3. Select the initial school year. The built-in structure is selected by default; **Browse** accepts a compatible custom structure JSON. **Export structure** and **Edit JSON** help prepare one.

@@ -183,6 +183,15 @@
       }
     }
   ],
+  "recordSchemas": {
+    "schoolYears/{schoolYear}/learners/{LRN}": {
+      "anecdotalRecords": {
+        "type": "string",
+        "default": "",
+        "description": "Verified anecdotal or conduct records saved with each learner and used for Good Moral certificates. Also retained in dropout and transferred-out records."
+      }
+    }
+  },
   "collectionPaths": [
     "users/{uid}",
     "users/{uid}/assignmentHistory/{schoolYear}",

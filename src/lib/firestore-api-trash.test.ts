@@ -23,9 +23,57 @@ vi.stubGlobal('firebase', {
 });
 
 const { setAppUserProfile } = await import('./app-config');
-const { fsGetTrash, fsWriteAuditedSettings_, fsUpdateMyTeacherPrefs } = await import('./firestore-api');
+const { fsGetTrash, fsWriteAuditedSettings_, fsUpdateMyTeacherPrefs, fsGetCertificatePreferences, fsSetCertificatePreferences, fsSubscribeCertificatePreferences } = await import('./firestore-api');
 const { LPSApi } = await import('./sheets-api');
 const { normalizeUserPreferences } = await import('./user-preferences');
+const { normalizeCertificatePreferences } = await import('./certificate-preferences');
+
+describe('shared certificate preference persistence', () => {
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('persists and reloads preferences at settings/certificatePreferences with audit metadata', async () => {
+    const record = vi.spyOn(LPSApi, 'recordAuditEvent').mockResolvedValue({ recorded: true });
+    let stored: Record<string, unknown> | undefined;
+    const ref = {
+      path: 'settings/certificatePreferences',
+      get: vi.fn(async () => ({ exists: Boolean(stored), data: () => stored })),
+      set: vi.fn(async (value) => { stored = value; }),
+    };
+    const doc = vi.fn(() => ref);
+    mockDb.collection.mockReturnValue({ doc });
+    expect(await fsGetCertificatePreferences()).toEqual(normalizeCertificatePreferences());
+    const value = normalizeCertificatePreferences({ defaultPaperSize: 'legal', showSealNotice: false, templates: { enrollment: { defaultTemplate: 'sres' } } });
+    await fsSetCertificatePreferences(value);
+    expect(mockDb.collection).toHaveBeenCalledWith('settings');
+    expect(doc).toHaveBeenCalledWith('certificatePreferences');
+    expect(ref.set).toHaveBeenCalledWith(expect.objectContaining({ ...value, updatedAt: 'server-time', updatedBy: '' }), { merge: true });
+    expect(await fsGetCertificatePreferences()).toEqual(value);
+    expect(record).toHaveBeenCalledWith('SETTINGS_UPDATE', expect.objectContaining({ recordId: 'settings/certificatePreferences' }));
+    ref.set.mockRejectedValueOnce(new Error('Permission denied'));
+    await expect(fsSetCertificatePreferences(value)).rejects.toThrow('Permission denied');
+  });
+
+  it('delivers remote preference changes, listener errors, and unsubscribe to the studio', () => {
+    const unsubscribe = vi.fn();
+    const onSnapshot = vi.fn((_next, _error) => unsubscribe);
+    mockDb.collection.mockReturnValue({ doc: vi.fn(() => ({ onSnapshot })) });
+    const next = vi.fn();
+    const error = vi.fn();
+    expect(fsSubscribeCertificatePreferences(next, error)).toBe(unsubscribe);
+    onSnapshot.mock.calls[0][0]({ exists: false });
+    expect(next).toHaveBeenLastCalledWith(normalizeCertificatePreferences());
+    onSnapshot.mock.calls[0][0]({ exists: true, data: () => ({ allowSchoolDetailsOverride: false }) });
+    expect(next).toHaveBeenLastCalledWith(expect.objectContaining({ allowSchoolDetailsOverride: false }));
+    onSnapshot.mock.calls[0][1](new Error('Offline'));
+    expect(error).toHaveBeenCalledWith(expect.objectContaining({ message: 'Offline' }));
+  });
+
+  it('rejects invalid preferences before accessing Firestore', async () => {
+    mockDb.collection.mockClear();
+    await expect(fsSetCertificatePreferences({})).rejects.toThrow();
+    expect(mockDb.collection).not.toHaveBeenCalled();
+  });
+});
 
 describe('account preference persistence', () => {
   afterEach(() => { mockAuth.currentUser = null; sessionStorage.clear(); setAppUserProfile(null); vi.restoreAllMocks(); });

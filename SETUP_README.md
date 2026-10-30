@@ -95,7 +95,7 @@ settings/{settingId}
 settings/currentSchoolYear
 settings/toggles                                # { canParentAccess: true | false, canPromoteStudents: true | false, roundType: "nearest_integer" | "none" }
 settings/gradeTerms/years/{schoolYear}
-schoolYears/{schoolYear}/learners/{learnerId}
+schoolYears/{schoolYear}/learners/{learnerId}             # includes anecdotalRecords: string (default "")
 schoolYears/{schoolYear}/dropouts/{learnerId}
 schoolYears/{schoolYear}/transferredOut/{learnerId}
 schoolYears/{schoolYear}/grades/{gradeKey}              # curriculum subject assignments
@@ -437,6 +437,10 @@ The app sends Firebase ID tokens to this endpoint. Whenever `AuditLog.gs` is cha
 The Admin Console Audit Log loads 10 newest entries per request, with previous/next pagination. Search is limited to the currently loaded page so the browser and Apps Script do not read the entire spreadsheet. Deploy the latest `AuditLog.gs` Web App version to enable paginated responses.
 
 The read-only Parent Portal uses a separate Firebase app instance with **Anonymous** Authentication to request a single learner document by its 12-digit LRN. Enable **Authentication → Sign-in method → Anonymous** for the tenant project and deploy the latest `firestore.rules`. The rule permits anonymous `get` requests only for learner documents not marked dropped or transferred; optional status fields omitted from older/imported documents are treated as unset. It does not permit anonymous collection queries, archive reads, or writes.
+
+School-specific QR destinations use `https://<your-edash-domain>/parent/<school-registry-id>`. Copy the full link from **Admin Console → Access management → Flags & configurations → Parent Portal access → School-specific parent portal link**, then use that URL when creating the school's QR code. The ID in the URL is the document ID in the central registry's `schools` collection (for example, `/parent/sample-elementary`). New enabled school registrations work with the same route without code or routing changes. Links resolve a single registration and keep the portal's school selection within the current tab. Missing, disabled, or invalid registrations never fall back to another school's records. Parent Portal access controls and anonymous-authentication requirements still apply.
+
+For SRES COE printing, set the official school ID in the central registry at `schools/<school-registry-id>.schoolInfo.id`. Strings preserve leading zeros; numeric IDs are also accepted. This printed ID is separate from the registry document ID used in parent portal URLs.
 
 ### Feedback
 

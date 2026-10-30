@@ -42,6 +42,9 @@ export const NAV_ITEMS = [
   { group: "Movement", key: "retention", label: "Retention", icon: "rotateCcw", href: "retention.html" },
   { group: "Movement", key: "transfer-info", label: "Transfer Info", icon: "transfer", href: "transfer-info.html" },
   { group: "Movement", key: "dropout", label: "Dropout Info", icon: "alertTriangle", href: "dropout.html" },
+  { group: "Printables", key: "student-card", label: "Student Card", icon: "clipboard", href: "student-card.html" },
+  { group: "Printables", key: "good-moral", label: "Good Moral", icon: "sheet", href: "good-moral.html" },
+  { group: "Printables", key: "certificate-of-enrollment", label: "Certificate of Enrollment", icon: "graduationCap", href: "certificate-of-enrollment.html" },
   { group: "Utilities", key: "data", label: "Data", icon: "download", href: "data.html" },
   { group: "Utilities", key: "grade-calculator", label: "Grade Calculator", icon: "sigma", href: "grade-calculator.html" },
   { group: "Utilities", key: "bmi-calculator", label: "BMI Calculator", icon: "calculator", href: "bmi-calculator.html" },
@@ -307,7 +310,7 @@ export function renderShell(activeKey, pageTitleForMobile) {
     if (isVisitorSession()) return ["dashboard", "enrollment-data"].includes(item.key);
     if (item.key === "users") return isSchoolAdmin();
     if (item.key === "promotion" || item.key === "retention") return canManageLearners();
-    if (item.key === "grades") return canViewGradesProfile();
+    if (item.key === "grades" || item.key === "student-card") return canViewGradesProfile();
     return true;
   });
   const renderNavLink = (item, extraClass = "") => `
@@ -316,13 +319,14 @@ export function renderShell(activeKey, pageTitleForMobile) {
       <span>${item.label}</span>
     </a>`;
   const primaryItems = visibleNavItems.filter((item) => item.group === null);
-  const categoryNames = ["Programs", "Nutrition", "Statistics", "Profiles", "Movement", "Utilities"];
+  const categoryNames = ["Programs", "Nutrition", "Statistics", "Profiles", "Movement", "Printables", "Utilities"];
   const categoryIcons = {
     Programs: "heart",
     Nutrition: "activity",
     Statistics: "barChart",
     Profiles: "book",
     Movement: "transfer",
+    Printables: "clipboard",
     Utilities: "calculator",
   };
   const categoryHtml = categoryNames.map((group) => {

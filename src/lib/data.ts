@@ -24,6 +24,7 @@ export const DATA_FIELDS = [
   ["bosyRMA", "BOSY RMA"], ["mosyRMA", "MOSY RMA"], ["eosyRMA", "EOSY RMA"],
   ["transferType", "Transfer Type"], ["transferSchool", "Transfer School"], ["transferDate", "Transfer Date"],
   ["transferReason", "Transfer Reason"], ["transferNotes", "Transfer Notes"],
+  ["anecdotalRecords", "Anecdotal Records"],
   ["enrollmentStatus", "Enrollment Status"], ["eosyStatus", "EOSY Status"], ["schoolYear", "School Year"],
 ];
 
@@ -122,16 +123,17 @@ export async function downloadData(fullMasterlist, format) {
   button.textContent = "Preparing...";
   setExportStatus("Preparing download...", 0);
   try {
-    updateExportProgress("Fetching records...", 5);
-    const records = await fetchAllDataRecords(getSelectedSchoolYear(), fullMasterlist ? {} : dataFilters());
-    if (!records.length) throw new Error("No learner records match the selected filters.");
+    const schoolYear = getSelectedSchoolYear();
     const filters = fullMasterlist ? {} : dataFilters();
+    updateExportProgress("Fetching records...", 5);
+    const records = await fetchAllDataRecords(schoolYear, filters);
+    if (!records.length) throw new Error("No learner records match the selected filters.");
     const suffix = fullMasterlist ? "masterlist" : exportFilterName(filters);
-    const filename = `${appSchoolFilePrefix()}-${suffix}-${getSelectedSchoolYear() || "current"}`;
+    const filename = `${appSchoolFilePrefix()}-${suffix}-${schoolYear || "current"}`;
     updateExportProgress(`Generating ${format.toUpperCase()} file...`, 90);
     await new Promise((resolve) => window.setTimeout(resolve, 0));
-    if (format === "csv") downloadBlob(buildCsv(records), `${filename}.csv`, "text/csv;charset=utf-8");
-    else downloadBlob(buildExcel(records, getSelectedSchoolYear()), `${filename}.xls`, "application/vnd.ms-excel");
+    if (format === "csv") downloadBlob(buildCsv(records, schoolYear), `${filename}.csv`, "text/csv;charset=utf-8");
+    else downloadBlob(buildExcel(records, schoolYear), `${filename}.xls`, "application/vnd.ms-excel");
     updateExportProgress("Download started.", 100);
     showToast(`${records.length.toLocaleString()} learner records downloaded.`, "success");
   } catch (error) {
@@ -189,16 +191,24 @@ export function exportFilterName(filters) {
 }
 
 export function exportColumns(records) {
+  const knownFields = new Set(DATA_FIELDS.map(([key]) => key));
   const extras = new Set();
-  records.forEach((record) => Object.keys(record.extra || {}).forEach((key) => extras.add(key)));
-  return DATA_FIELDS.concat([...extras].map((key) => [key, humanizeDataHeader(key)]));
+  records.forEach((record) => Object.keys(record.extra || {}).forEach((key) => {
+    if (!knownFields.has(key)) extras.add(key);
+  }));
+  return DATA_FIELDS.filter(([key]) => key !== "schoolYear")
+    .concat([...extras].map((key) => [key, humanizeDataHeader(key)]), [["schoolYear", "School Year"]]);
 }
 
 export function humanizeDataHeader(value) {
   return String(value).replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[_-]/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-export function exportValue(record, key) {
+export function exportValue(record, key, schoolYear = "") {
+  if (key === "schoolYear") {
+    return [record.schoolYear, record.extra?.schoolYear, schoolYear]
+      .map((value) => String(value ?? "").trim()).find(Boolean) || "";
+  }
   if (key === "is4Ps" || key === "isIP" || key === "isSNED" || key === "isARAL" || key === "isMuslim") return record[key] ? "Yes" : "No";
   if (key === "dateAdded") return formatAppDate(record[key], "");
   if (record[key] != null && record[key] !== "") return record[key];
@@ -208,11 +218,11 @@ export function exportValue(record, key) {
 export function buildExcel(records, schoolYear) {
   const columns = exportColumns(records);
   const header = columns.map(([, label]) => `<th>${escapeHtml(label)}</th>`).join("");
-  const rows = records.map((record) => `<tr>${columns.map(([key]) => `<td${key === "learnerId" ? " class=\"text-cell\"" : ""}>${escapeHtml(String(exportValue(record, key)))}</td>`).join("")}</tr>`).join("");
+  const rows = records.map((record) => `<tr>${columns.map(([key]) => `<td${key === "learnerId" ? " class=\"text-cell\"" : ""}>${escapeHtml(String(exportValue(record, key, schoolYear)))}</td>`).join("")}</tr>`).join("");
   return `<html><head><meta charset="UTF-8"><style>.text-cell{mso-number-format:'\\@';}</style></head><body><h2>${escapeHtml(APP_CONFIG.branding.schoolName)} - Learner Masterlist</h2><p>School year: ${escapeHtml(schoolYear || "Current")}</p><table border="1"><thead><tr>${header}</tr></thead><tbody>${rows}</tbody></table></body></html>`;
 }
 
-export function buildCsv(records) {
+export function buildCsv(records, schoolYear = getSelectedSchoolYear()) {
   const columns = exportColumns(records);
   const cell = (value) => `"${String(value == null ? "" : value).replace(/"/g, '""')}"`;
   const textCell = (value) => {
@@ -222,8 +232,8 @@ export function buildCsv(records) {
   return [
     columns.map(([, label]) => cell(label)).join(","),
     ...records.map((record) => columns.map(([key]) => key === "learnerId"
-      ? textCell(exportValue(record, key))
-      : cell(exportValue(record, key))).join(",")),
+      ? textCell(exportValue(record, key, schoolYear))
+      : cell(exportValue(record, key, schoolYear))).join(",")),
   ].join("\r\n");
 }
 

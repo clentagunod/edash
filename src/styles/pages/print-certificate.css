@@ -1,0 +1,70 @@
+.certificate-app { min-height: 100vh; background: var(--bg-app); color: var(--ink-700); font-family: var(--font-ui); }
+.certificate-topbar { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 22px 28px; border-bottom: 1px solid var(--line-200); background: var(--bg-card); }
+.certificate-eyebrow { color: var(--ink-500); font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.certificate-topbar h1 { color: var(--ink-900); font-size: clamp(20px, 2vw, 28px); margin: 4px 0; }
+.certificate-topbar p { color: var(--ink-500); margin: 0; font-size: 13px; }
+.certificate-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.certificate-actions .btn { text-decoration: none; white-space: nowrap; width: auto; }
+.certificate-workspace { display: grid; grid-template-columns: 330px minmax(0, 1fr); min-height: calc(100vh - 110px); }
+.certificate-editor { padding: 20px; background: var(--bg-card); border-right: 1px solid var(--line-200); min-width: 0; }
+.certificate-editor-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
+.certificate-field { display: grid; gap: 6px; margin-bottom: 14px; min-width: 0; color: var(--ink-700); font-size: 12px; font-weight: 600; }
+.certificate-field input, .certificate-field select, .certificate-field textarea { box-sizing: border-box; width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--line-200); border-radius: var(--radius-md); background: var(--bg-app); color: var(--ink-900); font: inherit; font-weight: 400; }
+.certificate-field textarea { resize: vertical; }
+.certificate-field small { font-weight: 400; color: var(--ink-500); line-height: 1.5; }
+.certificate-tabs { display: flex; gap: 4px; padding: 4px; background: var(--bg-app); border: 1px solid var(--line-200); border-radius: var(--radius-md); margin: 18px 0; }
+.certificate-tabs button { flex: 1; padding: 9px 4px; color: var(--ink-500); background: transparent; border: 0; border-radius: var(--radius-md); cursor: pointer; font: inherit; font-size: 12px; }
+.certificate-tabs button[aria-selected="true"] { color: var(--blue-600); background: var(--bg-card); font-weight: 700; }
+.certificate-hint { color: var(--ink-500); font-size: 12px; font-weight: 400; line-height: 1.6; }
+.certificate-selection-actions { display: flex; gap: 12px; margin: 12px 0; }
+.certificate-selection-actions button, .certificate-text-button, .certificate-validation button { padding: 0; border: 0; background: transparent; color: var(--blue-600); cursor: pointer; font: inherit; font-size: 12px; text-align: left; }
+.certificate-selection-actions button:disabled { opacity: .5; cursor: default; }
+.certificate-student-list { max-height: 55vh; overflow: auto; margin-bottom: 18px; }
+.certificate-student { display: flex; align-items: center; gap: 10px; padding: 10px 8px; border: 1px solid transparent; border-bottom-color: var(--line-200); border-radius: var(--radius-md); }
+.certificate-student.is-active { background: var(--bg-app); border-color: var(--blue-600); }
+.certificate-student > input { flex-shrink: 0; width: 16px; height: 16px; accent-color: var(--blue-600); }
+.certificate-student button { display: grid; gap: 4px; min-width: 0; flex: 1; padding: 0; color: var(--ink-900); text-align: left; border: 0; background: transparent; font: inherit; cursor: pointer; overflow-wrap: anywhere; }
+.certificate-student strong { font-size: 12px; }
+.certificate-student small { color: var(--ink-500); font-size: 10px; line-height: 1.5; }
+.certificate-school-details { border-top: 1px solid var(--line-200); padding-top: 18px; margin-top: 20px; }
+.certificate-school-details summary { color: var(--ink-900); font-weight: 700; cursor: pointer; font-size: 13px; margin-bottom: 16px; }
+.certificate-preview-pane { min-width: 0; }
+.certificate-toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: 12px; min-width: 0; margin: 0; padding: 18px 24px; background: var(--bg-card); border: 0; border-bottom: 1px solid var(--line-200); }
+.certificate-toolbar .certificate-field { width: 135px; margin-bottom: 0; }
+.certificate-toolbar .btn { width: auto; }
+.certificate-preview-info { padding: 12px 24px; border-bottom: 1px solid var(--line-200); }
+.certificate-preview-info > p { margin: 4px 0; font-size: 12px; }
+.certificate-validation { color: var(--warning-600); line-height: 1.6; }
+.certificate-validation button { margin-left: 6px; text-decoration: underline; }
+.certificate-preview-stage { display: flex; justify-content: safe center; align-items: flex-start; padding: 24px; overflow: auto; min-height: 550px; max-height: 90vh; }
+.certificate-sheet { box-sizing: border-box; position: relative; background: #fff !important; color: #000 !important; flex-shrink: 0; overflow: hidden; box-shadow: 0 8px 30px #0002; }
+.certificate-print-source, .certificate-current-source { position: fixed; top: 0; left: -20000px; pointer-events: none; }
+.certificate-notices { padding: 8px 28px; background: var(--bg-card); color: var(--warning-600); font-size: 13px; border-bottom: 1px solid var(--line-200); }
+.certificate-export-menu { position: relative; }
+.certificate-export-menu summary { cursor: pointer; list-style: none; }
+.certificate-export-menu > div { position: absolute; z-index: 10; top: calc(100% + 6px); right: 0; display: grid; width: 220px; padding: 6px; border: 1px solid var(--line-200); border-radius: var(--radius-md); background: var(--bg-card); box-shadow: var(--shadow-pop); }
+.certificate-export-menu button { padding: 10px; border: 0; background: transparent; color: var(--ink-900); text-align: left; cursor: pointer; }
+.certificate-export-menu button:disabled { opacity: .5; cursor: default; }
+.certificate-export-menu button:hover:not(:disabled) { background: var(--bg-app); }
+@media (max-width: 1000px) {
+  .certificate-topbar { align-items: flex-start; flex-direction: column; padding: 18px; }
+  .certificate-workspace { grid-template-columns: 290px minmax(0, 1fr); }
+  .certificate-editor { padding: 16px; }
+}
+@media (max-width: 720px) {
+  .certificate-workspace { grid-template-columns: minmax(0, 1fr); }
+  .certificate-editor { border-right: 0; border-bottom: 1px solid var(--line-200); }
+  .certificate-student-list { max-height: 280px; }
+  .certificate-toolbar { padding: 16px; }
+  .certificate-toolbar .certificate-field { flex: 1 1 120px; }
+}
+@media print {
+  body:has(.certificate-app), body:has(.certificate-app) #root { margin: 0 !important; padding: 0 !important; background: #fff !important; min-width: 0; }
+  .certificate-topbar, .certificate-workspace, .certificate-notices, .certificate-current-source, body:has(.certificate-app) .test-mode-stamp, body:has(.certificate-app) .eduai-availability-notice { display: none !important; }
+  .certificate-app { min-height: 0; background: #fff; }
+  .certificate-print-source { position: static; display: block; pointer-events: auto; }
+  .certificate-print-source > div { break-after: page; break-inside: avoid; }
+  .certificate-print-source > div:last-child { break-after: auto; }
+  .certificate-sheet { box-shadow: none; }
+  .certificate-print-incomplete { color: #000; padding: 25mm; }
+}

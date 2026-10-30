@@ -28,6 +28,7 @@ export function initAdminSectionTabs() {
   const tabs = [
     document.getElementById("adminStructureTab"),
     document.getElementById("adminCardPreferencesTab"),
+    document.getElementById("adminCertificatePreferencesTab"),
     document.getElementById("adminAccessTab"),
     document.getElementById("adminBackupTab"),
     document.getElementById("adminAuditTab"),
@@ -35,6 +36,7 @@ export function initAdminSectionTabs() {
   const panels = [
     document.getElementById("adminStructurePanel"),
     document.getElementById("adminCardPreferencesPanel"),
+    document.getElementById("adminCertificatePreferencesPanel"),
     document.getElementById("adminAccessPanel"),
     document.getElementById("adminBackupPanel"),
     document.getElementById("adminAuditPanel"),

@@ -1,0 +1,53 @@
+/* Fixed document colors and physical dimensions keep every theme out of printed records. */
+.certificate-document {
+  position: relative;
+  box-sizing: border-box;
+  width: 210mm;
+  height: 297mm;
+  padding: 15mm 25.4mm 25.4mm;
+  background: #fff !important;
+  color: #000 !important;
+  color-scheme: light;
+  font: 11pt/1.15 Arial, sans-serif;
+  text-shadow: none !important;
+  transform-origin: top left;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+.certificate-document *, .certificate-document *::before, .certificate-document *::after {
+  box-sizing: border-box;
+  color: inherit;
+  text-shadow: none !important;
+}
+.certificate-document p { margin: 0; }
+.certificate-document .certificate-letterhead { height: 46.5mm; text-align: center; border-bottom: 1pt solid #000; padding-bottom: 2mm; overflow-wrap: anywhere; }
+.certificate-document .certificate-deped-seal { display: block; width: 14.82mm; height: 14.82mm; object-fit: contain; margin: 0 auto 2mm; }
+.certificate-document .certificate-deped-heading { display: block; width: 63.5mm; height: 12.7mm; margin: 0 auto; object-fit: contain; }
+.certificate-document .certificate-region { font: 11pt/1.35 'Century Gothic', Arial, sans-serif; }
+.certificate-document .certificate-division { font: bold 11pt/1.35 'Segoe Script', cursive; }
+.certificate-document .certificate-district { font: bold 10pt/1.15 Arial, sans-serif; }
+.certificate-document h1 { margin: 17mm 0 12.7mm; color: #000 !important; font: bold 20pt/1.15 Arial, sans-serif; text-align: center; letter-spacing: normal; }
+.certificate-document .certificate-body { font: 11pt/2.3 Arial, sans-serif; }
+.certificate-document .certificate-body > p { margin: 0 0 2.8mm; text-align: justify; text-indent: 12.7mm; overflow-wrap: anywhere; }
+.certificate-document--good-moral .certificate-body > p { margin-bottom: 0; }
+.certificate-document .certificate-body > .certificate-salutation { font-weight: bold; margin-bottom: 3mm; }
+.certificate-document .certificate-fill { display: inline-block; max-width: 100%; text-indent: 0; border-bottom: .5pt solid #000; font-weight: bold; line-height: 1.15; white-space: pre-wrap; text-align: center; }
+.certificate-document sup { font-size: .65em; vertical-align: super; line-height: 0; }
+.certificate-document .certificate-signature { width: 100%; margin: 18mm 0 0; text-align: center; line-height: 1.15; overflow-wrap: anywhere; }
+.certificate-document .certificate-signature strong, .certificate-document .certificate-signature span { display: block; }
+.certificate-document--enrollment .certificate-signature { margin-top: 13.5mm; }
+.certificate-document .certificate-seal-note { position: absolute; left: 25.4mm; bottom: 43mm; color: #808080 !important; font-size: 11pt; }
+.certificate-document .certificate-footer { position: absolute; bottom: 12.5mm; left: 12mm; right: 12mm; display: flex; align-items: flex-start; gap: 7mm; border-top: 1.5pt solid #000; padding-top: 3mm; }
+.certificate-document .certificate-footer-logos { display: flex; width: 85mm; margin-left: -5mm; flex-shrink: 0; align-items: center; gap: 1.4mm; padding-top: 1mm; }
+.certificate-document .certificate-footer-logos img, .certificate-document .certificate-logo-space { display: block; width: 16mm; height: 18mm; object-fit: contain; }
+.certificate-document .certificate-contact { flex: 1; min-width: 0; font: 11pt/1.15 'Times New Roman', serif; overflow-wrap: anywhere; }
+.certificate-document .certificate-motto { margin-top: 1mm; text-align: center; font: 18pt/1.1 'Edwardian Script ITC', 'Brush Script MT', cursive; }
+.certificate-document .certificate-motto img { display: block; width: 58.2mm; max-width: 100%; height: auto; margin: 0 auto; }
+.certificate-document--sres .certificate-division { border-bottom: 1.5pt solid #000; }
+.certificate-document--sres .certificate-body { line-height: 2; }
+.certificate-document--sres .certificate-footer { left: 12mm; right: 12mm; gap: 7mm; align-items: center; }
+.certificate-document--sres .certificate-sres-logo { flex: 0 0 22mm; height: 22mm; }
+.certificate-document--sres .certificate-sres-logo img { width: 100%; height: 100%; object-fit: contain; }
+.certificate-document--sres .certificate-sres-contact { min-width: 0; flex: 1; font: 10pt/1.4 'Century Gothic', Arial, sans-serif; overflow-wrap: anywhere; }
+.certificate-document--sres .certificate-sres-school { color: #385623 !important; font: bold 10pt/1.4 'Arial Black', Arial, sans-serif; }
+.certificate-document--sres .certificate-motto { text-align: left; font-size: 14pt; font-weight: bold; }
