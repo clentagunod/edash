@@ -23,6 +23,7 @@ import {
 import { getRegisteredSchools, getStoredSchool } from '../lib/school-registry';
 import type { RegisteredSchool, SchoolInfo } from '../lib/school-registry';
 import { isLetterGradedLevel } from '../lib/student-card';
+import { learnerCardRecord } from '../lib/learner-card-record';
 import { applySavedTheme } from '../lib/shell';
 import { formatLearnerName } from '../lib/learner-sorting';
 import {
@@ -117,10 +118,6 @@ function localityFromDivisionOffice(divisionOffice: string): string {
   return divisionOffice.replace(/^schools division office of\s*/i, '').trim();
 }
 
-function emptyAttendance(months = DEFAULT_MONTHS): AttendanceEntry {
-  return Object.fromEntries(months.map((month) => [month, '']));
-}
-
 function makeManualFields(
   schoolName: string,
   schoolYear: string,
@@ -130,6 +127,7 @@ function makeManualFields(
   adviser = '',
 ): ManualCardFields {
   const birthDate = asText(learner?.birthDate || learner?.dateOfBirth);
+  const cardRecord = learnerCardRecord(learner || {});
   return {
     studentName: learner ? learnerName(learner) : '',
     learnerId: asText(learner?.learnerId || learner?.lrn),
@@ -147,17 +145,13 @@ function makeManualFields(
     locality: localityFromDivisionOffice(asText(schoolInfo.divisionOffice)),
     track: '',
     comments: '',
-    termComments: ['', '', '', ''],
+    termComments: cardRecord.teacherComments,
     admittedGrade: '',
     eligibleGrade: '',
     transferAdmittedIn: '',
     transferDate: '',
     cancellationSchoolHead: '',
-    attendance: {
-      classDays: emptyAttendance(),
-      daysPresent: emptyAttendance(),
-      daysAbsent: emptyAttendance(),
-    },
+    attendance: cardRecord.attendance,
   };
 }
 

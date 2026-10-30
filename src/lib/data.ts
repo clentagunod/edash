@@ -25,6 +25,7 @@ export const DATA_FIELDS = [
   ["transferType", "Transfer Type"], ["transferSchool", "Transfer School"], ["transferDate", "Transfer Date"],
   ["transferReason", "Transfer Reason"], ["transferNotes", "Transfer Notes"],
   ["anecdotalRecords", "Anecdotal Records"],
+  ["teacherComments", "Teacher Comments"], ["attendance", "Attendance"],
   ["enrollmentStatus", "Enrollment Status"], ["eosyStatus", "EOSY Status"], ["schoolYear", "School Year"],
 ];
 
@@ -205,6 +206,9 @@ export function humanizeDataHeader(value) {
 }
 
 export function exportValue(record, key, schoolYear = "") {
+  if (key === "teacherComments" || key === "attendance") {
+    return record[key] != null && record[key] !== "" ? JSON.stringify(record[key]) : "";
+  }
   if (key === "schoolYear") {
     return [record.schoolYear, record.extra?.schoolYear, schoolYear]
       .map((value) => String(value ?? "").trim()).find(Boolean) || "";

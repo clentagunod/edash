@@ -1,6 +1,7 @@
 // @ts-nocheck -- ported from the original site; behavior preserved, not yet fully typed.
 import { APP_CONFIG, canManageLearners, isTeacher } from './app-config';
-import { fsGetPromotionConfiguration, fsGetSections } from './firestore-api';
+import { fsGetCardPrintingPreferences, fsGetPromotionConfiguration, fsGetSections } from './firestore-api';
+import { collectLearnerCardFields, loadLearnerCardFields } from './learner-card-record';
 import { LPSApi } from './sheets-api';
 import { getSelectedSchoolYear, initYearSwitcher } from './school-year';
 import { appDateInputValue, escapeHtml, renderShell, showToast } from './shell';
@@ -23,6 +24,7 @@ const PROMOTION_SYSTEM_FIELDS = new Set([
   "enrollmentStatus", "eosyStatus", "transferType", "transferIn", "transferOut",
   "transferSchool", "transferDate", "transferReason", "transferNotes",
   "progressionSourceSchoolYear", "progressionType",
+  "teacherComments", "attendance",
 ]);
 
 export async function initPromotion() {
@@ -181,8 +183,10 @@ export async function openPromotionForm(record) {
   document.getElementById("promotionLearnerName").textContent = formatLearnerName(record, "Learner");
   document.getElementById("promotionLearnerId").textContent = record.learnerId || "";
   renderPromotionEditableFields(record);
+  const cardFieldsRequest = loadLearnerCardFields(document.getElementById("promotionCardFields"), record, fsGetCardPrintingPreferences);
   yearSelect.value = targetYear;
   await loadPromotionTargetStructure(targetYear, record);
+  await cardFieldsRequest;
   const gradeLabel = document.querySelector('label[for="promotionGradeLevel"]');
   if (gradeLabel) gradeLabel.textContent = progressionMode === "retention" ? "Current grade (locked)" : "Target grade";
   document.getElementById("promotionModalTitle").textContent = progressionMode === "retention" ? "Retain learner" : "Promote learner";
@@ -211,6 +215,10 @@ function ensurePromotionModal() {
               <p class="field-hint">The source-year record remains unchanged. Updates entered here apply only to the succeeding-year record.</p>
               <div class="field-grid" id="promotionEditableFields"></div>
             </details>
+            <div class="promotion-details">
+              <p class="field-hint">Teacher Comments and attendance are copied from the source year. Review or clear them for the succeeding school year before proceeding.</p>
+              <div id="promotionCardFields"></div>
+            </div>
           </div>
           <div class="modal-footer"><button class="btn btn-secondary" type="button" id="promotionModalCancel">Cancel</button><button class="btn btn-primary" type="submit" id="promotionSubmit">Promote learner</button></div>
         </form>
@@ -338,6 +346,7 @@ async function submitPromotion(event) {
       else if (input.type === "number") updatedLearner[field] = input.value === "" ? "" : Number(input.value);
       else updatedLearner[field] = input.value;
     });
+    Object.assign(updatedLearner, collectLearnerCardFields(document.getElementById("promotionCardFields")));
     updatedLearner.gradeLevel = progressionMode === "retention"
       ? promotionRecord.gradeLevel
       : document.getElementById("promotionGradeLevel").value;

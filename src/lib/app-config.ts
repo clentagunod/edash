@@ -94,7 +94,7 @@ export const APP_CONFIG = Object.freeze({
       "literacyLanguageCommunication", "socioEmotionalDevelopment", "valuesDevelopment", "physicalHealthMotorDevelopment",
       "aestheticCreativeDevelopment", "cognitiveDevelopment", "gmrc", "language", "readingLiteracy", "makabansa", "eppTle",
       "tle", "valuesEducation", "mapeh", "musicAndArts", "physicalEducationAndHealth", "gradesByTerm",
-      "transferType", "transferIn", "transferOut", "transferSchool", "transferDate", "transferReason", "transferNotes", "anecdotalRecords", "progressionSourceSchoolYear", "progressionType", "extra",
+      "transferType", "transferIn", "transferOut", "transferSchool", "transferDate", "transferReason", "transferNotes", "anecdotalRecords", "teacherComments", "attendance", "progressionSourceSchoolYear", "progressionType", "extra",
     ]),
   }),
 });

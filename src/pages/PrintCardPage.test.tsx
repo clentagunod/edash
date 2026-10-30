@@ -78,14 +78,15 @@ describe('Card print studio', () => {
   it('supports precision layout editing, undo/redo, preview mode and panel switching', async () => {
     Object.defineProperty(window, 'matchMedia', { configurable: true, value: vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })) });
     vi.mocked(firestore.fsGetSchoolYears).mockResolvedValue([{ schoolYear: '2026-2027', isCurrent: true }] as never);
-    vi.mocked(firestore.fsGetLearners).mockResolvedValue([{ learnerId: '123', firstName: 'Alex', lastName: 'Reyes', gradeLevel: 'Grade 4' }] as never);
+    const learner = { learnerId: '123', firstName: 'Alex', lastName: 'Reyes', gradeLevel: 'Grade 4', teacherComments: ['Steady progress', 'Reads confidently', 'Ready for next year'], attendance: { classDays: { Jun: '21' }, daysPresent: { Jun: '20' }, daysAbsent: { Jun: '1' } } };
+    vi.mocked(firestore.fsGetLearners).mockResolvedValue([learner] as never);
     vi.mocked(firestore.fsGetSections).mockResolvedValue([]);
     vi.mocked(firestore.fsGetGradeSubjectAssignments).mockResolvedValue({ grades: {}, subjects: [] } as never);
     vi.mocked(firestore.fsGetGradeLevelGradingConfigurations).mockResolvedValue({ gradeLevels: {} } as never);
     vi.mocked(firestore.fsGetGradeTermCount).mockResolvedValue(4);
     vi.mocked(firestore.fsGetPassingThreshold).mockResolvedValue(75);
     vi.mocked(firestore.fsGetRoundType).mockResolvedValue('whole' as never);
-    vi.mocked(firestore.fsGetCardPrintingPreferences).mockResolvedValue({ activeTemplate: 'sf9', gradeTemplates: {}, attendanceMonths: ['Jun'], attendanceRows: [{ id: 'classDays', label: 'Class days' }] } as never);
+    vi.mocked(firestore.fsGetCardPrintingPreferences).mockResolvedValue({ activeTemplate: 'sf9', gradeTemplates: {}, attendanceMonths: ['Jun'], attendanceRows: [{ id: 'classDays', label: 'Class days' }, { id: 'daysPresent', label: 'Present' }, { id: 'daysAbsent', label: 'Absent' }] } as never);
     const container = document.createElement('div');
     document.body.append(container);
     const root = createRoot(container);
@@ -129,6 +130,25 @@ describe('Card print studio', () => {
     const panels = container.querySelectorAll<HTMLElement>('.student-card-editor-section');
     expect(panels[0].hidden).toBe(true);
     expect(panels[1].hidden).toBe(false);
+    const comments = container.querySelector<HTMLTextAreaElement>('.student-card-attendance-fields textarea')!;
+    expect(comments.value).toBe('Steady progress');
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Class days Jun"]')!.value).toBe('21');
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Present Jun"]')!.value).toBe('20');
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Absent Jun"]')!.value).toBe('1');
+    expect([...container.querySelectorAll('.sf9-comment-box p')].some((element) => element.textContent === 'Ready for next year')).toBe(true);
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!.call(comments, 'Printing correction');
+      comments.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect([...container.querySelectorAll('.sf9-comment-box p')].some((element) => element.textContent === 'Printing correction')).toBe(true);
+    const present = container.querySelector<HTMLInputElement>('[aria-label="Present Jun"]')!;
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(present, '19');
+      present.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect([...container.querySelectorAll('.sf9-attendance-table tr')].some((row) => row.textContent === 'Present1919')).toBe(true);
+    expect(learner.teacherComments[0]).toBe('Steady progress');
+    expect(learner.attendance.daysPresent.Jun).toBe('20');
     // Switching paper sizes invalidates history from the previous paper geometry.
     const paperSelect = container.querySelector<HTMLSelectElement>('.student-card-paper-control select')!;
     act(() => { paperSelect.value = 'a5'; paperSelect.dispatchEvent(new Event('change', { bubbles: true })); });
