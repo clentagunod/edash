@@ -237,7 +237,7 @@ const CURATED = [
   E('Admin Console', 'Add User', 'manage-users.html', '#addUserBtn', 'plus', 'new user account', 'admin'),
 
   /* ---- Print Card -------------------------------------------------------- */
-  E('Student Card', 'Print Card', 'student-card.html', '#openPrintableStudio', 'clipboard', 'print report card learner grades printables', 'grades'),
+  E('Learner Card', 'Print Card', 'student-card.html', '#openPrintableStudio', 'clipboard', 'print report card learner student card grades printables', 'grades'),
   E('Good Moral', 'Print Good Moral', 'good-moral.html', '#openPrintableStudio', 'sheet', 'certificate good moral conduct printables'),
   E('Certificate of Enrollment', 'Print Certificate of Enrollment', 'certificate-of-enrollment.html', '#openPrintableStudio', 'graduationCap', 'certificate enrollment coe printables'),
 ];

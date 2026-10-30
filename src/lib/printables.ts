@@ -8,7 +8,7 @@ export type CertificateLearner = Record<string, unknown> & { learnerId: string }
 
 export const PRINTABLES = {
   'student-card': {
-    title: 'Student Card',
+    title: 'Learner Card',
     navKey: 'student-card',
     page: 'student-card.html',
     workspace: 'print-card.html',

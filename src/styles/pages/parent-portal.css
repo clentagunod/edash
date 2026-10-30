@@ -48,6 +48,7 @@
 .parent-detail-section-heading h2 { margin-bottom: 12px; }
 .parent-visibility-toggle { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 12px; padding: 6px 9px; border: 1px solid #cbd9ee; border-radius: 9px; color: #245b98; background: #f7faff; font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; }
 .parent-sensitive-value { color: #8a95a5 !important; font-style: italic; }
+.parent-anecdotal-text { margin: 0; color: inherit; font-size: 13px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 .parent-detail-section h2 { margin: 0 0 12px; color: #30435d; font-size: 14px; }
 .parent-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin: 0; overflow: hidden; border: 1px solid #e2e8ef; border-radius: 11px; background: #e2e8ef; }
 .parent-detail-grid > div { min-width: 0; padding: 12px 14px; background: #fff; }

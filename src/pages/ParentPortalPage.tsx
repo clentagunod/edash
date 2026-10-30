@@ -309,12 +309,16 @@ export default function ParentPortalPage() {
             <DetailSection title="School record" fields={SCHOOL_FIELDS} learner={learner} />
             <DetailSection title="Nutrition record" fields={NUTRITION_FIELDS} learner={learner} />
             <section className="parent-detail-section">
-              <div className="parent-detail-section-heading"><h2>Grades and assessments</h2><button className="parent-visibility-toggle" type="button" onClick={() => setShowGrades((value) => !value)} aria-pressed={showGrades} aria-label={showGrades ? 'Hide grades' : 'Show grades'} title={showGrades ? 'Hide grades' : 'Show grades'}><span aria-hidden="true">{showGrades ? '◉' : '◌'}</span> {showGrades ? 'Hide grades' : 'Show grades'}</button></div>
+              <div className="parent-detail-section-heading"><h2>Grades and assessments</h2><button className="parent-visibility-toggle" type="button" onClick={() => setShowGrades((value) => !value)} aria-pressed={showGrades} aria-label={showGrades ? 'Hide grades, assessments, and anecdotal records' : 'Show grades, assessments, and anecdotal records'} title={showGrades ? 'Hide grades, assessments, and anecdotal records' : 'Show grades, assessments, and anecdotal records'}><span aria-hidden="true">{showGrades ? '◉' : '◌'}</span> {showGrades ? 'Hide details' : 'Show details'}</button></div>
               <GradeProfiles learner={learner} termCount={gradeTermCount} hidden={!showGrades} />
               <DetailSection title="" fields={ASSESSMENT_FIELDS} learner={learner} hidden={!showGrades} />
             </section>
             <DetailSection title="Transfer information" fields={TRANSFER_FIELDS} learner={learner} />
             {learner.extra && Object.keys(learner.extra).length > 0 && <DetailSection title="Additional information" fields={Object.keys(learner.extra)} learner={learner.extra} />}
+            <section className="parent-detail-section parent-anecdotal-records" aria-labelledby="parent-anecdotal-records-title">
+              <h2 id="parent-anecdotal-records-title">Anecdotal Records</h2>
+              <p className={`parent-anecdotal-text${showGrades ? '' : ' parent-sensitive-value'}`}>{!showGrades ? 'Hidden' : typeof learner.anecdotalRecords === 'string' && learner.anecdotalRecords.trim() ? learner.anecdotalRecords : 'No anecdotal records recorded.'}</p>
+            </section>
           </section>
         )}
       </div>
