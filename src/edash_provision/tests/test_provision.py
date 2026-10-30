@@ -79,6 +79,10 @@ class ProvisionTests(unittest.TestCase):
         learner = structure["recordSchemas"]["schoolYears/{schoolYear}/learners/{LRN}"]
         self.assertEqual(learner["teacherComments"]["default"], ["", "", ""])
         self.assertEqual(learner["attendance"]["default"], {"classDays": {}, "daysPresent": {}, "daysAbsent": {}})
+        self.assertEqual(learner["documentStatus"]["default"], "")
+        self.assertEqual(learner["documentStatusCustom"]["default"], "")
+        self.assertEqual(learner["documentStatusDates"]["default"], {})
+        self.assertEqual(learner["enrollmentStatus"]["default"], "ACTIVE")
         self.assertFalse(any("/learners/" in doc.path for doc in prepare_plan(self.options).documents))
 
     def test_custom_user_structure_fills_preference_defaults_without_losing_choices(self):

@@ -37,9 +37,11 @@ const {
   normalizeNotAvailableInput,
   renderLearnerDetailSections,
   renderLearnersTable,
+  renderLearnerTermGrades,
   sentenceCaseName,
   sortLearners,
   wireGuardianContactFields,
+  wireModal,
 } = await import('./learner-list');
 const { showToast } = await import('./shell');
 const { fsCanonicalLearner_ } = await import('./firestore-api');
@@ -131,12 +133,59 @@ describe('shared learner forms and Anecdotal Records', () => {
     organizeLearnerForm(form);
     expect(controls().sort((a, b) => a.id.localeCompare(b.id))).toEqual(before);
     expect(document.querySelectorAll('#f_anecdotalRecords')).toHaveLength(1);
-    expect([...form.querySelectorAll('[data-learner-section]')].slice(-3).map((section) => section.getAttribute('data-learner-section'))).toEqual(['transfer', 'anecdotal', 'card-record']);
+    expect([...form.querySelectorAll('[data-learner-section]')].slice(-3).map((section) => section.getAttribute('data-learner-section'))).toEqual(['anecdotal', 'card-record', 'transfer']);
+    expect(form.querySelector('#f_eosyStatus')!.closest<HTMLElement>('[data-learner-section]')!.dataset.learnerSection).toBe('transfer');
+    expect(form.querySelector('[data-learner-section="learning"] legend')!.textContent).toContain('Learner Assessment');
+    expect([...form.querySelector<HTMLSelectElement>('#f_enrollmentStatus')!.options].map((option) => [option.value, option.textContent])).toEqual([['ACTIVE', 'Active'], ['INACTIVE', 'Inactive']]);
+    expect(form.querySelector('#f_transferNotes')).toBeNull();
+    expect(form.querySelector('[data-document-status]')).not.toBeNull();
     expect(form.querySelectorAll('[data-teacher-comment]')).toHaveLength(3);
+    const gradeFields = form.querySelector<HTMLElement>('.subject-input-group')!;
+    expect(gradeFields.closest<HTMLElement>('[data-learner-section]')!.dataset.learnerSection).toBe('card-record');
+    expect(form.querySelector('[data-learner-section="learning"] .subject-inputs')).toBeNull();
+    expect(form.querySelector('[data-learner-section="card-record"] .learner-form-section-grid')!.firstElementChild).toBe(gradeFields);
     input.dispatchEvent(new Event('input', { bubbles: true }));
     expect(onInput).toHaveBeenCalledOnce();
     form.reset();
     expect(input.value).toBe('');
+  });
+
+  it('switches grades and teacher comments together without losing draft values for earlier terms', () => {
+    const previousState = { ...LL };
+    try {
+      document.body.innerHTML = Object.values(learnerPageMarkup)[0];
+      LL.curriculumSubjects = [{ id: 'math', label: 'Mathematics' }];
+      LL.activeSubjectIds = ['math'];
+      LL.gradeTerm = 'quarter1';
+      LL.editingLearnerOriginal = { gradesByTerm: { quarter1: { math: '81' }, quarter2: { math: '92' } } };
+      LL.gradingConfigReady = false;
+      wireModal();
+      const form = document.querySelector<HTMLFormElement>('#learnerForm')!;
+      renderLearnerCardFields(form, { teacherComments: ['First comment', 'Second comment', 'Third comment'] }, cardPreferences);
+      organizeLearnerForm(form);
+      renderLearnerTermGrades('quarter1');
+      const select = form.querySelector<HTMLSelectElement>('#f_gradeTerm')!;
+      const math = form.querySelector<HTMLInputElement>('#f_math')!;
+      const comment = (index: number) => form.querySelector<HTMLTextAreaElement>(`[data-teacher-comment="${index}"]`)!;
+      expect(math.value).toBe('81');
+      math.value = '84';
+      comment(0).value = 'First draft';
+      select.value = 'quarter2';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      expect(math.value).toBe('92');
+      expect(comment(0).closest('label')!.hidden).toBe(true);
+      expect(comment(1).closest('label')!.hidden).toBe(false);
+      math.value = '95';
+      comment(1).value = 'Second draft';
+      select.value = 'quarter1';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      expect(math.value).toBe('84');
+      expect(LL.editingLearnerOriginal.gradesByTerm.quarter2.math).toBe('95');
+      expect(comment(0).value).toBe('First draft');
+      expect(comment(1).value).toBe('Second draft');
+      expect(comment(0).closest('label')!.hidden).toBe(false);
+      expect(comment(1).closest('label')!.hidden).toBe(true);
+    } finally { Object.assign(LL, previousState); }
   });
 
   it('keeps Anecdotal Records in canonical Firestore data with an empty default for older records', () => {
@@ -146,6 +195,9 @@ describe('shared learner forms and Anecdotal Records', () => {
     expect(fsCanonicalLearner_({ attendance: { daysPresent: { Aug: 20 } }, teacherComments: ['One', 'Two', 'Three'] })).toEqual(expect.objectContaining({
       teacherComments: ['One', 'Two', 'Three'], attendance: { classDays: {}, daysPresent: { Aug: '20' }, daysAbsent: {} },
     }));
+    const documentStatusDates = { 'Preparing Documents': '2026-10-28', Transmitted: '2026-10-30' };
+    expect(fsCanonicalLearner_({ documentStatus: 'Transmitted', documentStatusDates })).toEqual(expect.objectContaining({ documentStatus: 'Transmitted', documentStatusDates }));
+    expect(fsCanonicalLearner_({}).documentStatusDates).toEqual({});
   });
 
   it('preserves saved card records when older update callers omit them, and accepts explicit clearing', async () => {
@@ -160,6 +212,8 @@ describe('shared learner forms and Anecdotal Records', () => {
       expect(saved.attendance.daysPresent.Aug).toBe('20');
       expect(ref.set.mock.calls[0][0]).not.toHaveProperty('teacherComments');
       expect(ref.set.mock.calls[0][0]).not.toHaveProperty('attendance');
+      expect(ref.set.mock.calls[0][0]).not.toHaveProperty('documentStatus');
+      expect(ref.set.mock.calls[0][0]).not.toHaveProperty('documentStatusDates');
       await firestoreApi.fsUpdateLearner('2026-2027', '123456789012', { teacherComments: ['', '', ''], attendance: { classDays: {}, daysPresent: {}, daysAbsent: {} } });
       expect(saved.teacherComments).toEqual(['', '', '']);
       expect(saved.attendance).toEqual({ classDays: {}, daysPresent: {}, daysAbsent: {} });
@@ -187,11 +241,17 @@ describe('shared learner forms and Anecdotal Records', () => {
     const update = vi.spyOn(LPSApi, 'updateArchiveRecord').mockResolvedValue({ updated: true });
     try {
       await openArchiveEditor('transferredOut', '2026-2027', { learnerId: '123456789012', firstName: 'Alex', lastName: 'Cruz', gender: 'Male' }, vi.fn());
+      const status = document.querySelector<HTMLSelectElement>('[data-document-status]')!;
+      status.value = 'Received Documents';
+      status.dispatchEvent(new Event('change', { bubbles: true }));
+      document.querySelector<HTMLInputElement>('[data-document-status-date]')!.value = '2026-10-30';
+      expect(document.querySelector('#archiveEosyStatus')!.closest('[data-learner-section]')!.getAttribute('data-learner-section')).toBe('transfer');
+      expect(document.querySelector('#archiveEditorForm .field-grid')!.lastElementChild!.getAttribute('data-learner-section')).toBe('transfer');
       document.querySelector<HTMLTextAreaElement>('[data-teacher-comment="2"]')!.value = 'Third-term progress';
       document.querySelector<HTMLInputElement>('[aria-label="Present Aug"]')!.value = '20';
       document.querySelector<HTMLTextAreaElement>('#archiveAnecdotalRecords')!.value = 'Verified observation.\nFollow-up completed.';
       document.querySelector('#archiveEditorForm')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-      await vi.waitFor(() => expect(update).toHaveBeenCalledWith('transferredOut', '2026-2027', '123456789012', expect.objectContaining({ anecdotalRecords: 'Verified observation.\nFollow-up completed.', teacherComments: ['', '', 'Third-term progress'], attendance: expect.objectContaining({ daysPresent: { Aug: '20', Sep: '' } }) })));
+      await vi.waitFor(() => expect(update).toHaveBeenCalledWith('transferredOut', '2026-2027', '123456789012', expect.objectContaining({ anecdotalRecords: 'Verified observation.\nFollow-up completed.', teacherComments: ['', '', 'Third-term progress'], attendance: expect.objectContaining({ daysPresent: { Aug: '20', Sep: '' } }), documentStatus: 'Received Documents', documentStatusDates: { 'Received Documents': '2026-10-30' } })));
     } finally { update.mockRestore(); }
   });
 });

@@ -9,14 +9,15 @@ const workbookPath = resolve("scripts/Backup_SanRoqueEs.xlsx");
 describe("parseLearnerWorkbook", () => {
   it("keeps structured teacher comments and attendance when importing learner workbooks", () => {
     const comments = ['First & second <term>', 'Literal &quot; and "quotes"', 'Third\nterm'];
-    const attendance = { classDays: { Aug: '20' }, daysPresent: { Aug: '20' }, daysAbsent: { Aug: '0' } };
+    const attendance = { classDays: { Aug: '20' }, daysPresent: { Aug: '19.5' }, daysAbsent: { Aug: '0.5' } };
+    const documentStatusDates = { 'Preparing Documents': '2026-10-28', Transmitted: '2026-10-30' };
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
-      ['Id', 'LRN', 'Teacher Comments', 'Attendance'],
-      ['123456789012', '123456789012', JSON.stringify(comments), JSON.stringify(attendance)],
+      ['Id', 'LRN', 'Teacher Comments', 'Attendance', 'Document Status', 'Document Status Dates'],
+      ['123456789012', '123456789012', JSON.stringify(comments), JSON.stringify(attendance), 'Transmitted', JSON.stringify(documentStatusDates)],
     ]), 'Backup_Learners_2026_2027');
     const parsed = parseLearnerWorkbook(XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }), '2026-2027');
-    expect(parsed.records[0].data).toMatchObject({ teacherComments: comments, attendance });
+    expect(parsed.records[0].data).toMatchObject({ teacherComments: comments, attendance, documentStatus: 'Transmitted', documentStatusDates });
   });
   it("parses learner records and maps LRN to both learnerId and document ID", async () => {
     const workbook = await readFile(workbookPath);

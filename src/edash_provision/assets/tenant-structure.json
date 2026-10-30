@@ -185,15 +185,35 @@
   ],
   "recordSchemas": {
     "schoolYears/{schoolYear}/learners/{LRN}": {
+      "enrollmentStatus": {
+        "type": "string",
+        "default": "ACTIVE",
+        "description": "Enrollment status selected as ACTIVE or INACTIVE. Transfers and dropouts are recorded separately through transfer flags and EOSY status."
+      },
+      "documentStatus": {
+        "type": "string",
+        "default": "",
+        "description": "Selected category: Successfully, Transmitted, Preparing Documents, Received Documents, or Custom. An empty string means not recorded."
+      },
+      "documentStatusCustom": {
+        "type": "string",
+        "default": "",
+        "description": "Custom Document Status label. Existing legacy transfer notes are retained and offered as Custom when no newer status is recorded."
+      },
+      "documentStatusDates": {
+        "type": "map<string,string>",
+        "default": {},
+        "description": "Date-only YYYY-MM-DD values keyed by Document Status category. Each category retains its own date when the selected category changes."
+      },
       "teacherComments": {
         "type": "array<string>",
         "default": ["", "", ""],
-        "description": "Three teacher comments in 1st, 2nd, and 3rd Term order. Saved per learner and school year, retained in archives, and used to prefill learner cards."
+        "description": "Teacher comments in term order, defaulting to three strings, with an optional fourth string for four-term school years. Saved per learner and school year, retained in archives, and used to prefill learner cards and the parent portal."
       },
       "attendance": {
         "type": "map<string,map<string,string>>",
         "default": { "classDays": {}, "daysPresent": {}, "daysAbsent": {} },
-        "description": "Monthly non-negative whole-number counts (or empty strings), keyed by Card Preferences month labels, under classDays, daysPresent, and daysAbsent. Stored per learner and school year and retained in archives."
+        "description": "Monthly non-negative decimal day counts (or empty strings), keyed by Card Preferences month labels. Add/edit forms calculate daysAbsent as classDays minus daysPresent; daysAbsent is read-only. Stored per learner and school year and retained in archives."
       },
       "anecdotalRecords": {
         "type": "string",
