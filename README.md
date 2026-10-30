@@ -25,6 +25,8 @@ Set `projectName` (a string of up to 120 characters) on each central registry do
 
 ## Project scripts
 
+School onboarding uses the selection-page request form, emailed invitations, a separate E-Dash registration page, and a private Google spreadsheet. See [School registration setup](./SCHOOL_REGISTRATION_SETUP.md) for the Apps Script deployment, Vercel server variables, GoDaddy `register.edash.online` DNS record, and manual provisioning workflow.
+
 | Command | Purpose |
 | --- | --- |
 | `npm run dev` | Start the local Vite development server. |

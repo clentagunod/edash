@@ -13,8 +13,7 @@ import {
   type RegisteredSchool,
 } from '../lib/school-registry';
 import TestModeStamp from '../components/TestModeStamp';
-
-const SCHOOL_REGISTRATION_API_URL = import.meta.env.VITE_SCHOOL_REGISTRATION_API_URL?.trim() || '';
+import { schoolRegistrationApi } from '../lib/school-registration-api';
 
 function safeMediaUrl(value: string): string | null {
   try {
@@ -202,14 +201,6 @@ export default function SchoolSelectionPage() {
     const onRegistrationSubmit = async (event: SubmitEvent) => {
       event.preventDefault();
       if (!registrationForm?.reportValidity()) return;
-      if (!SCHOOL_REGISTRATION_API_URL) {
-        if (registrationStatus) {
-          registrationStatus.textContent = 'School registration is not available yet. Please contact the E-Dash administrator.';
-          registrationStatus.className = 'school-registration-status is-error';
-          registrationStatus.hidden = false;
-        }
-        return;
-      }
       if (registrationSubmit) {
         registrationSubmit.disabled = true;
         registrationSubmit.textContent = 'Sending request…';
@@ -221,36 +212,15 @@ export default function SchoolSelectionPage() {
       const payload = Object.fromEntries(new FormData(registrationForm).entries());
       let submitted = false;
       try {
-        const controller = new AbortController();
-        const timeout = window.setTimeout(() => controller.abort(), 15000);
-        let response: Response;
-        try {
-          response = await fetch(SCHOOL_REGISTRATION_API_URL, {
-            method: 'POST',
-            redirect: 'follow',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action: 'submitSchoolRegistration', ...payload }),
-            signal: controller.signal,
-          });
-        } finally {
-          window.clearTimeout(timeout);
-        }
-        if (!response.ok) throw new Error(`Registration service returned HTTP ${response.status}.`);
-        const result: {
-          ok: boolean;
-          error?: string;
-          data?: { duplicate?: boolean; status?: string; schoolName?: string };
-        } = await response.json();
-        if (!result.ok) throw new Error(result.error || 'The registration request could not be sent.');
+        const result = await schoolRegistrationApi('submitSchoolRegistration', { ...payload, privacyAcknowledged: true });
         submitted = true;
         registrationForm.reset();
         if (registrationStatus) {
-          if (result.data?.duplicate && result.data.status === 'Pending') {
-            const schoolName = result.data.schoolName ? ` (${result.data.schoolName})` : '';
-            registrationStatus.textContent = `A similar registration request${schoolName} is already pending. Please wait for the E-Dash team to review it.`;
+          if (result.duplicate) {
+            registrationStatus.textContent = 'A registration request for this school and email has already been received. Please wait for the E-Dash team’s email or reply to your existing invitation.';
             registrationStatus.className = 'school-registration-status is-pending';
           } else {
-            registrationStatus.textContent = 'Your request has been sent. The E-Dash team will review it and contact you.';
+            registrationStatus.textContent = 'Your request has been received. The E-Dash team will review it and email your complete registration link. After you submit the full form, allow several days for manual database setup.';
             registrationStatus.className = 'school-registration-status is-success';
           }
           registrationStatus.hidden = false;
@@ -260,7 +230,7 @@ export default function SchoolSelectionPage() {
         if (registrationStatus) {
           registrationStatus.textContent = error instanceof Error && error.name === 'AbortError'
             ? 'The request timed out. Please check your connection and try again.'
-            : 'We could not send your request. Please try again later.';
+            : error instanceof Error ? error.message : 'We could not send your request. Please try again later.';
           registrationStatus.className = 'school-registration-status is-error';
           registrationStatus.hidden = false;
         }
