@@ -337,6 +337,22 @@ body[data-theme="clentindustries-theme"] .archive-editor-modal .modal-footer .bt
 .learner-attendance-scroll th, .learner-attendance-scroll td { padding: 6px; border: 1px solid var(--line-200); text-align: center; }
 .learner-attendance-scroll th[scope="row"] { text-align: left; min-width: 110px; }
 .learner-attendance-scroll input { width: 68px; min-width: 68px; text-align: center; }
+.learner-attendance-scroll input[readonly] { background: var(--bg-app); color: var(--ink-500); cursor: default; }
+.document-status-fields { display: grid; gap: 12px; min-width: 0; }
+.document-status-fields > label.field { display: grid; gap: 6px; margin: 0; }
+.document-status-fields [hidden] { display: none !important; }
+#learnerModalBackdrop [data-learner-section="learning"] .reading-input-group,
+#learnerModalBackdrop [data-learner-section="learning"] .math-input-group {
+  grid-column: auto;
+  padding: 15px;
+  border: 1px solid var(--line-200);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--bg-app) 55%, var(--bg-card));
+}
+#learnerModalBackdrop [data-learner-section="learning"] .reading-inputs,
+#learnerModalBackdrop [data-learner-section="learning"] .math-inputs { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+#learnerModalBackdrop [data-learner-section="learning"] .reading-inputs > label,
+#learnerModalBackdrop [data-learner-section="learning"] .math-inputs > label { display: grid; gap: 6px; font-size: 11px; font-weight: 600; text-transform: none; }
 
 @media (max-width: 900px) {
   .learner-form-section-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

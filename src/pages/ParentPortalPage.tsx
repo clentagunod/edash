@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { parentAuth } from '../lib/firebase';
-import { fsGetParentAccessEnabled, fsGetParentCurrentSchoolYear, fsGetParentGradeTermCount, fsGetParentLearner } from '../lib/firestore-api';
+import { fsGetParentAccessEnabled, fsGetParentCardPrintingPreferences, fsGetParentCurrentSchoolYear, fsGetParentGradeTermCount, fsGetParentLearner } from '../lib/firestore-api';
 import { LPSCache } from '../lib/cache';
 import { Icon } from '../lib/icons';
 import '../styles/pages/parent-portal.css';
@@ -9,6 +9,10 @@ import { APP_CONFIG, appBrandAssetUrl, updateSchoolFavicon } from '../lib/app-co
 import { getStoredSchool } from '../lib/school-registry';
 import { parentGradeProfiles } from '../lib/parent-grades';
 import { formatLearnerName } from '../lib/learner-sorting';
+import { DEFAULT_GRADE_TERM, DEFAULT_GRADE_TERM_COUNT, gradeTermsForCount } from '../lib/academic-grades';
+import { learnerCardRecord, teacherCommentIndex, type AttendancePreferences, type AttendanceRecord } from '../lib/learner-card-record';
+import { attendanceTotal } from '../lib/attendance';
+import { documentStatusRecord } from '../lib/document-status';
 
 type Learner = Record<string, any>;
 
@@ -20,7 +24,7 @@ const LABELS: Record<string, string> = {
   bosyNutritionalStatus: 'Baseline nutritional status', mosyHeight: 'Midline height', mosyWeight: 'Midline weight',
   mosyNutritionalStatus: 'Midline nutritional status', eosyHeight: 'Endline height', eosyWeight: 'Endline weight',
   eosyNutritionalStatus: 'Endline nutritional status', transferType: 'Transfer type', transferSchool: 'Transfer school',
-  transferDate: 'Transfer date', transferReason: 'Transfer reason', transferNotes: 'Transfer notes',
+  transferDate: 'Transfer date', transferReason: 'Transfer reason', documentStatus: 'Document Status', documentStatusDate: 'Document Status date',
   filipino: 'Filipino', english: 'English', math: 'Mathematics', science: 'Science', aralPan: 'Araling Panlipunan',
   esp: 'ESP', music: 'Music', arts: 'Arts', pe: 'Physical Education', health: 'Health', epp: 'EPP', motherTongue: 'Mother Tongue',
   bosyCRLA: 'BOSY CRLA', mosyCRLA: 'MOSY CRLA', eosyCRLA: 'EOSY CRLA', bosyPhilIRI: 'BOSY Phil-IRI', mosyPhilIRI: 'MOSY Phil-IRI', eosyPhilIRI: 'EOSY Phil-IRI',
@@ -34,13 +38,19 @@ const NUTRITION_FIELDS = [
   'bosyHeight', 'bosyWeight', 'bosyNutritionalStatus', 'mosyHeight', 'mosyWeight', 'mosyNutritionalStatus',
   'eosyHeight', 'eosyWeight', 'eosyNutritionalStatus',
 ];
-const TRANSFER_FIELDS = ['transferType', 'transferSchool', 'transferDate', 'transferReason', 'transferNotes'];
+const TRANSFER_FIELDS = ['transferType', 'transferSchool', 'transferDate', 'transferReason', 'documentStatus', 'documentStatusDate'];
 const ASSESSMENT_FIELDS = ['bosyCRLA', 'mosyCRLA', 'eosyCRLA', 'bosyPhilIRI', 'mosyPhilIRI', 'eosyPhilIRI', 'bosyRMA', 'mosyRMA', 'eosyRMA'];
 const PROGRAM_FIELDS = [
   ['is4Ps', '4Ps beneficiary'], ['isIP', 'IP learner'], ['isSNED', 'SNED learner'],
   ['isARAL', 'ARAL tagged'], ['isMuslim', 'Muslim learner'],
 ];
 const PARENT_LOOKUP_CACHE_TTL_MS = 60 * 1000;
+
+function parentTransferRecord(learner: Learner): Learner {
+  const status = documentStatusRecord(learner);
+  return { ...learner, documentStatus: status.documentStatus === 'Custom' ? status.documentStatusCustom : status.documentStatus,
+    documentStatusDate: status.documentStatusDates[status.documentStatus] || '' };
+}
 
 function waitForInitialAuthState(): Promise<any> {
   if (parentAuth.currentUser) return Promise.resolve(parentAuth.currentUser);
@@ -105,12 +115,12 @@ function DetailSection({ title, fields, learner, hidden = false }: { title: stri
   );
 }
 
-function GradeProfiles({ learner, termCount, hidden }: { learner: Learner; termCount: number; hidden: boolean }) {
+function GradeProfiles({ learner, termCount, term, hidden }: { learner: Learner; termCount: number; term: string; hidden: boolean }) {
   const profiles = parentGradeProfiles(learner, termCount);
   const hasGrades = profiles.some(({ grades }) => grades.length > 0);
   return (
     <div className="parent-grade-profiles">
-      {profiles.map(({ id, label, grades }) => (
+      {profiles.filter(({ id }) => id === term).map(({ id, label, grades }) => (
         <section className="parent-grade-profile" key={id}>
           <h3>{label}</h3>
           {grades.length ? (
@@ -130,6 +140,40 @@ function GradeProfiles({ learner, termCount, hidden }: { learner: Learner; termC
   );
 }
 
+function ParentCardRecords({ learner, term, hidden, preferences, attendanceError }: {
+  learner: Learner; term: string; hidden: boolean; preferences: AttendancePreferences | null; attendanceError: boolean;
+}) {
+  const card = learnerCardRecord(learner);
+  const commentIndex = teacherCommentIndex(term);
+  return (
+    <>
+      {commentIndex !== null && <section className="parent-detail-section parent-teacher-comments" aria-labelledby="parent-teacher-comments-title">
+        <h3 id="parent-teacher-comments-title">Teacher Comments</h3>
+        <p className={`parent-teacher-comment${hidden ? ' parent-sensitive-value' : ''}`}>
+          {hidden ? 'Hidden' : card.teacherComments[commentIndex]?.trim() ? card.teacherComments[commentIndex] : 'No teacher comment recorded for this term.'}
+        </p>
+      </section>}
+      <section className="parent-detail-section parent-attendance-record" aria-labelledby="parent-attendance-title">
+        <h3 id="parent-attendance-title">Attendance record</h3>
+        {preferences ? <div className="parent-attendance-scroll" role="region" aria-label="Monthly attendance" tabIndex={0}>
+          <table className="parent-attendance-table">
+            <thead><tr><th scope="col">Attendance</th>{preferences.attendanceMonths.map((month) => <th scope="col" key={month}>{month}</th>)}<th scope="col">Total</th></tr></thead>
+            <tbody>{preferences.attendanceRows.map(({ id, label }) => {
+              const row = card.attendance[id as keyof AttendanceRecord] || {};
+              const values = preferences.attendanceMonths.map((month) => row[month] || '').filter((value) => value !== '');
+              const total = attendanceTotal(values) || '—';
+              return <tr key={id}><th scope="row">{label}</th>
+                {preferences.attendanceMonths.map((month) => <td key={month} className={hidden ? 'parent-sensitive-value' : ''}>{hidden ? 'Hidden' : row[month] || '—'}</td>)}
+                <td className={hidden ? 'parent-sensitive-value' : ''}>{hidden ? 'Hidden' : total}</td>
+              </tr>;
+            })}</tbody>
+          </table>
+        </div> : <p className="parent-grade-empty" role="status">{attendanceError ? 'Attendance settings could not be loaded. Search again to retry.' : 'Loading attendance settings…'}</p>}
+      </section>
+    </>
+  );
+}
+
 export default function ParentPortalPage() {
   const activeSchool = getStoredSchool();
   const schoolName = activeSchool?.name || APP_CONFIG.branding.schoolName;
@@ -143,7 +187,10 @@ export default function ParentPortalPage() {
   const [initializationError, setInitializationError] = useState('');
   const [loading, setLoading] = useState(false);
   const [schoolYear, setSchoolYear] = useState('');
-  const [gradeTermCount, setGradeTermCount] = useState(3);
+  const [gradeTermCount, setGradeTermCount] = useState(DEFAULT_GRADE_TERM_COUNT);
+  const [selectedTerm, setSelectedTerm] = useState(DEFAULT_GRADE_TERM);
+  const [cardPreferences, setCardPreferences] = useState<AttendancePreferences | null>(null);
+  const [attendanceError, setAttendanceError] = useState(false);
   const [showGrades, setShowGrades] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     try {
@@ -195,6 +242,10 @@ export default function ParentPortalPage() {
     const normalizedId = learnerId.trim();
     setLearner(null);
     setShowGrades(false);
+    setSelectedTerm(DEFAULT_GRADE_TERM);
+    setGradeTermCount(DEFAULT_GRADE_TERM_COUNT);
+    setCardPreferences(null);
+    setAttendanceError(false);
     setMessage('');
     if (!normalizedId) {
       setMessage('Enter the learner reference number to continue.');
@@ -224,9 +275,14 @@ export default function ParentPortalPage() {
       if (!result) setMessage('No active learner record was found for that LRN. Check the number and try again.');
       else {
         setLearner(result);
-        try {
-          setGradeTermCount(await fsGetParentGradeTermCount(schoolYear));
-        } catch (error: any) {
+        const [termResult, preferenceResult] = await Promise.allSettled([
+          fsGetParentGradeTermCount(schoolYear), fsGetParentCardPrintingPreferences(),
+        ]);
+        if (preferenceResult.status === 'fulfilled') setCardPreferences(preferenceResult.value);
+        else setAttendanceError(true);
+        if (termResult.status === 'fulfilled') setGradeTermCount(termResult.value);
+        else {
+          const error = termResult.reason;
           console.error('Parent portal grade-term settings could not be loaded.', error);
           if (error?.code === 'permission-denied' || String(error?.code || '').endsWith('/permission-denied')) {
             setMessage(`The learner record loaded, but Firestore denied access to settings/gradeTerms/years/${schoolYear}. Check the grade-term read rule in the selected school project.`);
@@ -309,11 +365,17 @@ export default function ParentPortalPage() {
             <DetailSection title="School record" fields={SCHOOL_FIELDS} learner={learner} />
             <DetailSection title="Nutrition record" fields={NUTRITION_FIELDS} learner={learner} />
             <section className="parent-detail-section">
-              <div className="parent-detail-section-heading"><h2>Grades and assessments</h2><button className="parent-visibility-toggle" type="button" onClick={() => setShowGrades((value) => !value)} aria-pressed={showGrades} aria-label={showGrades ? 'Hide grades, assessments, and anecdotal records' : 'Show grades, assessments, and anecdotal records'} title={showGrades ? 'Hide grades, assessments, and anecdotal records' : 'Show grades, assessments, and anecdotal records'}><span aria-hidden="true">{showGrades ? '◉' : '◌'}</span> {showGrades ? 'Hide details' : 'Show details'}</button></div>
-              <GradeProfiles learner={learner} termCount={gradeTermCount} hidden={!showGrades} />
+              <div className="parent-detail-section-heading"><h2>Learner Card</h2><button className="parent-visibility-toggle" type="button" onClick={() => setShowGrades((value) => !value)} aria-pressed={showGrades} aria-label={showGrades ? 'Hide grades, teacher comments, attendance, assessments, and anecdotal records' : 'Show grades, teacher comments, attendance, assessments, and anecdotal records'} title={showGrades ? 'Hide grades, teacher comments, attendance, assessments, and anecdotal records' : 'Show grades, teacher comments, attendance, assessments, and anecdotal records'}><span aria-hidden="true">{showGrades ? '◉' : '◌'}</span> {showGrades ? 'Hide details' : 'Show details'}</button></div>
+              <label className="parent-card-term" htmlFor="parentCardTerm">Learner card term
+                <select id="parentCardTerm" value={selectedTerm} onChange={(event) => setSelectedTerm(event.target.value)}>
+                  {gradeTermsForCount(gradeTermCount).map(({ id, label }) => <option value={id} key={id}>{label}</option>)}
+                </select>
+              </label>
+              <GradeProfiles learner={learner} termCount={gradeTermCount} term={selectedTerm} hidden={!showGrades} />
+              <ParentCardRecords learner={learner} term={selectedTerm} hidden={!showGrades} preferences={cardPreferences} attendanceError={attendanceError} />
               <DetailSection title="" fields={ASSESSMENT_FIELDS} learner={learner} hidden={!showGrades} />
             </section>
-            <DetailSection title="Transfer information" fields={TRANSFER_FIELDS} learner={learner} />
+            <DetailSection title="Transfer information" fields={TRANSFER_FIELDS} learner={parentTransferRecord(learner)} />
             {learner.extra && Object.keys(learner.extra).length > 0 && <DetailSection title="Additional information" fields={Object.keys(learner.extra)} learner={learner.extra} />}
             <section className="parent-detail-section parent-anecdotal-records" aria-labelledby="parent-anecdotal-records-title">
               <h2 id="parent-anecdotal-records-title">Anecdotal Records</h2>

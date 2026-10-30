@@ -24,6 +24,7 @@ export const DATA_FIELDS = [
   ["bosyRMA", "BOSY RMA"], ["mosyRMA", "MOSY RMA"], ["eosyRMA", "EOSY RMA"],
   ["transferType", "Transfer Type"], ["transferSchool", "Transfer School"], ["transferDate", "Transfer Date"],
   ["transferReason", "Transfer Reason"], ["transferNotes", "Transfer Notes"],
+  ["documentStatus", "Document Status"], ["documentStatusCustom", "Custom Document Status"], ["documentStatusDates", "Document Status Dates"],
   ["anecdotalRecords", "Anecdotal Records"],
   ["teacherComments", "Teacher Comments"], ["attendance", "Attendance"],
   ["enrollmentStatus", "Enrollment Status"], ["eosyStatus", "EOSY Status"], ["schoolYear", "School Year"],
@@ -206,7 +207,7 @@ export function humanizeDataHeader(value) {
 }
 
 export function exportValue(record, key, schoolYear = "") {
-  if (key === "teacherComments" || key === "attendance") {
+  if (key === "teacherComments" || key === "attendance" || key === "documentStatusDates") {
     return record[key] != null && record[key] !== "" ? JSON.stringify(record[key]) : "";
   }
   if (key === "schoolYear") {

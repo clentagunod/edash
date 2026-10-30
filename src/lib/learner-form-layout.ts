@@ -2,23 +2,23 @@ type FormSection = { key: string; title: string; description: string; selector: 
 
 const LEARNER_SECTIONS: FormSection[] = [
   { key: 'identity', title: 'Personal information', description: 'Start with the learner’s identity and birth details.', selector: '#f_learnerId, #f_firstName, #f_middleName, #f_lastName, #f_suffix, #f_customSuffix, #f_birthDate, #f_age, #f_gender' },
-  { key: 'enrollment', title: 'Enrollment', description: 'Grade, section, and current enrollment status.', selector: '#f_gradeLevel, #f_section, #f_teacherAssignment, #f_enrollmentStatus, #f_eosyStatus' },
+  { key: 'enrollment', title: 'Enrollment', description: 'Grade, section, and current enrollment status.', selector: '#f_gradeLevel, #f_section, #f_teacherAssignment, #f_enrollmentStatus' },
   { key: 'contact', title: 'Parent or guardian', description: 'Keep the learner’s contact information up to date.', selector: '#f_guardian, #f_contact' },
   { key: 'programs', title: 'Program participation', description: 'Select all programs that apply to this learner.', selector: '.checkbox-grid' },
-  { key: 'learning', title: 'Learning and assessment', description: 'Subject grades, reading, and math records for the selected school year.', selector: '.subject-inputs, .reading-reference, .math-reference' },
+  { key: 'learning', title: 'Learner Assessment', description: 'Reading and math records for each assessment period.', selector: '.reading-reference, .math-reference' },
   { key: 'nutrition', title: 'Nutrition', description: 'Record measurements for each assessment period when available.', selector: '.nutrition-inputs' },
   { key: 'additional', title: 'Additional information', description: 'Other learner fields configured for your school.', selector: '#extraFieldsContainer' },
-  { key: 'transfer', title: 'Transfer information', description: 'Complete these details when a learner transfers in or out.', selector: '#f_transferType' },
   { key: 'anecdotal', title: 'Anecdotal Records', description: 'Verified conduct information used when preparing a Certificate of Good Moral.', selector: '#f_anecdotalRecords' },
-  { key: 'card-record', title: 'Learner card', description: 'Teacher Comments and monthly attendance saved with this learner for the selected school year.', selector: '[data-learner-card-record]' },
+  { key: 'card-record', title: 'Learner Card', description: 'Select a term to enter its grades and Teacher Comments. Monthly attendance is saved for the school year.', selector: '.subject-input-group, [data-learner-card-record]' },
+  { key: 'transfer', title: 'Transfer Information and EOSY Status', description: 'Record end-of-year status, transfer details, and document progress.', selector: '#f_transferType, #f_eosyStatus, [data-document-status-fields]' },
 ];
 
 const ARCHIVE_SECTIONS: FormSection[] = [
   { key: 'identity', title: 'Personal information', description: 'Review the learner’s identity and birth details.', selector: '#archiveFirstName, #archiveMiddleName, #archiveLastName, #archiveSuffix, #archiveCustomSuffix, #archiveBirthDate, #archiveGender' },
-  { key: 'enrollment', title: 'Enrollment', description: 'Placement and the original enrollment date.', selector: '#archiveGrade, #archiveSection, #archiveDateAdded' },
-  { key: 'transfer', title: 'Transfer information', description: 'School, dates, and supporting transfer details.', selector: '#archiveTransferSchool, #archiveTransferDate, #archiveReason, #archiveNotes' },
+  { key: 'enrollment', title: 'Enrollment', description: 'Placement and the original enrollment date.', selector: '#archiveGrade, #archiveSection, #archiveDateAdded, #archiveEnrollmentStatus' },
   { key: 'anecdotal', title: 'Anecdotal Records', description: 'Verified conduct information retained with this learner’s record.', selector: '#archiveAnecdotalRecords' },
   { key: 'card-record', title: 'Learner card', description: 'Teacher Comments and monthly attendance retained with this archived learner.', selector: '[data-learner-card-record]' },
+  { key: 'transfer', title: 'Transfer Information and EOSY Status', description: 'School, dates, document progress, and end-of-year status.', selector: '#archiveTransferSchool, #archiveTransferDate, #archiveReason, #archiveEosyStatus, [data-document-status-fields]' },
 ];
 
 /** Reuse the original controls so values, validation, and event listeners stay intact. */

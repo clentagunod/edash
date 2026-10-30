@@ -12,6 +12,7 @@ import { DEFAULT_GRADE_TERM_COUNT, DEFAULT_ROUND_TYPE, GRADE_ROUND_TYPES, MAX_GR
 import { DEFAULT_PASSING_THRESHOLD, gradeLevelConfigKey, normalizeGradeLevelGrading, normalizePassingThreshold } from './grading-config';
 import { formatLearnerName } from './learner-sorting';
 import { learnerCardRecord } from './learner-card-record';
+import { DOCUMENT_STATUS_FIELDS, documentStatusRecord } from './document-status';
 import { CERTIFICATE_PREFERENCES_DOCUMENT, normalizeCertificatePreferences, validateCertificatePreferences, type CertificatePreferences } from './certificate-preferences';
 
 /**
@@ -58,7 +59,7 @@ export function fsCanonicalLearner_(learner) {
   const result = {};
   FS_LEARNER_FIELD_ORDER.forEach((field) => { result[field] = learner[field] ?? (field === "extra" ? {} : ""); });
   FS_DYNAMIC_CURRICULUM_SUBJECT_IDS.forEach((field) => { result[field] = learner[field] ?? ""; });
-  return { ...result, ...learnerCardRecord(learner, true) };
+  return { ...result, ...learnerCardRecord(learner, true), ...documentStatusRecord(learner, true) };
 }
 
 export function fsLearnersCollection_(schoolYear) {
@@ -1988,7 +1989,16 @@ export async function fsSetCertificatePreferences(input: unknown): Promise<Certi
 
 export async function fsGetCardPrintingPreferences() {
   const doc = await db.collection(FS_SETTINGS).doc("cardPrintingPreferences").get();
-  const value = doc.exists ? doc.data() : {};
+  return normalizeCardPrintingPreferences(doc.exists ? doc.data() : {});
+}
+
+/** Use the parent's anonymous session, independently of staff authentication. */
+export async function fsGetParentCardPrintingPreferences() {
+  const doc = await parentDb.collection(FS_SETTINGS).doc("cardPrintingPreferences").get();
+  return normalizeCardPrintingPreferences(doc.exists ? doc.data() : {});
+}
+
+function normalizeCardPrintingPreferences(value = {}) {
   const months = Array.isArray(value.attendanceMonths)
     ? value.attendanceMonths.map((month) => String(month || "").trim()).filter(Boolean)
     : DEFAULT_CARD_PRINTING_PREFERENCES.attendanceMonths;
@@ -2514,7 +2524,7 @@ export async function fsGetLearnerSchema(schoolYear) {
   const knownFields = new Set([
     "learnerId", "firstName", "middleName", "lastName", "suffix", "birthDate", "age", "gradeLevel", "section", "gender",
     "enrollmentStatus", "eosyStatus", "guardian", "contact", "dateAdded", "is4Ps", "isIP", "isSNED", "isARAL", "isMuslim",
-    "anecdotalRecords", "teacherComments", "attendance", "extra",
+    "anecdotalRecords", "teacherComments", "attendance", ...DOCUMENT_STATUS_FIELDS, "extra",
     ...FS_DYNAMIC_CURRICULUM_SUBJECT_IDS,
   ]);
   const extraFields = new Set();
@@ -2574,7 +2584,7 @@ export async function fsUpdateLearner(schoolYear, learnerId, learner) {
     const ref = fsLearnersCollection_(schoolYear).doc(learnerId);
     const update = fsCanonicalLearner_(learner);
     // Older callers may update other fields without sending the card record.
-    for (const field of ["teacherComments", "attendance"]) {
+    for (const field of ["teacherComments", "attendance", ...DOCUMENT_STATUS_FIELDS]) {
       if (!Object.prototype.hasOwnProperty.call(learner, field)) delete update[field];
     }
     if (!Object.prototype.hasOwnProperty.call(learner, "dateAdded")) delete update.dateAdded;

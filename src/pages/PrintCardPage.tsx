@@ -24,6 +24,7 @@ import { getRegisteredSchools, getStoredSchool } from '../lib/school-registry';
 import type { RegisteredSchool, SchoolInfo } from '../lib/school-registry';
 import { isLetterGradedLevel } from '../lib/student-card';
 import { learnerCardRecord } from '../lib/learner-card-record';
+import { attendanceTotal } from '../lib/attendance';
 import { applySavedTheme } from '../lib/shell';
 import { formatLearnerName } from '../lib/learner-sorting';
 import {
@@ -166,9 +167,7 @@ function computedAge(birthDate: string): string {
 }
 
 function displayAttendanceTotal(row: AttendanceEntry, months = DEFAULT_MONTHS): string {
-  const values = months.map((month) => row[month] || '').filter((value) => value.trim() !== '');
-  if (!values.length) return '';
-  return String(values.reduce((sum, value) => sum + (Number(value) || 0), 0));
+  return attendanceTotal(months.map((month) => row[month] || ''));
 }
 
 function gradeResult(average: string, passingThreshold: number, termsComplete: boolean): string {

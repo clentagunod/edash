@@ -13,7 +13,8 @@ import { computeNumericalFinalGrades, DEFAULT_GRADE_TERM, FINAL_GRADE_TERM, GRAD
 import { DEFAULT_GRADE_LEVEL_GRADING, gradeLevelConfigKey, normalizeGradeLevelGrading } from './grading-config';
 import { compareLearnersBySurname, formatLearnerName } from './learner-sorting';
 import { ensureAnecdotalRecordsInput, organizeLearnerForm } from './learner-form-layout';
-import { collectLearnerCardFields, loadLearnerCardFields } from './learner-card-record';
+import { collectLearnerCardFields, loadLearnerCardFields, syncLearnerCardTerm } from './learner-card-record';
+import { collectDocumentStatusFields, renderDocumentStatusFields } from './document-status';
 
 /**
  * ============================================================================
@@ -85,7 +86,7 @@ const LEARNER_DETAIL_GROUPS = [
   { title: "Learning assessments", matches: (key) => /^(bosy|mosy|eosy)(crla|philiri|rma)$/i.test(key) },
   { title: "Nutrition", matches: (key) => /^(bosy|mosy|eosy)(height|weight|nutritionalstatus)$/i.test(key) },
   { title: "Academic grades", matches: (key) => CURRICULUM_SUBJECT_IDS.has(key) || key === "gradesByTerm" },
-  { title: "Transfer information", matches: (key) => ["transferType", "transferIn", "transferOut", "transferSchool", "transferDate", "transferReason", "transferNotes"].includes(key) },
+  { title: "Transfer information", matches: (key) => ["transferType", "transferIn", "transferOut", "transferSchool", "transferDate", "transferReason", "transferNotes", "documentStatus", "documentStatusCustom", "documentStatusDates"].includes(key) },
   { title: "Anecdotal Records", matches: (key) => key === "anecdotalRecords" },
 ];
 
@@ -116,6 +117,9 @@ const LEARNER_DETAIL_LABELS = {
   transferIn: "Transfer in",
   transferOut: "Transfer out",
   anecdotalRecords: "Anecdotal Records",
+  documentStatus: "Document Status",
+  documentStatusCustom: "Custom Document Status",
+  documentStatusDates: "Document Status dates",
   ...Object.fromEntries(CURRICULUM_SUBJECTS.map(({ id, label }) => [id, label])),
 };
 
@@ -1243,6 +1247,7 @@ export async function openAddModal() {
   LL.gradeTerm = DEFAULT_GRADE_TERM;
   document.getElementById("learnerModalTitle").textContent = "Add Learner";
   document.getElementById("learnerForm").reset();
+  renderDocumentStatusFields(document.getElementById("learnerForm"), {}, 'learner');
   updateSuffixVisibility();
   LL.gradeTerm = DEFAULT_GRADE_TERM;
     applyTeacherLearnerScope();
@@ -1355,14 +1360,14 @@ export async function openEditModal(learnerId) {
   setLearnerFieldValue("f_transferSchool", learner.transferSchool);
   setLearnerFieldValue("f_transferDate", learner.transferDate);
   setLearnerFieldValue("f_transferReason", learner.transferReason);
-  setLearnerFieldValue("f_transferNotes", learner.transferNotes);
+  renderDocumentStatusFields(document.getElementById("learnerForm"), learner, 'learner');
   setLearnerFieldValue("f_anecdotalRecords", learner.anecdotalRecords);
   updateTransferVisibility();
   updateLearnerAge();
   document.getElementById("f_section").value = learner.section || "";
   validateSectionInput();
   setLearnerFieldValue("f_gender", learner.gender);
-  setLearnerFieldValue("f_enrollmentStatus", learner.enrollmentStatus || (learner.transferOut ? "TRANSFERRED_OUT" : "ACTIVE"));
+  setLearnerFieldValue("f_enrollmentStatus", ["INACTIVE", "TRANSFERRED_OUT", "DROPPED_OUT"].includes(String(learner.enrollmentStatus || '').toUpperCase()) || learner.transferOut ? "INACTIVE" : "ACTIVE");
   setLearnerFieldValue("f_eosyStatus", learner.eosyStatus);
   ["bosyHeight", "bosyWeight", "mosyHeight", "mosyWeight", "eosyHeight", "eosyWeight"].forEach((field) => {
     const value = field.endsWith("Height") && learner[field] !== "" && learner[field] != null
@@ -1569,7 +1574,7 @@ export async function handleLearnerFormSubmit(e) {
     gradeLevel: teacherScope.length === 1 ? teacherScope[0].gradeLevel : (selectedGrade || getLearnerFieldValue("f_gradeLevel")),
     section: teacherScope.length === 1 ? teacherScope[0].section : selectedSection,
     gender: getLearnerFieldValue("f_gender"),
-    enrollmentStatus: transferType === "Transfer Out" ? "TRANSFERRED_OUT" : getLearnerFieldValue("f_enrollmentStatus"),
+    enrollmentStatus: getLearnerFieldValue("f_enrollmentStatus"),
     eosyStatus: getLearnerFieldValue("f_eosyStatus"),
     bosyHeight: getHeightInCentimeters("f_bosyHeight"),
     bosyWeight: getLearnerFieldValue("f_bosyWeight"),
@@ -1608,7 +1613,8 @@ export async function handleLearnerFormSubmit(e) {
     transferSchool: getLearnerFieldValue("f_transferSchool").trim(),
     transferDate: getLearnerFieldValue("f_transferDate"),
     transferReason: getLearnerFieldValue("f_transferReason").trim(),
-    transferNotes: getLearnerFieldValue("f_transferNotes").trim(),
+    transferNotes: LL.editingLearnerOriginal?.transferNotes || '',
+    ...collectDocumentStatusFields(form),
     anecdotalRecords: getLearnerFieldValue("f_anecdotalRecords").trim(),
     ...collectLearnerCardFields(form),
     extra: collectExtraFieldValues(),
@@ -1751,7 +1757,7 @@ export function ensureSubjectInputs() {
   if (!group) {
     group = document.createElement("div");
     group.className = "field span-2 subject-input-group";
-    group.innerHTML = `<div class="grade-term-entry"><label for="f_gradeTerm">Grade entry term</label><select id="f_gradeTerm">${LL.gradeTerms.map(({ id, label }) => `<option value="${id}">${label}</option>`).join("")}</select><small>Enter grades for the selected term only. Final Grade is entered manually.</small></div><label>Subject grades <small id="subjectReferenceHint">(optional, 60-100) · select a grade level</small></label><div class="subject-inputs"></div>`;
+    group.innerHTML = `<div class="grade-term-entry"><label for="f_gradeTerm">Learner card term</label><select id="f_gradeTerm">${LL.gradeTerms.map(({ id, label }) => `<option value="${id}">${label}</option>`).join("")}</select><small>Enter grades and Teacher Comments for the selected term. Final Grade is entered manually.</small></div><label>Subject grades <small id="subjectReferenceHint">(optional, 60-100) · select a grade level</small></label><div class="subject-inputs"></div>`;
     formGrid.appendChild(group);
   }
   const termSelect = group.querySelector("#f_gradeTerm");
@@ -1765,7 +1771,7 @@ export function ensureSubjectInputs() {
   if (termHint) {
     termHint.textContent = LL.gradeGrading.gradingType === "numerical" && LL.gradeGrading.finalGradeMode === "automatic"
       ? "Final Grade is calculated automatically from entered terms."
-      : "Enter grades for the selected term only. Final Grade is entered manually.";
+      : "Enter grades and Teacher Comments for the selected term. Final Grade is entered manually.";
   }
   const inputs = group.querySelector(".subject-inputs");
   if (!inputs) return;
@@ -1785,6 +1791,7 @@ export function ensureSubjectInputs() {
     }
     input.value = value;
   });
+  syncLearnerCardTerm(document.getElementById("learnerForm"), LL.gradeTerm);
 }
 
 export function setLearnerCurriculumSubjects(subjects) {
@@ -1812,6 +1819,8 @@ export function collectSubjectGradeValues() {
 export function renderLearnerTermGrades(term = LL.gradeTerm) {
   const termSelect = document.getElementById("f_gradeTerm");
   if (termSelect) termSelect.value = term;
+  const form = document.getElementById("learnerForm");
+  if (form) syncLearnerCardTerm(form, term);
   const subjectIds = LL.curriculumSubjects.map(({ id }) => id);
   const autoFinal = term === FINAL_GRADE_TERM
     && LL.gradingConfigReady
@@ -2031,19 +2040,21 @@ export function ensureTransferInputs() {
           <label for="f_transferReason">Transfer reason</label>
           <input id="f_transferReason" placeholder="e.g. family relocation, school transfer" />
         </div>
-        <div class="field span-2">
-          <label for="f_transferNotes">Transfer notes</label>
-          <textarea id="f_transferNotes" rows="3" placeholder="Additional information"></textarea>
-        </div>
       </div>
+      <div class="field span-2 document-status-fields" data-document-status-fields></div>
     </div>`);
+  renderDocumentStatusFields(document.getElementById("learnerForm"), {}, 'learner');
 }
 
 export function ensureLearnerStatusInputs() {
-  if (document.getElementById("f_enrollmentStatus")) return;
   const formGrid = document.querySelector("#learnerForm .field-grid");
   if (!formGrid) return;
-  formGrid.insertAdjacentHTML("beforeend", `<div class="field"><label for="f_enrollmentStatus">Enrollment status</label><select id="f_enrollmentStatus"><option value="ACTIVE">Active</option><option value="TRANSFERRED_OUT">Transferred out</option></select></div><div class="field"><label for="f_eosyStatus">EOSY status</label><select id="f_eosyStatus"><option value="">Not recorded</option><option>Promoted</option><option>Retained</option><option>Dropped Out</option></select></div>`);
+  if (!document.getElementById('f_enrollmentStatus')) formGrid.insertAdjacentHTML('beforeend', '<div class="field"><label for="f_enrollmentStatus">Enrollment status</label><select id="f_enrollmentStatus"></select></div>');
+  const enrollment = document.getElementById('f_enrollmentStatus');
+  const previous = enrollment.value;
+  enrollment.innerHTML = '<option value="ACTIVE">Active</option><option value="INACTIVE">Inactive</option>';
+  enrollment.value = ['INACTIVE', 'TRANSFERRED_OUT', 'DROPPED_OUT'].includes(previous) ? 'INACTIVE' : 'ACTIVE';
+  if (!document.getElementById('f_eosyStatus')) formGrid.insertAdjacentHTML('beforeend', '<div class="field"><label for="f_eosyStatus">EOSY status</label><select id="f_eosyStatus"><option value="">Not recorded</option><option>Promoted</option><option>Retained</option><option>Dropped Out</option></select></div>');
 }
 
 export function updateTransferVisibility() {

@@ -1,3 +1,6 @@
+import { gradeTermsForCount, MAX_GRADE_TERM_COUNT } from './academic-grades';
+import { attendanceAbsent, attendanceTotal, isAttendanceCount } from './attendance';
+
 export const TEACHER_COMMENT_TERMS = ['1st Term', '2nd Term', '3rd Term'] as const;
 export const ATTENDANCE_ROW_IDS = ['classDays', 'daysPresent', 'daysAbsent'] as const;
 export type AttendanceRecord = Record<typeof ATTENDANCE_ROW_IDS[number], Record<string, string>>;
@@ -15,9 +18,9 @@ function record(value: unknown): Record<string, unknown> {
 /** Missing fields on older learners are empty; never share mutable defaults. */
 export function learnerCardRecord(learner: Record<string, unknown> = {}, validate = false): LearnerCardRecord {
   if (validate && learner.teacherComments != null && learner.teacherComments !== ''
-    && (!Array.isArray(learner.teacherComments) || learner.teacherComments.length !== 3
+    && (!Array.isArray(learner.teacherComments) || ![3, MAX_GRADE_TERM_COUNT].includes(learner.teacherComments.length)
       || learner.teacherComments.some((value) => typeof value !== 'string'))) {
-    throw new Error('Teacher Comments must contain three text values, one for each term.');
+    throw new Error('Teacher Comments must contain three text values, or four for a four-term school year.');
   }
   if (validate && learner.attendance != null && learner.attendance !== ''
     && (typeof learner.attendance !== 'object' || Array.isArray(learner.attendance))) {
@@ -32,20 +35,55 @@ export function learnerCardRecord(learner: Record<string, unknown> = {}, validat
     return [row, Object.fromEntries(Object.entries(record(source[row])).map(([month, value]) => {
       const text = typeof value === 'string' || typeof value === 'number' ? String(value).trim() : '';
       if (validate && ((value != null && typeof value !== 'string' && typeof value !== 'number')
-        || (text !== '' && (!/^\d+$/.test(text) || !Number.isSafeInteger(Number(text)))))) {
-        throw new Error(`Attendance for ${month} must be a non-negative whole number.`);
+        || (text !== '' && !isAttendanceCount(text)))) {
+        throw new Error(`Attendance for ${month} must be a non-negative number. Decimals are allowed.`);
       }
       return [month, text];
     }))];
   })) as AttendanceRecord;
   return {
-    teacherComments: TEACHER_COMMENT_TERMS.map((_, index) => typeof comments[index] === 'string' ? comments[index] : ''),
+    teacherComments: Array.from({ length: Math.max(TEACHER_COMMENT_TERMS.length, Math.min(MAX_GRADE_TERM_COUNT, comments.length)) }, (_, index) => typeof comments[index] === 'string' ? comments[index] : ''),
     attendance,
   };
 }
 
 const originals = new WeakMap<HTMLElement, LearnerCardRecord>();
 const requests = new WeakMap<HTMLElement, object>();
+
+/** Comment indexes match the configured quarter1…quarter4 grade IDs. */
+export function teacherCommentIndex(term: string): number | null {
+  const index = /^quarter([1-4])$/.exec(term)?.[1];
+  return index ? Number(index) - 1 : null;
+}
+
+/** Keep inactive inputs mounted so switching terms never discards draft comments. */
+export function syncLearnerCardTerm(host: HTMLElement, term?: string): void {
+  const selectedTerm = term ?? host.querySelector<HTMLSelectElement>('#f_gradeTerm')?.value;
+  if (!selectedTerm) return; // Archive and migration editors show all saved terms.
+  const index = teacherCommentIndex(selectedTerm);
+  const comments = host.querySelector<HTMLElement>('[data-teacher-comments]');
+  if (comments && index !== null && !comments.querySelector(`[data-teacher-comment="${index}"]`)) {
+    appendTeacherComment(comments, index, originals.get(host)?.teacherComments[index] || '');
+  }
+  if (comments) comments.hidden = index === null;
+  host.querySelectorAll<HTMLTextAreaElement>('[data-teacher-comment]').forEach((input) => {
+    const field = input.closest<HTMLElement>('label');
+    if (field) field.hidden = Number(input.dataset.teacherComment) !== index;
+  });
+}
+
+function appendTeacherComment(host: HTMLElement, index: number, value: string): void {
+  const label = document.createElement('label');
+  label.className = 'field';
+  label.append(document.createTextNode(gradeTermsForCount(MAX_GRADE_TERM_COUNT)[index].label));
+  const input = document.createElement('textarea');
+  input.rows = 3;
+  input.name = `teacherComments_${index}`;
+  input.dataset.teacherComment = String(index);
+  input.value = value;
+  label.append(input);
+  host.append(label);
+}
 
 export async function loadLearnerCardFields(
   host: HTMLElement,
@@ -88,21 +126,11 @@ export function renderLearnerCardFields(host: HTMLElement, learner: Record<strin
   container.removeAttribute('role');
   container.replaceChildren();
   const comments = document.createElement('fieldset');
+  comments.dataset.teacherComments = '';
   const legend = document.createElement('legend');
   legend.textContent = 'Teacher Comments';
   comments.append(legend);
-  TEACHER_COMMENT_TERMS.forEach((term, index) => {
-    const label = document.createElement('label');
-    label.className = 'field';
-    label.append(document.createTextNode(term));
-    const input = document.createElement('textarea');
-    input.rows = 3;
-    input.name = `teacherComments_${index}`;
-    input.dataset.teacherComment = String(index);
-    input.value = saved.teacherComments[index];
-    label.append(input);
-    comments.append(label);
-  });
+  saved.teacherComments.forEach((value, index) => appendTeacherComment(comments, index, value));
   const attendance = document.createElement('fieldset');
   const attendanceLegend = document.createElement('legend');
   attendanceLegend.textContent = 'Attendance record';
@@ -120,6 +148,8 @@ export function renderLearnerCardFields(host: HTMLElement, learner: Record<strin
     head.append(cell);
   });
   const body = table.createTBody();
+  const attendanceInputs = new Map<string, Map<string, HTMLInputElement>>();
+  const rowTotals = new Map<string, HTMLTableCellElement>();
   preferences.attendanceRows.forEach(({ id, label }) => {
     if (!ATTENDANCE_ROW_IDS.includes(id as typeof ATTENDANCE_ROW_IDS[number])) return;
     const row = body.insertRow();
@@ -127,34 +157,49 @@ export function renderLearnerCardFields(host: HTMLElement, learner: Record<strin
     heading.scope = 'row';
     heading.textContent = label;
     row.append(heading);
-    const inputs: HTMLInputElement[] = [];
+    const inputs = new Map<string, HTMLInputElement>();
+    attendanceInputs.set(id, inputs);
     preferences.attendanceMonths.forEach((month, index) => {
       const input = document.createElement('input');
       input.type = 'number';
       input.min = '0';
-      input.step = '1';
+      input.step = 'any';
       input.max = String(Number.MAX_SAFE_INTEGER);
-      input.inputMode = 'numeric';
+      input.inputMode = 'decimal';
+      input.readOnly = id === 'daysAbsent';
+      if (input.readOnly) input.setAttribute('aria-description', 'Calculated automatically as class days minus present.');
       input.name = `attendance_${id}_${index}`;
       input.dataset.attendanceRow = id;
       input.dataset.attendanceMonth = month;
       input.setAttribute('aria-label', `${label} ${month}`);
       input.value = saved.attendance[id as keyof AttendanceRecord][month] ?? '';
       row.insertCell().append(input);
-      inputs.push(input);
+      inputs.set(month, input);
     });
     const total = row.insertCell();
-    const updateTotal = () => {
-      total.textContent = inputs.some((input) => input.value !== '')
-        ? String(inputs.reduce((sum, input) => sum + (Number(input.value) || 0), 0)) : '';
-    };
-    inputs.forEach((input) => input.addEventListener('input', updateTotal));
-    updateTotal();
+    rowTotals.set(id, total);
   });
+  const updateAttendance = () => {
+    preferences.attendanceMonths.forEach((month) => {
+      const days = attendanceInputs.get('classDays')?.get(month);
+      const present = attendanceInputs.get('daysPresent')?.get(month);
+      const absent = attendanceInputs.get('daysAbsent')?.get(month);
+      const calculated = attendanceAbsent(days?.value || '', present?.value || '');
+      const invalid = calculated.startsWith('-');
+      if (present) present.setCustomValidity(invalid ? 'Present days cannot exceed class days.' : '');
+      if (absent) absent.value = invalid ? '' : calculated;
+    });
+    attendanceInputs.forEach((inputs, id) => {
+      rowTotals.get(id)!.textContent = attendanceTotal([...inputs.values()].map((input) => input.value));
+    });
+  };
+  attendanceInputs.forEach((inputs) => inputs.forEach((input) => input.addEventListener('input', updateAttendance)));
+  updateAttendance();
   scroll.append(table);
   attendance.append(attendanceLegend, scroll);
   container.append(comments, attendance);
   originals.set(host, saved);
+  syncLearnerCardTerm(host);
 }
 
 export function collectLearnerCardFields(host: HTMLElement): LearnerCardRecord {
@@ -170,6 +215,13 @@ export function collectLearnerCardFields(host: HTMLElement): LearnerCardRecord {
     if (input.validity.badInput) throw new Error(`Enter a valid attendance number for ${month}.`);
     // Keep months that are no longer in Card Preferences, so layout edits never erase history.
     result.attendance[row] = { ...result.attendance[row], [month]: input.value };
+  });
+  // Recompute during collection too; a stale or modified readonly value is never saved.
+  host.querySelectorAll<HTMLInputElement>('[data-attendance-row="daysAbsent"]').forEach((input) => {
+    const month = input.dataset.attendanceMonth!;
+    const value = attendanceAbsent(result.attendance.classDays[month] || '', result.attendance.daysPresent[month] || '');
+    if (value.startsWith('-')) throw new Error(`Present days cannot exceed class days for ${month}.`);
+    result.attendance.daysAbsent = { ...result.attendance.daysAbsent, [month]: value };
   });
   return learnerCardRecord(result, true);
 }

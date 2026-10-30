@@ -2,7 +2,7 @@ import { act, createElement } from 'react';
 import { createRoot, Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { auth, getCurrentSchoolYear, getGradeTermCount, getParentAccessEnabled, getParentLearner } = vi.hoisted(() => ({
+const { auth, getCurrentSchoolYear, getGradeTermCount, getCardPreferences, getParentAccessEnabled, getParentLearner } = vi.hoisted(() => ({
   auth: {
     currentUser: null as { uid: string; isAnonymous: boolean } | null,
     onAuthStateChanged: vi.fn(),
@@ -10,6 +10,7 @@ const { auth, getCurrentSchoolYear, getGradeTermCount, getParentAccessEnabled, g
   },
   getCurrentSchoolYear: vi.fn(),
   getGradeTermCount: vi.fn(),
+  getCardPreferences: vi.fn(),
   getParentAccessEnabled: vi.fn(),
   getParentLearner: vi.fn(),
 }));
@@ -21,6 +22,7 @@ vi.mock('../lib/firestore-api', () => ({
   fsGetParentAccessEnabled: getParentAccessEnabled,
   fsGetParentCurrentSchoolYear: getCurrentSchoolYear,
   fsGetParentGradeTermCount: getGradeTermCount,
+  fsGetParentCardPrintingPreferences: getCardPreferences,
   fsGetParentLearner: getParentLearner,
 }));
 vi.mock('../lib/cache', () => ({
@@ -41,7 +43,6 @@ vi.mock('../lib/app-config', () => ({
   updateSchoolFavicon: vi.fn(),
 }));
 vi.mock('../lib/school-registry', () => ({ getStoredSchool: () => null }));
-vi.mock('../lib/parent-grades', () => ({ parentGradeProfiles: () => [] }));
 vi.mock('../lib/learner-sorting', () => ({ formatLearnerName: () => 'Sample Learner' }));
 
 import ParentPortalPage from './ParentPortalPage';
@@ -56,6 +57,9 @@ describe('ParentPortalPage', () => {
     root = createRoot(container);
     getCurrentSchoolYear.mockReset().mockResolvedValue('2026-2027');
     getGradeTermCount.mockReset().mockResolvedValue(3);
+    getCardPreferences.mockReset().mockResolvedValue({ attendanceMonths: ['Sep', 'Oct'], attendanceRows: [
+      { id: 'daysAbsent', label: 'Missed days' }, { id: 'daysPresent', label: 'Present' }, { id: 'classDays', label: 'Class days' },
+    ] });
     getParentAccessEnabled.mockReset().mockResolvedValue(true);
     getParentLearner.mockReset().mockResolvedValue({
       learnerId: '128528250041',
@@ -75,6 +79,77 @@ describe('ParentPortalPage', () => {
   beforeEach(() => {
     auth.onAuthStateChanged.mockReset();
     auth.signInAnonymously.mockReset();
+  });
+
+  async function lookup(lrn = '128528250041') {
+    const input = container.querySelector<HTMLInputElement>('#parentLearnerId')!;
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, lrn);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+  }
+
+  it('shows only selected-term grades and comments and hides all card values, including attendance totals', async () => {
+    const comments = ['First comment <b>with markup</b>\nand a new line', 'Second comment', 'Third comment'];
+    getParentLearner.mockResolvedValueOnce({ learnerId: '128528250041', teacherComments: comments,
+      gradesByTerm: { quarter1: { math: '81' }, quarter2: { math: '92' }, quarter3: { math: '97' } }, math: '90',
+      attendance: { daysAbsent: { Sep: '0', Oct: '2' }, daysPresent: { Sep: '20', Oct: '18' }, classDays: { Sep: '20', Oct: '20' } },
+    });
+    await act(async () => root.render(createElement(ParentPortalPage)));
+    await lookup();
+    const toggle = () => act(() => container.querySelector<HTMLButtonElement>('.parent-visibility-toggle')!.click());
+    const select = container.querySelector<HTMLSelectElement>('#parentCardTerm')!;
+    const changeTerm = (term: string) => act(() => { select.value = term; select.dispatchEvent(new Event('change', { bubbles: true })); });
+    const cells = () => [...container.querySelectorAll('.parent-attendance-table td')].map((cell) => cell.textContent);
+    expect(select.value).toBe('quarter1');
+    expect(container.querySelector('.parent-teacher-comment')!.textContent?.trim()).toBe('Hidden');
+    expect(container.querySelector('.parent-grade-profile dd')!.textContent).toBe('Hidden');
+    expect(cells().every((value) => value === 'Hidden')).toBe(true);
+    expect(container.innerHTML).not.toContain(comments[1]);
+    toggle();
+    expect(container.querySelector('.parent-teacher-comment')!.textContent?.trim()).toBe(comments[0]);
+    expect(container.querySelector('.parent-teacher-comment b')).toBeNull();
+    expect(container.querySelector('.parent-grade-profile dd')!.textContent).toBe('81');
+    expect(container.querySelectorAll('.parent-grade-profile')).toHaveLength(1);
+    expect([...container.querySelectorAll('.parent-attendance-table thead th')].map((cell) => cell.textContent)).toEqual(['Attendance', 'Sep', 'Oct', 'Total']);
+    expect([...container.querySelectorAll('.parent-attendance-table tbody th')].map((cell) => cell.textContent)).toEqual(['Missed days', 'Present', 'Class days']);
+    expect(cells()).toEqual(['0', '2', '2', '20', '18', '38', '20', '20', '40']);
+    for (const [term, grade, comment] of [['quarter2', '92', comments[1]], ['quarter3', '97', comments[2]]]) {
+      changeTerm(term);
+      expect(container.querySelector('.parent-teacher-comment')!.textContent?.trim()).toBe(comment);
+      expect(container.querySelector('.parent-grade-profile dd')!.textContent).toBe(grade);
+      expect(container.textContent).not.toContain(comments[0]);
+    }
+    changeTerm('final');
+    expect(container.querySelector('.parent-teacher-comments')).toBeNull();
+    expect(container.querySelector('.parent-grade-profile dd')!.textContent).toBe('90');
+    changeTerm('quarter2');
+    toggle();
+    expect(cells().every((value) => value === 'Hidden')).toBe(true);
+    expect(container.textContent).not.toContain(comments[1]);
+    await lookup('128528250042');
+    expect(container.querySelector<HTMLSelectElement>('#parentCardTerm')!.value).toBe('quarter1');
+    expect(container.querySelector('.parent-visibility-toggle')!.getAttribute('aria-pressed')).toBe('false');
+    toggle();
+    expect(container.querySelector('.parent-teacher-comment')!.textContent).toBe('No teacher comment recorded for this term.');
+    expect(cells().every((value) => value === '—')).toBe(true);
+  });
+
+  it('handles four-term comments and a settings read failure without hiding the learner record', async () => {
+    getGradeTermCount.mockResolvedValue(4);
+    getCardPreferences.mockRejectedValueOnce(new Error('Offline'));
+    getParentLearner.mockResolvedValueOnce({ learnerId: '128528250041', teacherComments: ['', '', '', 'Fourth comment'], gradesByTerm: { quarter4: { math: '94' } } });
+    await act(async () => root.render(createElement(ParentPortalPage)));
+    await lookup();
+    const select = container.querySelector<HTMLSelectElement>('#parentCardTerm')!;
+    act(() => { select.value = 'quarter4'; select.dispatchEvent(new Event('change', { bubbles: true })); });
+    expect(container.textContent).not.toContain('Fourth comment');
+    act(() => container.querySelector<HTMLButtonElement>('.parent-visibility-toggle')!.click());
+    expect(container.querySelector('.parent-teacher-comment')!.textContent).toBe('Fourth comment');
+    expect(container.querySelector('.parent-grade-profile dd')!.textContent).toBe('94');
+    expect(container.querySelector('.parent-attendance-record')!.textContent).toContain('Search again to retry');
+    expect(container.textContent).toContain('Sample Learner');
   });
 
   it('keeps the direct school-entry navigation focused on parents', async () => {
