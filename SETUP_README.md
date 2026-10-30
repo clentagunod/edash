@@ -410,16 +410,16 @@ Omit `--service-account` to use `GOOGLE_APPLICATION_CREDENTIALS` or Application 
 
 ## 8. Configure Apps Script services
 
-Each script below is an independent Apps Script Web App. Create/deploy a separate Web App endpoint for each service, execute it as the trusted owner/account that can access its spreadsheet, authorize requested Google scopes, and test its `/exec` URL. The app-level school registration endpoint is configured with `VITE_SCHOOL_REGISTRATION_API_URL`; tenant endpoints are configured in each school's registration JSON.
+Each script below is an independent Apps Script Web App. Create/deploy a separate Web App endpoint for each service, execute it as the trusted owner/account that can access its spreadsheet, authorize requested Google scopes, and test its `/exec` URL. School registration uses the server-only Vercel relay variables described below; tenant audit and feedback endpoints are configured in each school's registration JSON.
 
 ### School registration requests
 
 1. Create a separate Google spreadsheet for central E-Dash school registration requests.
-2. Open **Extensions → Apps Script**, paste `apps-script/SchoolRegistration.gs`, and run `setupSchoolRegistrationSheet()` once to create and format the `Registration Requests` tab.
+2. Open **Extensions → Apps Script**, paste [gscripts/SchoolRegistration.gs](./gscripts/SchoolRegistration.gs), and set `SPREADSHEET_ID`, `REGISTRATION_SHARED_SECRET` (at least 32 characters), and `REGISTRATION_BASE_URL` (`https://register.edash.online/`) in Script Properties. Run `initializeRegistrationSheets()` to create the **Requests** and **Registrations** tabs. An authenticated first submission can also initialize missing/empty tabs safely.
 3. Deploy the script as a Web App that executes as the spreadsheet owner. Set access to **Anyone** so schools can submit without an E-Dash account. Limit spreadsheet and script editor access to the administrators who review requests.
-4. Set `VITE_SCHOOL_REGISTRATION_API_URL` to the deployed HTTPS `/exec` URL in local `.env.local` and the central Vercel project's environment settings. Restart Vite locally or redeploy Vercel after changing this build-time variable.
+4. In Vercel, set server-only `SCHOOL_REGISTRATION_SCRIPT_URL` to the deployed `/exec` URL and `SCHOOL_REGISTRATION_SHARED_SECRET` to the same Script Property secret. Redeploy Vercel after changing environment variables. The browser calls `/api/school-registration`; the old `VITE_SCHOOL_REGISTRATION_API_URL` is no longer used. Never place the shared secret in a `VITE_*` variable.
 
-The school-selection form collects school name, DepEd school ID, contact person, email, phone, and schools division. Requests are recorded with `Pending` status and do not automatically create or enable a Firestore school. While a request is pending, repeat requests are detected by school ID, email, or a normalized/similarity comparison of the school name, and the requester is told that a request is already pending. Review and verify each request before adding it to the central directory. Keep the request spreadsheet private.
+The school-selection form collects school name, DepEd school ID, contact person, email, phone, and schools division. Requests are recorded in **Requests** with `Pending` status and do not automatically create or enable a Firestore school. Repeat submissions with the same school ID and email return the existing request instead of inserting another row. Staff review a request and manually send an invitation; the completed profile is saved in **Registrations**. See [School registration setup](./SCHOOL_REGISTRATION_SETUP.md) for the complete two-stage workflow and diagnostics. Keep the spreadsheet private.
 
 ### Audit log
 

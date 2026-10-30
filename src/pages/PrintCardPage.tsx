@@ -170,6 +170,13 @@ function displayAttendanceTotal(row: AttendanceEntry, months = DEFAULT_MONTHS): 
   return attendanceTotal(months.map((month) => row[month] || ''));
 }
 
+function TransferGradeFields({ admittedGrade, eligibleGrade }: Pick<ManualCardFields, 'admittedGrade' | 'eligibleGrade'>) {
+  return <div className="sf9-transfer-fields">
+    <div className="sf9-transfer-field"><span>Admitted to Grade:</span><strong>{admittedGrade}</strong></div>
+    <div className="sf9-transfer-field"><span>Eligible for Admission to Grade:</span><strong>{eligibleGrade}</strong></div>
+  </div>;
+}
+
 function gradeResult(average: string, passingThreshold: number, termsComplete: boolean): string {
   if (!termsComplete) return '';
   if (!average) return '';
@@ -652,7 +659,7 @@ function StudentCardReport({
         <section className="sf9-transfer-section">
           <h2>CERTIFICATE OF TRANSFER</h2>
           <p>This is to certify that the above-named learner has satisfactorily completed the requirements for the grade level indicated.</p>
-          <div className="sf9-transfer-fields"><span>Admitted to Grade: <strong>{manual.admittedGrade}</strong></span><span>Eligible for Admission to Grade: <strong>{manual.eligibleGrade}</strong></span></div>
+          <TransferGradeFields admittedGrade={manual.admittedGrade} eligibleGrade={manual.eligibleGrade} />
           <div className="sf9-approval"><span className="sf9-approval-label">Approved:</span><div className="sf9-approval-adviser"><strong>{manual.adviser}</strong><small>Adviser</small></div><div className="sf9-approval-school-head"><strong>{manual.schoolHead}</strong><small>School Head</small></div></div>
         </section>
 
@@ -1718,7 +1725,7 @@ export default function PrintCardPage() {
                   <section className="sf9-transfer-section">
                     <h2>CERTIFICATE OF TRANSFER</h2>
                     <p>This is to certify that the above-named learner has satisfactorily completed the requirements for the grade level indicated.</p>
-                    <div className="sf9-transfer-fields"><span>Admitted to Grade: <strong>{manual.admittedGrade}</strong></span><span>Eligible for Admission to Grade: <strong>{manual.eligibleGrade}</strong></span></div>
+                    <TransferGradeFields admittedGrade={manual.admittedGrade} eligibleGrade={manual.eligibleGrade} />
                     <div className="sf9-approval"><span className="sf9-approval-label">Approved:</span><div className="sf9-approval-adviser"><strong>{manual.adviser}</strong><small>Adviser</small></div><div className="sf9-approval-school-head"><strong>{manual.schoolHead}</strong><small>School Head</small></div></div>
                   </section>
 

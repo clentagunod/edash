@@ -41,6 +41,34 @@ function initializeRegistrationSheets() {
   } finally { lock.releaseLock(); }
 }
 
+/** Read-only editor diagnostic. Logs configuration flags, never IDs or secrets. */
+function checkRegistrationSetup() {
+  var properties = PropertiesService.getScriptProperties();
+  var result = {
+    secretConfigured: (properties.getProperty('REGISTRATION_SHARED_SECRET') || '').trim().length >= 32,
+    spreadsheetConfigured: !!(properties.getProperty('SPREADSHEET_ID') || '').trim(),
+    spreadsheetAccessible: false,
+    sheets: {},
+    ready: false
+  };
+  if (result.spreadsheetConfigured) {
+    try {
+      var book = edashBook_();
+      result.spreadsheetAccessible = true;
+      var boundBook = SpreadsheetApp.getActiveSpreadsheet();
+      result.matchesBoundSpreadsheet = boundBook ? boundBook.getId() === book.getId() : null;
+      [['Requests', EDASH_REQUEST_HEADERS], ['Registrations', EDASH_REGISTRATION_HEADERS]].forEach(function (entry) {
+        var sheet = book.getSheetByName(entry[0]);
+        result.sheets[entry[0]] = !sheet ? 'missing' : sheet.getLastRow() === 0 ? 'empty'
+          : sheet.getMaxColumns() >= entry[1].length && sheet.getRange(1, 1, 1, entry[1].length).getValues()[0].join('|') === entry[1].join('|') ? 'ready' : 'schema mismatch';
+      });
+      result.ready = result.secretConfigured && Object.keys(result.sheets).every(function (name) { return result.sheets[name] !== 'schema mismatch'; });
+    } catch (ignored) { result.code = 'REGISTRATION_SPREADSHEET_ACCESS'; }
+  }
+  console.log(JSON.stringify(result));
+  return result;
+}
+
 /** Run from the spreadsheet menu after manually reviewing a Requests row. */
 function createSelectedRegistrationLink() {
   var active = SpreadsheetApp.getActiveSpreadsheet();
@@ -93,11 +121,11 @@ function doPost(e) {
     if (!raw || raw.length > 24576) edashReject_(400, 'Invalid registration data.');
     var payload;
     try { payload = JSON.parse(raw); } catch (ignored) { edashReject_(400, 'Invalid registration data.'); }
-    var secret = PropertiesService.getScriptProperties().getProperty('REGISTRATION_SHARED_SECRET');
-    if (!secret || secret.length < 32) throw new Error('Missing server configuration.');
+    var secret = (PropertiesService.getScriptProperties().getProperty('REGISTRATION_SHARED_SECRET') || '').trim();
+    if (secret.length < 32) edashReject_(503, 'School registration is not configured yet. Please contact the E-Dash team.', 'REGISTRATION_SECRET_MISSING');
     if (!payload || Array.isArray(payload) || typeof payload.sharedSecret !== 'string' ||
         !edashEqual_(edashHash_(payload.sharedSecret), edashHash_(secret))) {
-      edashReject_(403, 'Registration access denied.');
+      edashReject_(403, 'Registration access denied.', 'REGISTRATION_SECRET_MISMATCH');
     }
     if (['submitSchoolRegistration', 'getSchoolInvitation', 'submitCompleteSchoolRegistration'].indexOf(payload.action) < 0) {
       edashReject_(400, 'Invalid registration action.');
@@ -105,8 +133,11 @@ function doPost(e) {
     lock = LockService.getScriptLock();
     if (!lock.tryLock(5000)) edashReject_(503, 'Registration is busy. Please try again shortly.');
     var book = edashBook_();
-    var requests = edashSheet_(book, 'Requests', EDASH_REQUEST_HEADERS, false);
-    var registrations = edashSheet_(book, 'Registrations', EDASH_REGISTRATION_HEADERS, false);
+    // A valid first submission can start with a completely empty spreadsheet.
+    // Only missing/empty tabs are initialized; existing data/headers are checked.
+    var initialize = payload.action === 'submitSchoolRegistration';
+    var requests = edashSheet_(book, 'Requests', EDASH_REQUEST_HEADERS, initialize);
+    var registrations = edashSheet_(book, 'Registrations', EDASH_REGISTRATION_HEADERS, initialize);
     var data;
     if (payload.action === 'submitSchoolRegistration') {
       data = edashSubmitRequest_(requests, payload);
@@ -133,7 +164,8 @@ function doPost(e) {
   } catch (error) {
     // No request data or credentials in logs or public error responses.
     return edashJson_({ ok: false, status: error.publicStatus || 503,
-      error: error.publicStatus ? error.message : 'Registration could not be saved. Please try again later.' });
+      error: error.publicStatus ? error.message : 'Registration could not be saved. Please try again later.',
+      code: error.publicCode || (error.publicStatus ? undefined : 'REGISTRATION_STORAGE_UNAVAILABLE') });
   } finally { if (lock && lock.hasLock()) lock.releaseLock(); }
 }
 
@@ -153,7 +185,7 @@ function edashSubmitRequest_(sheet, payload) {
     ? sheet.getRange(2, 5, sheet.getLastRow() - 1, 1).createTextFinder(request.schoolId).matchEntireCell(true).matchCase(false).findAll() : [];
   for (var i = 0; i < matches.length; i++) {
     var saved = edashReadRow_(sheet, matches[i].getRow(), EDASH_REQUEST_HEADERS);
-    if (saved.email.toLowerCase() === request.email) return { duplicate: true, status: 'Received' };
+    if (saved.email.toLowerCase() === request.email) return { requestId: saved.requestId, duplicate: true, status: 'Received' };
   }
   // Best-effort shared cache throttles repeated requests; not a substitute for WAF rules.
   var cache = CacheService.getScriptCache();
@@ -164,7 +196,7 @@ function edashSubmitRequest_(sheet, payload) {
   request.receivedAt = now; request.status = 'Pending'; request.privacyAcknowledgedAt = now;
   edashWriteRow_(sheet, sheet.getLastRow() + 1, EDASH_REQUEST_HEADERS, request);
   cache.put(emailKey, String(Number(cache.get(emailKey) || 0) + 1), 3600);
-  return { duplicate: false, status: 'Received' };
+  return { requestId: request.requestId, duplicate: false, status: 'Received' };
 }
 
 function edashSubmitProfile_(requests, registrations, found, payload) {
@@ -224,20 +256,21 @@ function edashInvitationData_(request) {
 }
 function edashBook_() {
   var id = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
-  if (!id) throw new Error('Missing spreadsheet configuration.');
-  return SpreadsheetApp.openById(id);
+  if (!id) edashReject_(503, 'Registration storage is not configured. Please contact the E-Dash team.', 'REGISTRATION_SPREADSHEET_MISSING');
+  try { return SpreadsheetApp.openById(id.trim()); }
+  catch (ignored) { edashReject_(503, 'Registration storage is unavailable. Please contact the E-Dash team.', 'REGISTRATION_SPREADSHEET_ACCESS'); }
 }
 function edashSheet_(book, name, headers, initialize) {
   var sheet = book.getSheetByName(name);
   if (!sheet && initialize) sheet = book.insertSheet(name);
-  if (!sheet) throw new Error('Initialize registration sheets first.');
+  if (!sheet) edashReject_(503, 'Registration storage is not ready. Please contact the E-Dash team.', 'REGISTRATION_SHEETS_NOT_INITIALIZED');
   if (sheet.getLastRow() === 0 && initialize) {
     if (sheet.getMaxColumns() < headers.length) sheet.insertColumnsAfter(sheet.getMaxColumns(), headers.length - sheet.getMaxColumns());
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold').setBackground('#e6f2ec');
     sheet.setFrozenRows(1);
   }
   if (sheet.getMaxColumns() < headers.length || sheet.getRange(1, 1, 1, headers.length).getValues()[0].join('|') !== headers.join('|')) {
-    throw new Error('Sheet schema mismatch. Do not rename or reorder columns.');
+    edashReject_(503, 'Registration storage needs administrator attention. Please contact the E-Dash team.', 'REGISTRATION_SHEET_SCHEMA_MISMATCH');
   }
   return sheet;
 }
@@ -282,6 +315,6 @@ function edashEqual_(left, right) {
   for (var i = 0; i < left.length; i++) diff |= left.charCodeAt(i) ^ right.charCodeAt(i);
   return diff === 0;
 }
-function edashReject_(status, message) { var error = new Error(message); error.publicStatus = status; throw error; }
+function edashReject_(status, message, code) { var error = new Error(message); error.publicStatus = status; error.publicCode = code; throw error; }
 function edashJson_(value) { return ContentService.createTextOutput(JSON.stringify(value)).setMimeType(ContentService.MimeType.JSON); }
 function edashHtml_(value) { return String(value).replace(/[&<>"']/g, function (char) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]; }); }
