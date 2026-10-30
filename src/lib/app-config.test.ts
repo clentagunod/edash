@@ -323,6 +323,8 @@ describe('Promotion access setting', () => {
       eosyStatus: 'Promoted',
       guardian: 'Parent',
       unrelatedField: 'preserved',
+      teacherComments: ['Source term 1', 'Source term 2', 'Source term 3'],
+      attendance: { classDays: { Aug: '22' }, daysPresent: { Aug: '20' }, daysAbsent: { Aug: '2' } },
     };
     const sourceRef = {
       get: vi.fn().mockResolvedValue({ exists: true, data: () => sourceLearner }),
@@ -374,10 +376,12 @@ describe('Promotion access setting', () => {
 
     try {
       await expect(firestoreApi.fsPromoteLearner('2030-2031', '2031-2032', sourceLearner.learnerId, {
-        ...sourceLearner,
         gradeLevel: 'Grade 2',
         section: 'A',
         age: 8,
+        guardian: 'Updated parent',
+        teacherComments: ['New term 1', '', ''],
+        attendance: { classDays: {}, daysPresent: {}, daysAbsent: {} },
       })).resolves.toEqual({
         learnerId: sourceLearner.learnerId,
         sourceSchoolYear: '2030-2031',
@@ -390,7 +394,10 @@ describe('Promotion access setting', () => {
         gradeLevel: 'Grade 2',
         section: 'A',
         age: 8,
-        guardian: 'Parent',
+        guardian: 'Updated parent',
+        firstName: 'Avery',
+        teacherComments: ['New term 1', '', ''],
+        attendance: { classDays: {}, daysPresent: {}, daysAbsent: {} },
         unrelatedField: 'preserved',
         enrollmentStatus: 'ACTIVE',
         eosyStatus: '',
@@ -399,6 +406,8 @@ describe('Promotion access setting', () => {
         progressionType: 'promotion',
       }));
       expect(auditSpy).toHaveBeenCalledWith('LEARNER_PROMOTE', expect.anything());
+      expect(sourceLearner.teacherComments).toEqual(['Source term 1', 'Source term 2', 'Source term 3']);
+      expect(sourceLearner.attendance.daysPresent.Aug).toBe('20');
       targetExists = true;
       await expect(firestoreApi.fsPromoteLearner('2030-2031', '2031-2032', sourceLearner.learnerId, {
         ...sourceLearner,
@@ -423,6 +432,8 @@ describe('Promotion access setting', () => {
       });
       expect(transaction.set).toHaveBeenLastCalledWith(targetRef, expect.objectContaining({
         gradeLevel: 'Grade 2',
+        teacherComments: sourceLearner.teacherComments,
+        attendance: sourceLearner.attendance,
         progressionType: 'retention',
         progressionSourceSchoolYear: '2030-2031',
       }));

@@ -6,13 +6,14 @@ import { Icon } from './icons';
 import { canManageLearners, confirmDiscardChanges, formSnapshot, isSchoolAdmin, isTeacher, isVisitorSession, paginationPageNumbers, storedAppProfile, teacherAssignmentsForProfile } from './app-config';
 import { escapeHtml, formatAppDate, programBadges, renderShell, showToast } from './shell';
 import { DEMO_LEARNERS, isSheetsApiConfigured } from './demo-data';
-import { fsAddLearner, fsDeleteLearner, fsDeleteLearners, fsGetGradeLevelGradingConfigurations, fsGetGradeTermCount, fsGetLearner, fsGetLearnerPage, fsSubscribeLearners } from './firestore-api';
+import { fsAddLearner, fsDeleteLearner, fsDeleteLearners, fsGetCardPrintingPreferences, fsGetGradeLevelGradingConfigurations, fsGetGradeTermCount, fsGetLearner, fsGetLearnerPage, fsSubscribeLearners } from './firestore-api';
 import { PHIL_IRI_CATEGORIES } from './profile-charts';
 import { CURRICULUM_SUBJECTS, LEGACY_CURRICULUM_SUBJECT_IDS, curriculumSubjectIdsForGrade, normalizeCurriculumGrade, normalizeCurriculumSubjectPool } from './curriculum-subjects';
 import { computeNumericalFinalGrades, DEFAULT_GRADE_TERM, FINAL_GRADE_TERM, GRADE_TERMS, gradeTermsForCount, gradesForTerm, mergeGradesForTerm } from './academic-grades';
 import { DEFAULT_GRADE_LEVEL_GRADING, gradeLevelConfigKey, normalizeGradeLevelGrading } from './grading-config';
 import { compareLearnersBySurname, formatLearnerName } from './learner-sorting';
 import { ensureAnecdotalRecordsInput, organizeLearnerForm } from './learner-form-layout';
+import { collectLearnerCardFields, loadLearnerCardFields } from './learner-card-record';
 
 /**
  * ============================================================================
@@ -1263,11 +1264,13 @@ export async function openAddModal() {
   const schoolYear = getSelectedSchoolYear();
   LL.sectionSchoolYear = schoolYear;
   const metadataTasks = [
+    loadLearnerCardFields(document.getElementById("learnerForm"), {}, fsGetCardPrintingPreferences),
     loadSectionOptions(schoolYear).then(updateSectionOptions),
     renderExtraFieldInputs({}),
     updateSubjectInputVisibility(schoolYear),
   ];
   await Promise.all(metadataTasks);
+  organizeLearnerForm(document.getElementById("learnerForm"));
   renderLearnerTermGrades(LL.gradeTerm);
   learnerFormInitialSnapshot = formSnapshot(document.getElementById("learnerForm"));
   setLearnerModalLoading(false);
@@ -1316,6 +1319,7 @@ export async function openEditModal(learnerId) {
 
   LL.editingId = learnerId;
   LL.editingLearnerOriginal = learner;
+  const cardFieldsRequest = loadLearnerCardFields(document.getElementById("learnerForm"), learner, fsGetCardPrintingPreferences);
   LL.gradeTerm = learner.gradesByTerm ? DEFAULT_GRADE_TERM : FINAL_GRADE_TERM;
   const gradeTermSelect = document.getElementById("f_gradeTerm");
   if (gradeTermSelect) gradeTermSelect.value = LL.gradeTerm;
@@ -1387,6 +1391,8 @@ export async function openEditModal(learnerId) {
   });
   await renderExtraFieldInputs(learner.extra || {});
   await updateSubjectInputVisibility(LL.sectionSchoolYear, true);
+  await cardFieldsRequest;
+  organizeLearnerForm(document.getElementById("learnerForm"));
   renderLearnerTermGrades(LL.gradeTerm);
   learnerFormInitialSnapshot = formSnapshot(document.getElementById("learnerForm"));
   setLearnerModalLoading(false);
@@ -1604,6 +1610,7 @@ export async function handleLearnerFormSubmit(e) {
     transferReason: getLearnerFieldValue("f_transferReason").trim(),
     transferNotes: getLearnerFieldValue("f_transferNotes").trim(),
     anecdotalRecords: getLearnerFieldValue("f_anecdotalRecords").trim(),
+    ...collectLearnerCardFields(form),
     extra: collectExtraFieldValues(),
     };
     Object.assign(learner, applyAutomaticFinalGrades(learner, selectedGrade));

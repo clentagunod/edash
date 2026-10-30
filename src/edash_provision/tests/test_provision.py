@@ -74,6 +74,13 @@ class ProvisionTests(unittest.TestCase):
         self.assertFalse(defaults["privacyMode"])
         self.assertEqual(profile["role"], "School Admin")
 
+    def test_learner_card_schema_documents_year_scoped_defaults_without_sample_learners(self):
+        structure, _ = read_json(ASSETS / "tenant-structure.json")
+        learner = structure["recordSchemas"]["schoolYears/{schoolYear}/learners/{LRN}"]
+        self.assertEqual(learner["teacherComments"]["default"], ["", "", ""])
+        self.assertEqual(learner["attendance"]["default"], {"classDays": {}, "daysPresent": {}, "daysAbsent": {}})
+        self.assertFalse(any("/learners/" in doc.path for doc in prepare_plan(self.options).documents))
+
     def test_custom_user_structure_fills_preference_defaults_without_losing_choices(self):
         source = self.write({"format": "edash-tenant-provision", "version": 1, "documents": [
             {"path": "users/teacher-1", "data": {"role": "Teacher", "teacherPrefs": {"theme": "Forest", "inspectLearner": False}}}

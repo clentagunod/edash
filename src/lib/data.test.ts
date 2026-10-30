@@ -40,4 +40,18 @@ describe('Data exports', () => {
     expect(exportValue({ extra: { schoolYear: '2025-2026' } }, 'schoolYear', '2026-2027')).toBe('2025-2026');
     expect(exportColumns(records).filter(([key]) => key === 'anecdotalRecords')).toHaveLength(1);
   });
+
+  it('preserves structured teacher comments and attendance in CSV and Excel exports', () => {
+    const record = { learnerId: '001234567890', teacherComments: ['Progress, with support', 'Reads\nevery day', '<Ready>'], attendance: { daysPresent: { Aug: '20' }, daysAbsent: { Aug: '0' }, classDays: { Aug: '20' } } };
+    const workbook = XLSX.read(buildCsv([record], '2026-2027'), { type: 'string', raw: true });
+    const rows = XLSX.utils.sheet_to_json<string[]>(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
+    expect(JSON.parse(rows[1][rows[0].indexOf('Teacher Comments')])).toEqual(record.teacherComments);
+    expect(JSON.parse(rows[1][rows[0].indexOf('Attendance')])).toEqual(record.attendance);
+    const doc = new DOMParser().parseFromString(buildExcel([record], '2026-2027'), 'text/html');
+    const headers = [...doc.querySelectorAll('th')].map((cell) => cell.textContent);
+    const cells = [...doc.querySelectorAll('tbody td')];
+    expect(JSON.parse(cells[headers.indexOf('Teacher Comments')].textContent!)).toEqual(record.teacherComments);
+    expect(JSON.parse(cells[headers.indexOf('Attendance')].textContent!)).toEqual(record.attendance);
+    expect(doc.querySelector('ready')).toBeNull();
+  });
 });

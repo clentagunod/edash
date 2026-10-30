@@ -2,6 +2,8 @@
 import { appDateInputValue, clearButtonLoading, setButtonLoading, showToast } from './shell';
 import { LPSApi } from './sheets-api';
 import { ensureAnecdotalRecordsInput, organizeLearnerForm } from './learner-form-layout';
+import { collectLearnerCardFields, loadLearnerCardFields } from './learner-card-record';
+import { fsGetCardPrintingPreferences } from './firestore-api';
 
 export let archiveEditorState = null;
 
@@ -45,6 +47,7 @@ export function ensureArchiveEditor() {
         transferReason: document.getElementById("archiveReason").value.trim(),
         transferNotes: document.getElementById("archiveNotes").value.trim(),
         anecdotalRecords: document.getElementById("archiveAnecdotalRecords").value.trim(),
+        ...collectLearnerCardFields(event.target),
       };
       await LPSApi.updateArchiveRecord(archiveEditorState.archive, archiveEditorState.schoolYear, archiveEditorState.record.learnerId, record);
       close();
@@ -61,7 +64,7 @@ export function ensureArchiveEditor() {
   });
 }
 
-export function openArchiveEditor(archive, schoolYear, record, reload) {
+export async function openArchiveEditor(archive, schoolYear, record, reload) {
   ensureArchiveEditor();
   archiveEditorState = { archive, schoolYear, record, reload };
   document.getElementById("archiveEditorTitle").textContent = archive === "dropout" ? "Edit Dropout Info record" : "Edit transfer record";
@@ -83,6 +86,10 @@ export function openArchiveEditor(archive, schoolYear, record, reload) {
   document.getElementById("archiveNotes").value = record.transferNotes || "";
   document.getElementById("archiveAnecdotalRecords").value = record.anecdotalRecords || "";
   document.getElementById("archiveEditorBackdrop").classList.add("is-open");
+  const form = document.getElementById("archiveEditorForm");
+  const cardFieldsRequest = loadLearnerCardFields(form, record, fsGetCardPrintingPreferences);
+  organizeLearnerForm(form, true);
+  await cardFieldsRequest;
 }
 
 function updateArchiveSuffixVisibility() {

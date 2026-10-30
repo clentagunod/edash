@@ -185,6 +185,16 @@
   ],
   "recordSchemas": {
     "schoolYears/{schoolYear}/learners/{LRN}": {
+      "teacherComments": {
+        "type": "array<string>",
+        "default": ["", "", ""],
+        "description": "Three teacher comments in 1st, 2nd, and 3rd Term order. Saved per learner and school year, retained in archives, and used to prefill learner cards."
+      },
+      "attendance": {
+        "type": "map<string,map<string,string>>",
+        "default": { "classDays": {}, "daysPresent": {}, "daysAbsent": {} },
+        "description": "Monthly non-negative whole-number counts (or empty strings), keyed by Card Preferences month labels, under classDays, daysPresent, and daysAbsent. Stored per learner and school year and retained in archives."
+      },
       "anecdotalRecords": {
         "type": "string",
         "default": "",

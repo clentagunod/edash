@@ -10,6 +10,7 @@ const LEARNER_SECTIONS: FormSection[] = [
   { key: 'additional', title: 'Additional information', description: 'Other learner fields configured for your school.', selector: '#extraFieldsContainer' },
   { key: 'transfer', title: 'Transfer information', description: 'Complete these details when a learner transfers in or out.', selector: '#f_transferType' },
   { key: 'anecdotal', title: 'Anecdotal Records', description: 'Verified conduct information used when preparing a Certificate of Good Moral.', selector: '#f_anecdotalRecords' },
+  { key: 'card-record', title: 'Learner card', description: 'Teacher Comments and monthly attendance saved with this learner for the selected school year.', selector: '[data-learner-card-record]' },
 ];
 
 const ARCHIVE_SECTIONS: FormSection[] = [
@@ -17,6 +18,7 @@ const ARCHIVE_SECTIONS: FormSection[] = [
   { key: 'enrollment', title: 'Enrollment', description: 'Placement and the original enrollment date.', selector: '#archiveGrade, #archiveSection, #archiveDateAdded' },
   { key: 'transfer', title: 'Transfer information', description: 'School, dates, and supporting transfer details.', selector: '#archiveTransferSchool, #archiveTransferDate, #archiveReason, #archiveNotes' },
   { key: 'anecdotal', title: 'Anecdotal Records', description: 'Verified conduct information retained with this learner’s record.', selector: '#archiveAnecdotalRecords' },
+  { key: 'card-record', title: 'Learner card', description: 'Teacher Comments and monthly attendance retained with this archived learner.', selector: '[data-learner-card-record]' },
 ];
 
 /** Reuse the original controls so values, validation, and event listeners stay intact. */

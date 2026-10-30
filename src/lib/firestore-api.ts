@@ -11,6 +11,7 @@ import { isAppTheme } from './themes';
 import { DEFAULT_GRADE_TERM_COUNT, DEFAULT_ROUND_TYPE, GRADE_ROUND_TYPES, MAX_GRADE_TERM_COUNT, MIN_GRADE_TERM_COUNT } from './academic-grades';
 import { DEFAULT_PASSING_THRESHOLD, gradeLevelConfigKey, normalizeGradeLevelGrading, normalizePassingThreshold } from './grading-config';
 import { formatLearnerName } from './learner-sorting';
+import { learnerCardRecord } from './learner-card-record';
 import { CERTIFICATE_PREFERENCES_DOCUMENT, normalizeCertificatePreferences, validateCertificatePreferences, type CertificatePreferences } from './certificate-preferences';
 
 /**
@@ -57,7 +58,7 @@ export function fsCanonicalLearner_(learner) {
   const result = {};
   FS_LEARNER_FIELD_ORDER.forEach((field) => { result[field] = learner[field] ?? (field === "extra" ? {} : ""); });
   FS_DYNAMIC_CURRICULUM_SUBJECT_IDS.forEach((field) => { result[field] = learner[field] ?? ""; });
-  return result;
+  return { ...result, ...learnerCardRecord(learner, true) };
 }
 
 export function fsLearnersCollection_(schoolYear) {
@@ -1765,7 +1766,7 @@ export async function fsUpdateArchiveRecord(archive, schoolYear, learnerId, lear
   const ref = collection.doc(learnerId);
   const before = await ref.get();
   if (!before.exists) throw new Error("Archived learner record was not found.");
-  const update = { ...fsCanonicalLearner_(learner), schoolYear };
+  const update = { ...fsCanonicalLearner_({ ...before.data(), ...learner }), schoolYear };
   await ref.set(update, { merge: true });
   fsInvalidateReadCaches_(schoolYear);
   void fsUpdatePublicStatsForChange_(schoolYear, {}, {}).catch(() => {});
@@ -2099,7 +2100,7 @@ export async function fsPromoteLearner(sourceSchoolYear, targetSchoolYear, learn
       const promotedRecord = {
         ...sourceLearner,
         ...updatedLearner,
-        ...fsCanonicalLearner_(updatedLearner),
+        ...fsCanonicalLearner_({ ...sourceLearner, ...updatedLearner }),
         learnerId: id,
         name: fsLearnerName_({ ...sourceLearner, ...updatedLearner }),
         schoolYear: targetYear,
@@ -2513,7 +2514,7 @@ export async function fsGetLearnerSchema(schoolYear) {
   const knownFields = new Set([
     "learnerId", "firstName", "middleName", "lastName", "suffix", "birthDate", "age", "gradeLevel", "section", "gender",
     "enrollmentStatus", "eosyStatus", "guardian", "contact", "dateAdded", "is4Ps", "isIP", "isSNED", "isARAL", "isMuslim",
-    "anecdotalRecords", "extra",
+    "anecdotalRecords", "teacherComments", "attendance", "extra",
     ...FS_DYNAMIC_CURRICULUM_SUBJECT_IDS,
   ]);
   const extraFields = new Set();
@@ -2572,6 +2573,10 @@ export async function fsUpdateLearner(schoolYear, learnerId, learner) {
   try {
     const ref = fsLearnersCollection_(schoolYear).doc(learnerId);
     const update = fsCanonicalLearner_(learner);
+    // Older callers may update other fields without sending the card record.
+    for (const field of ["teacherComments", "attendance"]) {
+      if (!Object.prototype.hasOwnProperty.call(learner, field)) delete update[field];
+    }
     if (!Object.prototype.hasOwnProperty.call(learner, "dateAdded")) delete update.dateAdded;
     const archiveType = fsLearnerArchiveType_(learner);
     let before = null;

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockAuth = {
   currentUser: null,
@@ -43,6 +43,9 @@ const {
 } = await import('./learner-list');
 const { showToast } = await import('./shell');
 const { fsCanonicalLearner_ } = await import('./firestore-api');
+const firestoreApi = await import('./firestore-api');
+const { renderLearnerCardFields } = await import('./learner-card-record');
+const cardPreferences = { attendanceMonths: ['Aug', 'Sep'], attendanceRows: [{ id: 'classDays', label: 'Class days' }, { id: 'daysPresent', label: 'Present' }, { id: 'daysAbsent', label: 'Absent' }] };
 const { ensureAnecdotalRecordsInput, organizeLearnerForm } = await import('./learner-form-layout');
 const { openArchiveEditor } = await import('./archive-editor');
 const { LPSApi } = await import('./sheets-api');
@@ -101,6 +104,9 @@ describe('learner list sorting and teacher scope', () => {
 });
 
 describe('shared learner forms and Anecdotal Records', () => {
+  let preferencesSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => { preferencesSpy = vi.spyOn(firestoreApi, 'fsGetCardPrintingPreferences').mockResolvedValue(cardPreferences); });
+  afterEach(() => { preferencesSpy.mockRestore(); });
   it.each(Object.entries(learnerPageMarkup))('keeps controls and validation intact while grouping %s', (_path, markup) => {
     document.body.innerHTML = markup;
     ensureIdentityInputs();
@@ -113,6 +119,7 @@ describe('shared learner forms and Anecdotal Records', () => {
     ensureLearnerStatusInputs();
     const form = document.querySelector<HTMLFormElement>('#learnerForm')!;
     ensureAnecdotalRecordsInput(form);
+    renderLearnerCardFields(form, { teacherComments: ['First', 'Second', 'Third'], attendance: { daysPresent: { Aug: 20 } } }, cardPreferences);
     const input = document.querySelector<HTMLTextAreaElement>('#f_anecdotalRecords')!;
     input.value = 'no recorded disciplinary violations';
     const onInput = vi.fn();
@@ -124,7 +131,8 @@ describe('shared learner forms and Anecdotal Records', () => {
     organizeLearnerForm(form);
     expect(controls().sort((a, b) => a.id.localeCompare(b.id))).toEqual(before);
     expect(document.querySelectorAll('#f_anecdotalRecords')).toHaveLength(1);
-    expect([...form.querySelectorAll('[data-learner-section]')].slice(-2).map((section) => section.getAttribute('data-learner-section'))).toEqual(['transfer', 'anecdotal']);
+    expect([...form.querySelectorAll('[data-learner-section]')].slice(-3).map((section) => section.getAttribute('data-learner-section'))).toEqual(['transfer', 'anecdotal', 'card-record']);
+    expect(form.querySelectorAll('[data-teacher-comment]')).toHaveLength(3);
     input.dispatchEvent(new Event('input', { bubbles: true }));
     expect(onInput).toHaveBeenCalledOnce();
     form.reset();
@@ -134,14 +142,43 @@ describe('shared learner forms and Anecdotal Records', () => {
   it('keeps Anecdotal Records in canonical Firestore data with an empty default for older records', () => {
     expect(fsCanonicalLearner_({ learnerId: '123456789012', anecdotalRecords: 'no recorded violations' }).anecdotalRecords).toBe('no recorded violations');
     expect(fsCanonicalLearner_({ learnerId: '123456789012' }).anecdotalRecords).toBe('');
+    expect(fsCanonicalLearner_({}).teacherComments).toEqual(['', '', '']);
+    expect(fsCanonicalLearner_({ attendance: { daysPresent: { Aug: 20 } }, teacherComments: ['One', 'Two', 'Three'] })).toEqual(expect.objectContaining({
+      teacherComments: ['One', 'Two', 'Three'], attendance: { classDays: {}, daysPresent: { Aug: '20' }, daysAbsent: {} },
+    }));
   });
 
-  it('loads and clears records correctly when switching between archived learners', () => {
+  it('preserves saved card records when older update callers omit them, and accepts explicit clearing', async () => {
+    const saved = { teacherComments: ['Keep this comment', '', ''], attendance: { classDays: { Aug: '20' }, daysPresent: { Aug: '20' }, daysAbsent: { Aug: '0' } } };
+    const ref = { set: vi.fn(async (data) => { Object.assign(saved, data); }) };
+    const collection = vi.spyOn(mockDb, 'collection').mockReturnValue({ doc: vi.fn(() => ({ collection: vi.fn(() => ({ doc: vi.fn(() => ref) })) })) });
+    const audit = vi.spyOn(LPSApi, 'recordAuditEvent').mockResolvedValue({});
+    vi.useFakeTimers();
+    try {
+      await firestoreApi.fsUpdateLearner('2026-2027', '123456789012', { firstName: 'Updated', enrollmentStatus: 'ACTIVE' });
+      expect(saved.teacherComments[0]).toBe('Keep this comment');
+      expect(saved.attendance.daysPresent.Aug).toBe('20');
+      expect(ref.set.mock.calls[0][0]).not.toHaveProperty('teacherComments');
+      expect(ref.set.mock.calls[0][0]).not.toHaveProperty('attendance');
+      await firestoreApi.fsUpdateLearner('2026-2027', '123456789012', { teacherComments: ['', '', ''], attendance: { classDays: {}, daysPresent: {}, daysAbsent: {} } });
+      expect(saved.teacherComments).toEqual(['', '', '']);
+      expect(saved.attendance).toEqual({ classDays: {}, daysPresent: {}, daysAbsent: {} });
+    } finally {
+      vi.clearAllTimers();
+      vi.useRealTimers();
+      audit.mockRestore();
+      collection.mockRestore();
+    }
+  });
+
+  it('loads and clears records correctly when switching between archived learners', async () => {
     document.body.innerHTML = '';
-    openArchiveEditor('transferredOut', '2026-2027', { learnerId: '123', anecdotalRecords: 'Saved archive record' }, vi.fn());
+    await openArchiveEditor('transferredOut', '2026-2027', { learnerId: '123', anecdotalRecords: 'Saved archive record', teacherComments: ['Saved term', '', ''] }, vi.fn());
+    expect(document.querySelector<HTMLTextAreaElement>('[data-teacher-comment]')?.value).toBe('Saved term');
     expect(document.querySelector<HTMLTextAreaElement>('#archiveAnecdotalRecords')?.value).toBe('Saved archive record');
     expect(document.querySelector('#archiveAnecdotalRecords')?.closest('[data-learner-section]')?.getAttribute('data-learner-section')).toBe('anecdotal');
-    openArchiveEditor('dropout', '2026-2027', { learnerId: '456' }, vi.fn());
+    await openArchiveEditor('dropout', '2026-2027', { learnerId: '456' }, vi.fn());
+    expect(document.querySelector<HTMLTextAreaElement>('[data-teacher-comment]')?.value).toBe('');
     expect(document.querySelector<HTMLTextAreaElement>('#archiveAnecdotalRecords')?.value).toBe('');
   });
 
@@ -149,10 +186,12 @@ describe('shared learner forms and Anecdotal Records', () => {
     document.body.innerHTML = '';
     const update = vi.spyOn(LPSApi, 'updateArchiveRecord').mockResolvedValue({ updated: true });
     try {
-      openArchiveEditor('transferredOut', '2026-2027', { learnerId: '123456789012', firstName: 'Alex', lastName: 'Cruz', gender: 'Male' }, vi.fn());
+      await openArchiveEditor('transferredOut', '2026-2027', { learnerId: '123456789012', firstName: 'Alex', lastName: 'Cruz', gender: 'Male' }, vi.fn());
+      document.querySelector<HTMLTextAreaElement>('[data-teacher-comment="2"]')!.value = 'Third-term progress';
+      document.querySelector<HTMLInputElement>('[aria-label="Present Aug"]')!.value = '20';
       document.querySelector<HTMLTextAreaElement>('#archiveAnecdotalRecords')!.value = 'Verified observation.\nFollow-up completed.';
       document.querySelector('#archiveEditorForm')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-      await vi.waitFor(() => expect(update).toHaveBeenCalledWith('transferredOut', '2026-2027', '123456789012', expect.objectContaining({ anecdotalRecords: 'Verified observation.\nFollow-up completed.' })));
+      await vi.waitFor(() => expect(update).toHaveBeenCalledWith('transferredOut', '2026-2027', '123456789012', expect.objectContaining({ anecdotalRecords: 'Verified observation.\nFollow-up completed.', teacherComments: ['', '', 'Third-term progress'], attendance: expect.objectContaining({ daysPresent: { Aug: '20', Sep: '' } }) })));
     } finally { update.mockRestore(); }
   });
 });

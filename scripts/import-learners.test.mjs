@@ -2,10 +2,22 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { parseLearnerWorkbook } from "./import-learners.mjs";
+import * as XLSX from "xlsx";
 
 const workbookPath = resolve("scripts/Backup_SanRoqueEs.xlsx");
 
 describe("parseLearnerWorkbook", () => {
+  it("keeps structured teacher comments and attendance when importing learner workbooks", () => {
+    const comments = ['First & second <term>', 'Literal &quot; and "quotes"', 'Third\nterm'];
+    const attendance = { classDays: { Aug: '20' }, daysPresent: { Aug: '20' }, daysAbsent: { Aug: '0' } };
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.aoa_to_sheet([
+      ['Id', 'LRN', 'Teacher Comments', 'Attendance'],
+      ['123456789012', '123456789012', JSON.stringify(comments), JSON.stringify(attendance)],
+    ]), 'Backup_Learners_2026_2027');
+    const parsed = parseLearnerWorkbook(XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }), '2026-2027');
+    expect(parsed.records[0].data).toMatchObject({ teacherComments: comments, attendance });
+  });
   it("parses learner records and maps LRN to both learnerId and document ID", async () => {
     const workbook = await readFile(workbookPath);
     const parsed = parseLearnerWorkbook(workbook, "2026-2027", false, { allowInvalidBirthDates: true });

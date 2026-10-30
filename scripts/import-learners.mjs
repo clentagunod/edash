@@ -18,10 +18,10 @@ const LEARNER_FIELDS = [
   "literacyLanguageCommunication", "socioEmotionalDevelopment", "valuesDevelopment", "physicalHealthMotorDevelopment",
   "aestheticCreativeDevelopment", "cognitiveDevelopment", "gmrc", "language", "readingLiteracy", "makabansa", "eppTle",
   "tle", "valuesEducation", "mapeh", "gradesByTerm",
-  "transferType", "transferIn", "transferOut", "transferSchool", "transferDate", "transferReason", "transferNotes", "anecdotalRecords", "extra",
+  "transferType", "transferIn", "transferOut", "transferSchool", "transferDate", "transferReason", "transferNotes", "anecdotalRecords", "teacherComments", "attendance", "extra",
 ];
 const BOOLEAN_FIELDS = new Set(["is4Ps", "isIP", "isSNED", "isARAL", "isMuslim", "transferIn", "transferOut"]);
-const JSON_FIELDS = new Set(["extra", "gradesByTerm"]);
+const JSON_FIELDS = new Set(["extra", "gradesByTerm", "teacherComments", "attendance"]);
 const DATE_FIELDS = new Set(["birthDate", "dateAdded", "transferDate"]);
 const FIELD_BY_HEADER = new Map(LEARNER_FIELDS.map((field) => [normalizeHeader(field), field]));
 const XML_PARSER = new XMLParser({
@@ -56,11 +56,24 @@ function asArray(value) {
   return Array.isArray(value) ? value : [value];
 }
 
+// Decode cell text once without enabling custom/DOCTYPE entity expansion.
+function decodeXmlText(value) {
+  const entities = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" };
+  return String(value).replace(/&(amp|lt|gt|quot|apos|#\d+|#x[0-9a-f]+);/gi, (match, entity) => {
+    if (entities[entity]) return entities[entity];
+    if (!entity.startsWith("#")) return match;
+    const hexadecimal = entity.slice(0, 2).toLowerCase() === "#x";
+    const point = parseInt(entity.slice(hexadecimal ? 2 : 1), hexadecimal ? 16 : 10);
+    return Number.isInteger(point) && point > 0 && point <= 0x10ffff && !(point >= 0xd800 && point <= 0xdfff)
+      ? String.fromCodePoint(point) : match;
+  });
+}
+
 function richText(value) {
-  if (typeof value === "string") return value;
+  if (typeof value === "string") return decodeXmlText(value);
   if (Array.isArray(value)) return value.map(richText).join("");
   if (!value || typeof value !== "object") return "";
-  if (typeof value.t === "string") return value.t;
+  if (typeof value.t === "string") return decodeXmlText(value.t);
   if (value.r !== undefined) return richText(value.r);
   return "";
 }
@@ -92,9 +105,9 @@ function decodeCell(cell, sharedStrings) {
   if (cell["@t"] === "b") return cell.v === "1";
   if (cell.v === undefined || cell.v === "") return "";
   if (cell["@t"] === "e") throw new Error("Workbook contains an Excel cell error.");
-  if (cell["@t"] === "str") return String(cell.v);
+  if (cell["@t"] === "str") return decodeXmlText(cell.v);
   const numeric = Number(cell.v);
-  return Number.isFinite(numeric) ? numeric : String(cell.v);
+  return Number.isFinite(numeric) ? numeric : decodeXmlText(cell.v);
 }
 
 function decodeExcelDate(value) {

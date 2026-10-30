@@ -326,6 +326,18 @@ body[data-theme="clentindustries-theme"] .archive-editor-modal .modal-footer .bt
 #learnerModalBackdrop .learner-form-section input[type="checkbox"] { accent-color: var(--blue-600); }
 .learner-form-section .anecdotal-records-field textarea { min-height: 140px; line-height: 1.7; }
 
+.learner-card-record-fields { min-width: 0; display: grid; gap: 20px; }
+.learner-card-record-fields > fieldset { min-width: 0; margin: 0; padding: 12px; border: 1px solid var(--line-200); border-radius: 10px; }
+.learner-card-record-fields legend { color: var(--ink-800); font-size: 12px; font-weight: 700; padding: 0 6px; }
+.learner-card-record-fields label.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.learner-card-record-fields label.field:last-child { margin-bottom: 0; }
+.learner-card-record-fields textarea { width: 100%; resize: vertical; }
+.learner-attendance-scroll { max-width: 100%; overflow-x: auto; }
+.learner-attendance-scroll table { width: max-content; min-width: 100%; border-collapse: collapse; font-size: 12px; }
+.learner-attendance-scroll th, .learner-attendance-scroll td { padding: 6px; border: 1px solid var(--line-200); text-align: center; }
+.learner-attendance-scroll th[scope="row"] { text-align: left; min-width: 110px; }
+.learner-attendance-scroll input { width: 68px; min-width: 68px; text-align: center; }
+
 @media (max-width: 900px) {
   .learner-form-section-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   [data-learner-section="nutrition"] .learner-form-section-grid { grid-template-columns: minmax(0, 1fr); }
