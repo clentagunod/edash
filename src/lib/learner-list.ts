@@ -1757,7 +1757,7 @@ export function ensureSubjectInputs() {
   if (!group) {
     group = document.createElement("div");
     group.className = "field span-2 subject-input-group";
-    group.innerHTML = `<div class="grade-term-entry"><label for="f_gradeTerm">Learner card term</label><select id="f_gradeTerm">${LL.gradeTerms.map(({ id, label }) => `<option value="${id}">${label}</option>`).join("")}</select><small>Enter grades and Teacher Comments for the selected term. Final Grade is entered manually.</small></div><label>Subject grades <small id="subjectReferenceHint">(optional, 60-100) · select a grade level</small></label><div class="subject-inputs"></div>`;
+    group.innerHTML = `<div class="grade-term-entry"><label for="f_gradeTerm">Academic term</label><select id="f_gradeTerm">${LL.gradeTerms.map(({ id, label }) => `<option value="${id}">${label}</option>`).join("")}</select><small>Enter grades and Teacher Comments for the selected term. Final Grade is entered manually.</small></div><label>Subject grades <small id="subjectReferenceHint">(optional, 60-100) · select a grade level</small></label><div class="subject-inputs"></div>`;
     formGrid.appendChild(group);
   }
   const termSelect = group.querySelector("#f_gradeTerm");

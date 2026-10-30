@@ -1032,7 +1032,7 @@ body:is([data-theme="dracula"], [data-theme="monokai"], [data-theme="beach"], [d
   .sf9-cancellation-section { padding-top: 1mm; }
   .sf9-transfer-section > p { margin: .8mm 0 1.3mm; }
   .sf9-transfer-fields { gap: 4mm; }
-  .sf9-transfer-fields span { padding-bottom: .5mm; }
+  .sf9-transfer-field { padding-bottom: .5mm; }
   .sf9-approval { margin-top: 1.3mm; }
   .sf9-cancellation-section > div { gap: 2mm; margin-top: 1mm; }
   .sf9-card-back .sf9-signature-line { min-height: 7mm; padding-bottom: .25mm; }
@@ -1040,7 +1040,7 @@ body:is([data-theme="dracula"], [data-theme="monokai"], [data-theme="beach"], [d
   .sf9-card-back .sf9-cancellation-section { padding-top: 1.4mm; }
   .sf9-card-back .sf9-transfer-section { margin-bottom: 15mm; }
   .sf9-card-back .sf9-transfer-section > p { margin: 1mm 0 1.5mm; line-height: 1.28; }
-  .sf9-card-back .sf9-transfer-fields span { padding-bottom: .75mm; }
+  .sf9-card-back .sf9-transfer-field { padding-bottom: .75mm; }
   .sf9-card-back .sf9-approval { margin-top: 2mm; row-gap: 1.3mm; }
   .sf9-card-back .sf9-approval > div { min-height: 12mm; }
   .sf9-card-back .sf9-approval > div,

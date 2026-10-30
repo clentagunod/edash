@@ -40,7 +40,9 @@ In Apps Script, open **Project Settings → Script properties → Add script pro
 | `REGISTRATION_SHARED_SECRET` | Your generated secret |
 | `REGISTRATION_BASE_URL` | `https://register.edash.online/` |
 
-In the editor, select and run **initializeRegistrationSheets** once. Authorize the required spreadsheet access for your own script. This creates **Requests** and **Registrations**, including their headers. Reload the spreadsheet to see the **E-Dash registration** menu.
+In the editor, select and run **initializeRegistrationSheets** once. Authorize the required spreadsheet access for your own script. This creates **Requests** and **Registrations**, including their headers. Reload the spreadsheet to see the **E-Dash registration** menu. The first authenticated initial submission can also create missing/empty tabs automatically; existing nonempty tabs with different headers are never overwritten. Initial requests appear in **Requests**, not the default **Sheet1** tab.
+
+Run **checkRegistrationSetup** in the Apps Script editor for a read-only check. Its execution log reports `secretConfigured`, `spreadsheetConfigured`, `spreadsheetAccessible`, `matchesBoundSpreadsheet`, and the two tab states without printing credentials, spreadsheet IDs, or applicant data. If `matchesBoundSpreadsheet` is false, the configured spreadsheet is different from the one containing the bound script; verify `SPREADSHEET_ID` before submitting. `ready: true` with `missing`/`empty` tab states means the next authenticated initial submission can initialize them. This checks Script Properties and Sheets access; the Vercel variables and web-app deployment must still be configured separately.
 
 Do not rename/reorder the generated tabs or columns. Do not overwrite ID, token hash, expiry, or reference cells manually. You can widen columns and use filter views. The backend checks headers to avoid putting data in the wrong columns.
 
@@ -54,7 +56,7 @@ Do not rename/reorder the generated tabs or columns. Do not overwrite ID, token 
 
 The web app runs as its owner and can write to the owner's private sheet. Its POST handler verifies the server secret before accessing onboarding data. A direct GET deliberately returns an error response. If your Workspace policy prevents anonymous web apps, the Workspace administrator must allow this deployment or you must choose another backend; a sign-in-only deployment cannot work with this relay. See Google's [web app deployment documentation](https://developers.google.com/apps-script/guides/web).
 
-After editing the script later, use **Deploy → Manage deployments → Edit → New version → Deploy**. Updating the existing deployment retains its `/exec` URL. Google Content Service redirects responses; the server relay follows redirects, as required by the [Content Service documentation](https://developers.google.com/apps-script/guides/content).
+After editing the script later, use **Deploy → Manage deployments → Edit → New version → Deploy**. Updating the existing deployment retains its `/exec` URL. Google Content Service redirects responses; the server relay fetches the response from `script.googleusercontent.com` using GET, without resending the shared secret or applicant payload. Redirects to Google sign-in or another host are rejected. See the [Content Service documentation](https://developers.google.com/apps-script/guides/content).
 
 ## 4. Configure and deploy the existing Vercel project
 
@@ -193,6 +195,10 @@ Local UI preview: run `npm run dev` and visit `http://localhost:5173/register`. 
 | “This registration origin is not allowed” | Add the exact browser origin (scheme, hostname, port if any; no trailing slash/path) to the comma-separated allowlist and redeploy. |
 | “Registration access denied” | The Vercel and Script Property secrets must match exactly. |
 | “We could not confirm your submission” | Check web-app anonymous access, `/exec`, Workspace restrictions, and Apps Script Executions. Retry safely; a successfully saved profile will not be duplicated. |
+| “The registration service could not return a valid confirmation” | Inspect the response `code` and Vercel function log. `SCRIPT_DEPLOYMENT_ACCESS` means Google redirected to sign-in or an unexpected host; `SCRIPT_RESPONSE_INVALID` means non-JSON output; `SCRIPT_PROTOCOL_MISMATCH` means the wrong/old script or an incomplete success reply. Deploy the current script as a new version and redeploy the Vercel code/configuration. |
+| `SCRIPT_HTTP_ERROR`, `SCRIPT_UNREACHABLE`, or `SCRIPT_TIMEOUT` | Vercel could not obtain an Apps Script confirmation. Function logs include a safe error code and upstream HTTP status when available, without payloads, endpoint URLs, tokens, secrets, or raw Google pages. Check Apps Script Executions to determine whether the handler ran. The relay never automatically retries a POST. |
+| `REGISTRATION_SECRET_MISMATCH` | Ensure Vercel's `SCHOOL_REGISTRATION_SHARED_SECRET` and Apps Script's `REGISTRATION_SHARED_SECRET` match. Do not put the secret in a `VITE_*` setting. Redeploy Vercel after editing its environment. |
+| `REGISTRATION_SPREADSHEET_MISSING`, `REGISTRATION_SPREADSHEET_ACCESS`, or `REGISTRATION_SHEET_SCHEMA_MISMATCH` | Run `checkRegistrationSetup`; correct `SPREADSHEET_ID`, script-owner access, or the generated headers. Do not delete existing request rows to troubleshoot. |
 | Generic script error | Confirm spreadsheet ID, script-owner access, initialized tabs and unchanged headers. Verify server settings privately without logging applicant data or credentials. |
 | Invalid / expired invitation | Use the latest complete emailed link. Staff can renew an unsubmitted link from its Requests row. |
 | Missing sheet menu | Reload the bound spreadsheet; verify `onOpen` is in its bound Apps Script project. |

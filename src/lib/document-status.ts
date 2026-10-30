@@ -1,4 +1,4 @@
-export const DOCUMENT_STATUSES = ['Successfully', 'Transmitted', 'Preparing Documents', 'Received Documents', 'Custom'] as const;
+export const DOCUMENT_STATUSES = ['Successfully Transmitted', 'Transmitted', 'Preparing Documents', 'Received Documents', 'Custom'] as const;
 export const DOCUMENT_STATUS_FIELDS = ['documentStatus', 'documentStatusCustom', 'documentStatusDates'] as const;
 export type DocumentStatusRecord = {
   documentStatus: string;
@@ -18,7 +18,8 @@ export function documentStatusRecord(learner: Record<string, unknown> = {}, vali
   }
   const legacy = !Object.prototype.hasOwnProperty.call(learner, 'documentStatus')
     && typeof learner.transferNotes === 'string' ? learner.transferNotes.trim() : '';
-  const status = typeof learner.documentStatus === 'string' ? learner.documentStatus.trim() : legacy ? 'Custom' : '';
+  const recordedStatus = typeof learner.documentStatus === 'string' ? learner.documentStatus.trim() : legacy ? 'Custom' : '';
+  const status = recordedStatus === 'Successfully' ? 'Successfully Transmitted' : recordedStatus;
   const custom = typeof learner.documentStatusCustom === 'string' ? learner.documentStatusCustom.trim() : legacy;
   if (validate && status && !DOCUMENT_STATUSES.includes(status as typeof DOCUMENT_STATUSES[number])) {
     throw new Error('Choose a valid Document Status category.');
@@ -29,13 +30,17 @@ export function documentStatusRecord(learner: Record<string, unknown> = {}, vali
     throw new Error('Document Status dates must contain a date for each category.');
   }
   const source = dates && typeof dates === 'object' && !Array.isArray(dates) ? dates : {};
-  const documentStatusDates = Object.fromEntries(Object.entries(source).filter(([key]) => DOCUMENT_STATUSES.includes(key as typeof DOCUMENT_STATUSES[number])).map(([key, raw]) => {
+  const documentStatusDates = Object.fromEntries(Object.entries(source).filter(([key]) => key === 'Successfully' || DOCUMENT_STATUSES.includes(key as typeof DOCUMENT_STATUSES[number])).map(([key, raw]) => {
     const date = typeof raw === 'string' ? raw.trim() : '';
     if (validate && ((raw != null && typeof raw !== 'string') || (date && !validDate(date)))) {
       throw new Error(`Enter a valid date for Document Status: ${key}.`);
     }
     return [key, date];
   }));
+  // Keep the historical key as well, including when both dates already exist.
+  if (!documentStatusDates['Successfully Transmitted'] && documentStatusDates.Successfully) {
+    documentStatusDates['Successfully Transmitted'] = documentStatusDates.Successfully;
+  }
   return { documentStatus: DOCUMENT_STATUSES.includes(status as typeof DOCUMENT_STATUSES[number]) ? status : '', documentStatusCustom: custom, documentStatusDates };
 }
 
@@ -68,7 +73,7 @@ export function renderDocumentStatusFields(host: HTMLElement, learner: Record<st
   ['', ...DOCUMENT_STATUSES].forEach((status) => {
     const option = document.createElement('option');
     option.value = status;
-    option.textContent = status || 'Not recorded';
+    option.textContent = status || 'No Documents Received';
     select.append(option);
   });
   select.value = saved.documentStatus;

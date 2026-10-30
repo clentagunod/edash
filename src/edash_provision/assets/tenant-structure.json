@@ -193,7 +193,7 @@
       "documentStatus": {
         "type": "string",
         "default": "",
-        "description": "Selected category: Successfully, Transmitted, Preparing Documents, Received Documents, or Custom. An empty string means not recorded."
+        "description": "Selected category: Successfully Transmitted, Transmitted, Preparing Documents, Received Documents, or Custom. An empty string is displayed as No Documents Received. The legacy Successfully value and its saved dates remain readable."
       },
       "documentStatusCustom": {
         "type": "string",

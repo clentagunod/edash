@@ -17,7 +17,7 @@ const fields = {
   contactPhone: '+639123456789', driveLink: 'https://drive.google.com/drive/folders/school_assets?usp=sharing',
 };
 
-function setup() {
+function setup(initialize = true) {
   let dialog = '';
   let active: any;
   const sheets = new Map<string, any>();
@@ -71,7 +71,7 @@ function setup() {
     ContentService: { MimeType: { JSON: 'json' }, createTextOutput: (value: string) => ({ setMimeType: () => JSON.parse(value) }) },
   });
   vm.runInContext(source, context);
-  context.initializeRegistrationSheets();
+  if (initialize) context.initializeRegistrationSheets();
   active = sheets.get('Requests');
   const call = (action: string, payload: object = {}) => context.doPost({ postData: { contents: JSON.stringify({ action, sharedSecret: secret, ...payload }) } });
   const invite = () => {
@@ -82,10 +82,49 @@ function setup() {
     const data = sheets.get(name).data;
     return data.slice(1).map((row) => Object.fromEntries(data[0].map((key, index) => [key, String(row[index] ?? '').replace(/^'/, '')])));
   };
-  return { call, invite, records, sheets, context, lock };
+  return { call, invite, records, sheets, context, lock, properties };
 }
 
 describe('Google Sheets school onboarding', () => {
+  it('checks setup without creating tabs, logging identifiers, or writing requests', () => {
+    const app = setup(false);
+    const result = app.context.checkRegistrationSetup();
+    expect(result).toMatchObject({ ready: true, spreadsheetAccessible: true, matchesBoundSpreadsheet: true, sheets: { Requests: 'missing', Registrations: 'missing' } });
+    expect(app.sheets.size).toBe(0);
+    expect(JSON.stringify(result)).not.toContain(secret);
+    expect(JSON.stringify(result)).not.toContain('test-book');
+    app.context.SpreadsheetApp.getActiveSpreadsheet = () => ({ getId: () => 'another-book' });
+    expect(app.context.checkRegistrationSetup().matchesBoundSpreadsheet).toBe(false);
+    expect(app.sheets.size).toBe(0);
+  });
+  it('initializes a completely empty spreadsheet on the first authenticated submission and saves exactly one row', () => {
+    const app = setup(false);
+    expect(app.sheets.size).toBe(0);
+    expect(app.call('submitSchoolRegistration', { ...initial, sharedSecret: 'wrong' }).status).toBe(403);
+    expect(app.sheets.size).toBe(0);
+    const result = app.call('submitSchoolRegistration', initial);
+    expect(result).toMatchObject({ ok: true, data: { status: 'Received', duplicate: false, requestId: expect.stringMatching(/^REQ-/) } });
+    expect(app.records('Requests')).toHaveLength(1);
+    expect(app.records('Registrations')).toHaveLength(0);
+    expect(app.call('submitSchoolRegistration', initial).data).toMatchObject({ duplicate: true, requestId: result.data.requestId });
+    expect(app.records('Requests')).toHaveLength(1);
+  });
+
+  it('does not overwrite existing sheet data or mismatched headers', () => {
+    const app = setup();
+    app.sheets.get('Requests').data[0][0] = 'different header';
+    const before = JSON.stringify(app.sheets.get('Requests').data);
+    expect(app.call('submitSchoolRegistration', initial)).toMatchObject({ ok: false, status: 503, code: 'REGISTRATION_SHEET_SCHEMA_MISMATCH' });
+    expect(JSON.stringify(app.sheets.get('Requests').data)).toBe(before);
+  });
+
+  it('reports missing spreadsheet configuration and normalizes surrounding secret whitespace', () => {
+    const app = setup();
+    app.properties.REGISTRATION_SHARED_SECRET = `  ${secret}  `;
+    expect(app.call('submitSchoolRegistration', initial).ok).toBe(true);
+    app.properties.SPREADSHEET_ID = '';
+    expect(app.call('submitSchoolRegistration', initial)).toMatchObject({ ok: false, status: 503, code: 'REGISTRATION_SPREADSHEET_MISSING' });
+  });
   it('rejects unauthenticated, malformed, honeypot and unacknowledged requests without storing data', () => {
     const app = setup();
     expect(app.call('submitSchoolRegistration', { ...initial, sharedSecret: 'wrong' }).status).toBe(403);

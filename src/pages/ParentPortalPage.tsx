@@ -366,7 +366,7 @@ export default function ParentPortalPage() {
             <DetailSection title="Nutrition record" fields={NUTRITION_FIELDS} learner={learner} />
             <section className="parent-detail-section">
               <div className="parent-detail-section-heading"><h2>Learner Card</h2><button className="parent-visibility-toggle" type="button" onClick={() => setShowGrades((value) => !value)} aria-pressed={showGrades} aria-label={showGrades ? 'Hide grades, teacher comments, attendance, assessments, and anecdotal records' : 'Show grades, teacher comments, attendance, assessments, and anecdotal records'} title={showGrades ? 'Hide grades, teacher comments, attendance, assessments, and anecdotal records' : 'Show grades, teacher comments, attendance, assessments, and anecdotal records'}><span aria-hidden="true">{showGrades ? '◉' : '◌'}</span> {showGrades ? 'Hide details' : 'Show details'}</button></div>
-              <label className="parent-card-term" htmlFor="parentCardTerm">Learner card term
+              <label className="parent-card-term" htmlFor="parentCardTerm">Academic term
                 <select id="parentCardTerm" value={selectedTerm} onChange={(event) => setSelectedTerm(event.target.value)}>
                   {gradeTermsForCount(gradeTermCount).map(({ id, label }) => <option value={id} key={id}>{label}</option>)}
                 </select>

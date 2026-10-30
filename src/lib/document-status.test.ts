@@ -7,6 +7,16 @@ function form() {
 }
 
 describe('Document Status', () => {
+  it('loads renamed successful statuses without losing legacy or newer dates', () => {
+    const learner = { documentStatus: 'Successfully', documentStatusDates: { Successfully: '2026-10-28' } };
+    const host = form();
+    renderDocumentStatusFields(host, learner, 'test');
+    expect(host.querySelector<HTMLSelectElement>('[data-document-status]')!.value).toBe('Successfully Transmitted');
+    expect(host.querySelector<HTMLInputElement>('[data-document-status-date]')!.value).toBe('2026-10-28');
+    expect(collectDocumentStatusFields(host).documentStatusDates).toEqual({ Successfully: '2026-10-28', 'Successfully Transmitted': '2026-10-28' });
+    expect(documentStatusRecord({ ...learner, documentStatusDates: { ...learner.documentStatusDates, 'Successfully Transmitted': '2026-10-30' } }, true).documentStatusDates).toEqual({ Successfully: '2026-10-28', 'Successfully Transmitted': '2026-10-30' });
+    expect(learner.documentStatus).toBe('Successfully');
+  });
   it('retains existing notes as Custom without altering the original record', () => {
     const learner = { transferNotes: 'Awaiting the signed form.' };
     expect(documentStatusRecord(learner)).toEqual({ documentStatus: 'Custom', documentStatusCustom: learner.transferNotes, documentStatusDates: {} });
@@ -21,6 +31,7 @@ describe('Document Status', () => {
     const custom = host.querySelector<HTMLInputElement>('[data-document-status-custom]')!;
     const selectStatus = (status: string) => { select.value = status; select.dispatchEvent(new Event('change', { bubbles: true })); };
     expect([...select.options].map((option) => option.value)).toEqual(['', ...DOCUMENT_STATUSES]);
+    expect(select.options[0].textContent).toBe('No Documents Received');
     expect(date.closest('label')!.hidden).toBe(true);
     selectStatus('Preparing Documents');
     expect(date.closest('label')!.hidden).toBe(false);
