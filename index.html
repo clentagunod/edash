@@ -31,7 +31,7 @@
 <script>
   try {
     var __lpsLoginPath = window.location.pathname;
-    var __lpsThemeIndependentRoute = __lpsLoginPath === '/' || /\/index\.html$/i.test(__lpsLoginPath) || /\/select-school\/?$/i.test(__lpsLoginPath);
+    var __lpsThemeIndependentRoute = window.location.hostname === 'register.edash.online' || /^\/register\/?$/.test(__lpsLoginPath) || __lpsLoginPath === '/' || /\/index\.html$/i.test(__lpsLoginPath) || /\/select-school\/?$/i.test(__lpsLoginPath);
     var __lpsCachedProfile = JSON.parse(sessionStorage.getItem('lps_user_profile') || 'null');
     var __lpsThemeName = __lpsCachedProfile && __lpsCachedProfile.uid && __lpsCachedProfile.uid !== 'guest'
       ? __lpsCachedProfile.teacherPrefs && __lpsCachedProfile.teacherPrefs.theme
@@ -88,7 +88,7 @@
     try {
       var __lpsBodyPath = window.location.pathname;
       var __lpsIsLoginBody = __lpsBodyPath === '/' || /\/index\.html$/i.test(__lpsBodyPath);
-      var __lpsIsThemeIndependentBody = __lpsIsLoginBody || /\/select-school\/?$/i.test(__lpsBodyPath);
+      var __lpsIsThemeIndependentBody = window.location.hostname === 'register.edash.online' || /^\/register\/?$/.test(__lpsBodyPath) || __lpsIsLoginBody || /\/select-school\/?$/i.test(__lpsBodyPath);
       var __lpsBodyProfile = JSON.parse(sessionStorage.getItem('lps_user_profile') || 'null');
       var __lpsBodyThemeName = __lpsBodyProfile && __lpsBodyProfile.uid && __lpsBodyProfile.uid !== 'guest'
         ? __lpsBodyProfile.teacherPrefs && __lpsBodyProfile.teacherPrefs.theme

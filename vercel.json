@@ -1,5 +1,16 @@
 {
+  "functions": {
+    "api/school-registration.mjs": { "maxDuration": 30 }
+  },
   "headers": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "register.edash.online" }],
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+        { "key": "Referrer-Policy", "value": "no-referrer" }
+      ]
+    },
     {
       "source": "/assets/:path*.mp4",
       "headers": [
@@ -11,6 +22,6 @@
     }
   ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

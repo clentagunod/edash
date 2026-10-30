@@ -2,7 +2,6 @@
 
 interface ImportMetaEnv {
   readonly MAINTENANCE_MODE?: string;
-  readonly VITE_SCHOOL_REGISTRATION_API_URL?: string;
   readonly VITE_CLOUDINARY_CLOUD_NAME?: string;
   readonly VITE_CLOUDINARY_UPLOAD_PRESET?: string;
 }

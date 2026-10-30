@@ -1,5 +1,6 @@
 # Vercel only needs the Vite app source, static assets, and build configuration.
 apps-script/
+gscripts/
 deploy/
 scripts/
 main.py
@@ -13,6 +14,7 @@ school-registry.rules
 # Project documentation and local-only examples.
 README.md
 SETUP_README.md
+SCHOOL_REGISTRATION_SETUP.md
 .env*
 school-registration.example.json
 
