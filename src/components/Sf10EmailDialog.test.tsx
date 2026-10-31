@@ -29,7 +29,7 @@ describe('SF10 Gmail composer', () => {
     expect(mocks.prepare).toHaveBeenCalledWith('pdf'); expect(mocks.send).toHaveBeenCalledTimes(1);
     expect(mocks.send.mock.calls[0][1]).toMatchObject({ to: 'records@example.edu', subject: 'Request for Permanent Records (SF10) — 2 learners' });
     expect(container.textContent).toContain('Email sent to records@example.edu'); expect(button('Email sent').disabled).toBe(true);
-    expect(mocks.recordSent).toHaveBeenCalledWith({ messageId: 'message-id', sentAt: expect.any(String) });
+    expect(mocks.recordSent).toHaveBeenCalledWith({ messageId: 'message-id', sentAt: expect.any(String), to: ['records@example.edu'], cc: [], bcc: [] });
     expect(mocks.send.mock.invocationCallOrder[0]).toBeLessThan(mocks.recordSent.mock.invocationCallOrder[0]);
     await act(async () => container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
     expect(mocks.send).toHaveBeenCalledTimes(1);

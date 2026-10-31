@@ -18,10 +18,10 @@ const LEARNER_FIELDS = [
   "literacyLanguageCommunication", "socioEmotionalDevelopment", "valuesDevelopment", "physicalHealthMotorDevelopment",
   "aestheticCreativeDevelopment", "cognitiveDevelopment", "gmrc", "language", "readingLiteracy", "makabansa", "eppTle",
   "tle", "valuesEducation", "mapeh", "gradesByTerm",
-  "transferType", "transferIn", "transferOut", "transferSchoolId", "transferSchool", "transferSchoolAddress", "transferSchoolZipCode", "transferDate", "transferReason", "transferNotes", "documentStatus", "documentStatusCustom", "documentStatusDates", "anecdotalRecords", "teacherComments", "attendance", "extra",
+  "transferType", "transferIn", "transferOut", "transferSchoolId", "transferSchool", "transferSchoolAddress", "transferSchoolZipCode", "transferDate", "transferReason", "transferNotes", "documentStatus", "documentStatusCustom", "documentStatusDates", "sf10Email", "anecdotalRecords", "teacherComments", "attendance", "extra",
 ];
 const BOOLEAN_FIELDS = new Set(["is4Ps", "isIP", "isSNED", "isARAL", "isMuslim", "transferIn", "transferOut"]);
-const JSON_FIELDS = new Set(["extra", "gradesByTerm", "teacherComments", "attendance", "documentStatusDates"]);
+const JSON_FIELDS = new Set(["extra", "gradesByTerm", "teacherComments", "attendance", "documentStatusDates", "sf10Email"]);
 const DATE_FIELDS = new Set(["birthDate", "dateAdded", "transferDate"]);
 const FIELD_BY_HEADER = new Map(LEARNER_FIELDS.map((field) => [normalizeHeader(field), field]));
 const XML_PARSER = new XMLParser({

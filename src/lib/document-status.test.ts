@@ -17,6 +17,19 @@ describe('Document Status', () => {
     expect(documentStatusLabel({ transferNotes: 'Legacy note' })).toBe('Legacy note');
     expect(documentStatusLabel({ documentStatus: 'Custom', documentStatusCustom: 'Waiting' })).toBe('Waiting');
   });
+  it('shows the latest email recipients and send time as read-only information in learner editors', () => {
+    const host = form();
+    renderDocumentStatusFields(host, { documentStatus: 'Emailed', sf10Email: {
+      messageId: 'confirmed-id', sentAt: '2026-10-31T17:05:00.000Z', to: ['records@example.edu'], cc: [], bcc: [],
+    } }, 'test');
+    const summary = host.querySelector('.document-status-email-summary')!;
+    expect(summary.textContent).toContain('To: records@example.edu');
+    expect(summary.textContent).toContain('1:05 AM (PHT)');
+    expect(summary.querySelector('input, textarea')).toBeNull();
+    expect(collectDocumentStatusFields(host).documentStatus).toBe('Emailed');
+    renderDocumentStatusFields(host, {}, 'test');
+    expect(host.querySelector('.document-status-email-summary')).toBeNull();
+  });
   it('loads renamed successful statuses without losing legacy or newer dates', () => {
     const learner = { documentStatus: 'Successfully', documentStatusDates: { Successfully: '2026-10-28' } };
     const host = form();

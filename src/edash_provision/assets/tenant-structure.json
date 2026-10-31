@@ -320,6 +320,33 @@
         "type": "string",
         "default": "",
         "description": "Required source/destination ZIP code for transfer records. Store as text to preserve leading zeros."
+      },
+      "sf10Email": {
+        "type": "map",
+        "optional": true,
+        "description": "Latest confirmed SF10 email for this learner and school year. Written atomically with Emailed status only after Gmail confirms sending. Preserved when editing or archiving the learner; not copied into a new enrollment through promotion or retention. Failed sends do not replace this receipt.",
+        "fields": {
+          "messageId": {
+            "type": "string",
+            "description": "Confirmed Gmail message identifier."
+          },
+          "sentAt": {
+            "type": "string",
+            "description": "ISO 8601 UTC confirmation time. Display date/time in Asia/Manila (PHT)."
+          },
+          "to": {
+            "type": "array<string>",
+            "description": "Actual To recipient email addresses."
+          },
+          "cc": {
+            "type": "array<string>",
+            "description": "Actual CC recipient email addresses; empty when unused."
+          },
+          "bcc": {
+            "type": "array<string>",
+            "description": "Actual BCC recipient email addresses; empty when unused."
+          }
+        }
       }
     },
     "settings/printableSignatures": {

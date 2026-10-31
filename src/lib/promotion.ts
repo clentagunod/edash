@@ -25,7 +25,7 @@ const PROMOTION_SYSTEM_FIELDS = new Set([
   "enrollmentStatus", "eosyStatus", "transferType", "transferIn", "transferOut",
   "transferSchool", "transferSchoolId", "transferSchoolAddress", "transferSchoolZipCode", "transferDate", "transferReason", "transferNotes",
   "progressionSourceSchoolYear", "progressionType",
-  "teacherComments", "attendance",
+  "teacherComments", "attendance", "sf10Email",
   ...DOCUMENT_STATUS_FIELDS,
 ]);
 

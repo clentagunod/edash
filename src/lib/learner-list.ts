@@ -16,6 +16,7 @@ import { compareLearnersBySurname, formatLearnerName } from './learner-sorting';
 import { ensureAnecdotalRecordsInput, organizeLearnerForm } from './learner-form-layout';
 import { collectLearnerCardFields, loadLearnerCardFields, syncLearnerCardTerm } from './learner-card-record';
 import { collectDocumentStatusFields, renderDocumentStatusFields } from './document-status';
+import { sf10EmailDetails } from './sf10-email';
 
 /**
  * ============================================================================
@@ -88,6 +89,7 @@ const LEARNER_DETAIL_GROUPS = [
   { title: "Nutrition", matches: (key) => /^(bosy|mosy|eosy)(height|weight|nutritionalstatus)$/i.test(key) },
   { title: "Academic grades", matches: (key) => CURRICULUM_SUBJECT_IDS.has(key) || key === "gradesByTerm" },
   { title: "Transfer information", matches: (key) => ["transferType", "transferIn", "transferOut", "transferSchoolId", "transferSchool", "transferSchoolAddress", "transferSchoolZipCode", "transferDate", "transferReason", "transferNotes", "documentStatus", "documentStatusCustom", "documentStatusDates"].includes(key) },
+  { title: "SF10 email", matches: (key) => key === "sf10Email" },
   { title: "Anecdotal Records", matches: (key) => key === "anecdotalRecords" },
 ];
 
@@ -124,6 +126,7 @@ const LEARNER_DETAIL_LABELS = {
   documentStatus: "Document Status",
   documentStatusCustom: "Custom Document Status",
   documentStatusDates: "Document Status dates",
+  sf10Email: "Latest SF10 email",
   ...Object.fromEntries(CURRICULUM_SUBJECTS.map(({ id, label }) => [id, label])),
 };
 
@@ -769,6 +772,7 @@ export function filterDemoLearners() {
 
 function formatLearnerDetailValue(key, value) {
   if (value === null || value === undefined) return "";
+  if (key === 'sf10Email') return sf10EmailDetails(value).join(' · ') || 'No email details recorded';
   if (key === "gradesByTerm" && typeof value === "string") {
     try {
       value = JSON.parse(value);

@@ -28,7 +28,7 @@ const { LPSApi } = await import('./sheets-api');
 const { fsMarkSf10RequestEmailed } = await import('./firestore-api');
 
 describe('confirmed SF10 request email tracking', () => {
-  const receipt = { messageId: 'confirmed-gmail-id', sentAt: '2026-10-31T17:05:00.000Z' };
+  const receipt = { messageId: 'confirmed-gmail-id', sentAt: '2026-10-31T17:05:00.000Z', to: ['records@example.edu'], cc: ['registrar@example.edu'], bcc: [] };
   let transaction: { get: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
   beforeEach(() => {
     mockAuth.currentUser = { uid: 'registrar' } as never;
@@ -46,9 +46,11 @@ describe('confirmed SF10 request email tracking', () => {
     expect(transaction.update.mock.calls.map(([ref]) => ref.path)).toEqual([
       'schoolYears/2026-2027/learners/001', 'schoolYears/2026-2027/learners/002',
     ]);
-    expect(transaction.update.mock.calls[0][1]).toEqual({ documentStatus: 'Emailed', 'documentStatusDates.Emailed': '2026-11-01' });
+    expect(transaction.update.mock.calls[0][1]).toEqual({ documentStatus: 'Emailed', 'documentStatusDates.Emailed': '2026-11-01', sf10Email: receipt });
     expect(Math.max(...transaction.get.mock.invocationCallOrder)).toBeLessThan(Math.min(...transaction.update.mock.invocationCallOrder));
     expect(LPSApi.recordAuditEvent).toHaveBeenCalledWith('SF10_REQUEST_EMAILED', expect.objectContaining({ recordId: '001, 002' }));
+    expect(fsCanonicalLearner_({ sf10Email: receipt }).sf10Email).toEqual(receipt);
+    expect(fsCanonicalLearner_({ firstName: 'Updated' })).not.toHaveProperty('sf10Email');
   });
 
   it('does not recreate a learner removed or archived while the email was sending', async () => {
