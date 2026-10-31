@@ -51,7 +51,7 @@ export default function SignatureLibraryPanel() {
     finally { inProgress.current = false; if (mounted.current) setBusy(false); }
   }
   return <section className="panel signature-library" aria-labelledby="signatureLibraryTitle" aria-busy={busy}>
-    <header className="panel-header"><div><span className="eyebrow-label">Shared assets</span><h2 id="signatureLibraryTitle">School head signatures</h2><p>Store up to three signatures and choose where each is available. Adding a signature to a document is optional.</p></div></header>
+    <header className="panel-header"><div><span className="eyebrow-label">Shared assets</span><h2 id="signatureLibraryTitle">E-Signatures</h2><p>Store up to three signatures by position and choose where each is available. Adding a signature to a document is optional.</p></div></header>
     <div className="panel-body">
       {error && <p role="alert">{error} <button type="button" onClick={() => setReload((value) => value + 1)}>Reload library</button></p>}
       {!ready && !error && <p role="status">Loading school signatures…</p>}
@@ -59,7 +59,7 @@ export default function SignatureLibraryPanel() {
       <fieldset disabled={!ready || busy}><legend>Signature library</legend>
         <div className="signature-library-slots">{SIGNATURE_SLOTS.map((id, index) => <section className="signature-library-slot" key={id}><h3>Signature {index + 1}</h3>{library.slots[id] ? <><div className="signature-checkerboard">{images[id]?.revision === library.slots[id]?.revision && <img src={images[id]!.dataUrl} alt={library.slots[id]!.label} />}</div><strong>{library.slots[id]!.label}</strong>{images[id]?.revision === library.slots[id]?.revision && images[id]?.storage === 'firestore' && <button type="button" className="btn btn-secondary" disabled={!uploadConfigured} onClick={() => void run(() => migrateSignatureAsset(id, library.slots[id]!.revision), 'Signature moved to Cloudinary. Printable availability was preserved.')}>Move to Cloudinary</button>}<button type="button" className="btn btn-secondary" onClick={() => void run(() => removeSignatureAsset(id), 'Signature removed from the library and all printable assignments.')}>Remove signature {index + 1}</button></> : <p>Empty slot</p>}</section>)}</div>
         <div className="signature-upload-fields"><label>Upload to<select value={slot} onChange={(event) => setSlot(event.currentTarget.value as SignatureSlot)}>{SIGNATURE_SLOTS.map((id, index) => <option key={id} value={id} disabled={!!library.slots[id]}>Signature {index + 1}{library.slots[id] ? ' (occupied)' : ''}</option>)}</select></label>
-          <label>Signature label<input maxLength={80} value={label} onChange={(event) => setLabel(event.currentTarget.value)} placeholder="School head · current signature" /></label>
+          <label>Position<input maxLength={80} value={label} onChange={(event) => setLabel(event.currentTarget.value)} placeholder="Position" /></label>
           <label>Signature image<input ref={fileInput} type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setFile(event.currentTarget.files?.[0] || null)} /></label>
           <label className="signature-checkbox"><input type="checkbox" checked={removeWhite} onChange={(event) => setRemoveWhite(event.currentTarget.checked)} />Remove white background</label>
           {removeWhite && <label>Background cleanup<input type="range" min={200} max={250} value={threshold} onChange={(event) => setThreshold(Number(event.currentTarget.value))} /><small>Lower values remove more of the pale background.</small></label>}

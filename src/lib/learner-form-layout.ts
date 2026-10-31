@@ -18,7 +18,7 @@ const ARCHIVE_SECTIONS: FormSection[] = [
   { key: 'enrollment', title: 'Enrollment', description: 'Placement and the original enrollment date.', selector: '#archiveGrade, #archiveSection, #archiveDateAdded, #archiveEnrollmentStatus' },
   { key: 'anecdotal', title: 'Anecdotal Records', description: 'Verified conduct information retained with this learner’s record.', selector: '#archiveAnecdotalRecords' },
   { key: 'card-record', title: 'Learner card', description: 'Teacher Comments and monthly attendance retained with this archived learner.', selector: '[data-learner-card-record]' },
-  { key: 'transfer', title: 'Transfer Information and EOSY Status', description: 'School, dates, document progress, and end-of-year status.', selector: '#archiveTransferSchool, #archiveTransferDate, #archiveReason, #archiveEosyStatus, [data-document-status-fields]' },
+  { key: 'transfer', title: 'Transfer Information and EOSY Status', description: 'School, dates, document progress, and end-of-year status.', selector: '#archiveTransferType, [data-transfer-school-detail], #archiveTransferSchool, #archiveTransferDate, #archiveReason, #archiveEosyStatus, [data-document-status-fields]' },
 ];
 
 /** Reuse the original controls so values, validation, and event listeners stay intact. */

@@ -23,7 +23,7 @@ const LABELS: Record<string, string> = {
   eosyStatus: 'End-of-year status', dateAdded: 'Date added', bosyHeight: 'Baseline height', bosyWeight: 'Baseline weight',
   bosyNutritionalStatus: 'Baseline nutritional status', mosyHeight: 'Midline height', mosyWeight: 'Midline weight',
   mosyNutritionalStatus: 'Midline nutritional status', eosyHeight: 'Endline height', eosyWeight: 'Endline weight',
-  eosyNutritionalStatus: 'Endline nutritional status', transferType: 'Transfer type', transferSchool: 'Transfer school',
+  eosyNutritionalStatus: 'Endline nutritional status', transferType: 'Transfer type', transferSchool: 'Transfer school', transferSchoolId: 'Transfer school ID', transferSchoolAddress: 'Transfer school address', transferSchoolZipCode: 'Transfer school ZIP code',
   transferDate: 'Transfer date', transferReason: 'Transfer reason', documentStatus: 'Document Status', documentStatusDate: 'Document Status date',
   filipino: 'Filipino', english: 'English', math: 'Mathematics', science: 'Science', aralPan: 'Araling Panlipunan',
   esp: 'ESP', music: 'Music', arts: 'Arts', pe: 'Physical Education', health: 'Health', epp: 'EPP', motherTongue: 'Mother Tongue',
@@ -38,7 +38,7 @@ const NUTRITION_FIELDS = [
   'bosyHeight', 'bosyWeight', 'bosyNutritionalStatus', 'mosyHeight', 'mosyWeight', 'mosyNutritionalStatus',
   'eosyHeight', 'eosyWeight', 'eosyNutritionalStatus',
 ];
-const TRANSFER_FIELDS = ['transferType', 'transferSchool', 'transferDate', 'transferReason', 'documentStatus', 'documentStatusDate'];
+const TRANSFER_FIELDS = ['transferType', 'transferSchoolId', 'transferSchool', 'transferSchoolAddress', 'transferSchoolZipCode', 'transferDate', 'transferReason', 'documentStatus', 'documentStatusDate'];
 const ASSESSMENT_FIELDS = ['bosyCRLA', 'mosyCRLA', 'eosyCRLA', 'bosyPhilIRI', 'mosyPhilIRI', 'eosyPhilIRI', 'bosyRMA', 'mosyRMA', 'eosyRMA'];
 const PROGRAM_FIELDS = [
   ['is4Ps', '4Ps beneficiary'], ['isIP', 'IP learner'], ['isSNED', 'SNED learner'],

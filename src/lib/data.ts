@@ -22,7 +22,7 @@ export const DATA_FIELDS = [
   ["bosyCRLA", "BOSY CRLA"], ["mosyCRLA", "MOSY CRLA"], ["eosyCRLA", "EOSY CRLA"],
   ["bosyPhilIRI", "BOSY Phil-IRI"], ["mosyPhilIRI", "MOSY Phil-IRI"], ["eosyPhilIRI", "EOSY Phil-IRI"],
   ["bosyRMA", "BOSY RMA"], ["mosyRMA", "MOSY RMA"], ["eosyRMA", "EOSY RMA"],
-  ["transferType", "Transfer Type"], ["transferSchool", "Transfer School"], ["transferDate", "Transfer Date"],
+  ["transferType", "Transfer Type"], ["transferSchoolId", "Transfer School ID"], ["transferSchool", "Transfer School"], ["transferSchoolAddress", "Transfer School Address"], ["transferSchoolZipCode", "Transfer School ZIP Code"], ["transferDate", "Transfer Date"],
   ["transferReason", "Transfer Reason"], ["transferNotes", "Transfer Notes"],
   ["documentStatus", "Document Status"], ["documentStatusCustom", "Custom Document Status"], ["documentStatusDates", "Document Status Dates"],
   ["anecdotalRecords", "Anecdotal Records"],

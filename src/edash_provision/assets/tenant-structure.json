@@ -291,6 +291,26 @@
         "type": "string",
         "default": "",
         "description": "Verified anecdotal or conduct records saved with each learner and used for Good Moral certificates. Also retained in dropout and transferred-out records."
+      },
+      "transferSchoolId": {
+        "type": "string",
+        "default": "",
+        "description": "Required school ID when Transfer In or Transfer Out is selected. Store as text to preserve leading zeros."
+      },
+      "transferSchool": {
+        "type": "string",
+        "default": "",
+        "description": "Required source school name for Transfer In or destination school name for Transfer Out."
+      },
+      "transferSchoolAddress": {
+        "type": "string",
+        "default": "",
+        "description": "Required source/destination school mailing address for transfer records."
+      },
+      "transferSchoolZipCode": {
+        "type": "string",
+        "default": "",
+        "description": "Required source/destination ZIP code for transfer records. Store as text to preserve leading zeros."
       }
     },
     "settings/printableSignatures": {
@@ -318,7 +338,7 @@
     "settings/printable-signature-{1|2|3}": {
       "label": {
         "type": "string",
-        "description": "School head signature label up to 80 characters."
+        "description": "Signature position label up to 80 characters (for example Principal, Registrar, or Teacher). Existing label field remains compatible."
       },
       "revision": {
         "type": "string",
@@ -361,6 +381,57 @@
       "dataUrl": {
         "type": "string",
         "description": "Legacy only: inline transparent PNG up to 220000 characters. Still readable; the admin Move to Cloudinary action replaces it with a Cloudinary reference and preserves printable assignments."
+      }
+    },
+    "schoolYears/{schoolYear}/transferredOut/{LRN}": {
+      "transferSchoolId": {
+        "type": "string",
+        "default": "",
+        "description": "Required school ID when Transfer In or Transfer Out is selected. Store as text to preserve leading zeros."
+      },
+      "transferSchool": {
+        "type": "string",
+        "default": "",
+        "description": "Required source school name for Transfer In or destination school name for Transfer Out."
+      },
+      "transferSchoolAddress": {
+        "type": "string",
+        "default": "",
+        "description": "Required source/destination school mailing address for transfer records."
+      },
+      "transferSchoolZipCode": {
+        "type": "string",
+        "default": "",
+        "description": "Required source/destination ZIP code for transfer records. Store as text to preserve leading zeros."
+      }
+    },
+    "schoolYears/{schoolYear}/dropouts/{LRN}": {
+      "transferSchoolId": {
+        "type": "string",
+        "default": "",
+        "description": "Required school ID when Transfer In or Transfer Out is selected. Store as text to preserve leading zeros."
+      },
+      "transferSchool": {
+        "type": "string",
+        "default": "",
+        "description": "Required source school name for Transfer In or destination school name for Transfer Out."
+      },
+      "transferSchoolAddress": {
+        "type": "string",
+        "default": "",
+        "description": "Required source/destination school mailing address for transfer records."
+      },
+      "transferSchoolZipCode": {
+        "type": "string",
+        "default": "",
+        "description": "Required source/destination ZIP code for transfer records. Store as text to preserve leading zeros."
+      }
+    },
+    "schoolYears/{schoolYear}/grades/{gradeKey}/sections/{sectionKey}": {
+      "adviserOverride": {
+        "type": "boolean",
+        "default": false,
+        "description": "Set true when an administrator explicitly edits the displayed adviser in School Structure. This saved name takes precedence over linked account metadata; sections without an override still use assigned teacher names."
       }
     }
   },

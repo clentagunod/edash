@@ -23,8 +23,57 @@ vi.stubGlobal('firebase', {
 });
 
 const { setAppUserProfile } = await import('./app-config');
-const { fsGetTrash, fsWriteAuditedSettings_, fsUpdateMyTeacherPrefs, fsGetCertificatePreferences, fsSetCertificatePreferences, fsSubscribeCertificatePreferences, fsGetRecordDocumentPreferences, fsSetRecordDocumentPreference } = await import('./firestore-api');
+const { fsGetTrash, fsWriteAuditedSettings_, fsUpdateMyTeacherPrefs, fsGetCertificatePreferences, fsSetCertificatePreferences, fsSubscribeCertificatePreferences, fsGetRecordDocumentPreferences, fsSetRecordDocumentPreference, fsSaveSection, fsSectionAdviser_, fsCanonicalLearner_, fsUpdateArchiveRecord } = await import('./firestore-api');
 const { LPSApi } = await import('./sheets-api');
+
+describe('section adviser updates', () => {
+  it('uses the explicitly saved name ahead of stale linked teacher metadata', () => {
+    expect(fsSectionAdviser_({ adviser: 'Clent C. Agunod', adviserOverride: true }, { teacherName: 'Clent Agunod' })).toBe('Clent C. Agunod');
+    expect(fsSectionAdviser_({ adviser: '', adviserOverride: true }, { teacherName: 'Clent Agunod' })).toBe('');
+    expect(fsSectionAdviser_({ adviser: '' }, { teacherName: 'Assigned Teacher' })).toBe('Assigned Teacher');
+    expect(fsSectionAdviser_({}, { teacherName: 'Legacy Teacher' })).toBe('Legacy Teacher');
+  });
+  it('persists a middle-initial correction on the section and its linked teacher', async () => {
+    const teacherRef = { set: vi.fn().mockResolvedValue(undefined) };
+    const teachers = { get: vi.fn().mockResolvedValue({ docs: [{ ref: teacherRef }] }) };
+    const sectionRef = { get: vi.fn().mockResolvedValue({ exists: true, data: () => ({ adviser: 'Clent Agunod' }) }), set: vi.fn().mockResolvedValue(undefined), collection: vi.fn(() => teachers) };
+    const gradeRef = { set: vi.fn().mockResolvedValue(undefined), collection: () => ({ doc: () => sectionRef }) };
+    const grades = { doc: () => gradeRef };
+    const years = { doc: () => ({ collection: () => grades }) };
+    const users = { where: () => ({ limit: () => ({ get: async () => ({ empty: true, docs: [] }) }) }) };
+    const write = { set: vi.fn(), commit: vi.fn().mockResolvedValue(undefined) };
+    mockDb.batch.mockReturnValue(write);
+    mockDb.collection.mockImplementation((name) => name === 'users' ? users : years);
+    await fsSaveSection({ id: '2026-2027|grade-1|a', schoolYear: '2026-2027', gradeLevel: 'Grade 1', section: 'A', adviser: 'Clent C. Agunod' });
+    expect(write.set).toHaveBeenCalledWith(sectionRef, expect.objectContaining({ adviser: 'Clent C. Agunod', adviserOverride: true }), { merge: true });
+    expect(write.set).toHaveBeenCalledWith(teacherRef, expect.objectContaining({ teacherName: 'Clent C. Agunod' }), { merge: true });
+    expect(write.commit).toHaveBeenCalledOnce();
+  });
+  it('includes persistent transfer school fields in the canonical learner schema', () => {
+    expect(fsCanonicalLearner_({ transferSchoolId: '001234', transferSchool: 'Previous School', transferSchoolAddress: 'Town', transferSchoolZipCode: '0010' })).toMatchObject({ transferSchoolId: '001234', transferSchool: 'Previous School', transferSchoolAddress: 'Town', transferSchoolZipCode: '0010' });
+  });
+});
+
+describe('transfer record persistence', () => {
+  const school = { transferSchoolId: '001234', transferSchool: 'Receiving School', transferSchoolAddress: 'Receiving Town', transferSchoolZipCode: '0010' };
+  it('persists all mandatory school fields when editing an archived learner', async () => {
+    const ref = { get: vi.fn().mockResolvedValue({ exists: true, data: () => ({ learnerId: '123456789012', transferOut: true, transferType: 'Transfer Out', ...school }) }), set: vi.fn().mockResolvedValue(undefined) };
+    mockDb.collection.mockReturnValue({ doc: () => ({ collection: () => ({ doc: () => ref }) }) });
+    await fsUpdateArchiveRecord('transferredOut', '2026-2027', '123456789012', { ...school, transferType: 'Transfer Out', transferOut: true });
+    expect(ref.set).toHaveBeenCalledWith(expect.objectContaining(school), { merge: true });
+  });
+  it('moves a changed outgoing record into active learners atomically instead of leaving it in the envelope list', async () => {
+    const original = { learnerId: '123456789012', transferType: 'Transfer Out', transferOut: true, ...school };
+    const sourceRef = { get: vi.fn().mockResolvedValue({ exists: true, data: () => original }) };
+    const targetRef = {};
+    mockDb.collection.mockReturnValue({ doc: () => ({ collection: (name: string) => ({ doc: () => name === 'learners' ? targetRef : sourceRef }) }) });
+    const transaction = { get: vi.fn(async (ref) => ref === sourceRef ? { exists: true, data: () => original } : { exists: false }), set: vi.fn(), delete: vi.fn() };
+    mockDb.runTransaction.mockImplementation(async (action) => action(transaction));
+    await fsUpdateArchiveRecord('transferredOut', '2026-2027', original.learnerId, { ...school, transferType: 'Transfer In', transferIn: true, transferOut: false, enrollmentStatus: 'ACTIVE' });
+    expect(transaction.set).toHaveBeenCalledWith(targetRef, expect.objectContaining({ transferType: 'Transfer In', transferOut: false, transferSchoolZipCode: '0010' }));
+    expect(transaction.delete).toHaveBeenCalledWith(sourceRef);
+  });
+});
 const { normalizeUserPreferences } = await import('./user-preferences');
 const { normalizeCertificatePreferences } = await import('./certificate-preferences');
 const { normalizeRecordDocumentPreferences } = await import('./record-document-preferences');

@@ -240,7 +240,7 @@ describe('shared learner forms and Anecdotal Records', () => {
     document.body.innerHTML = '';
     const update = vi.spyOn(LPSApi, 'updateArchiveRecord').mockResolvedValue({ updated: true });
     try {
-      await openArchiveEditor('transferredOut', '2026-2027', { learnerId: '123456789012', firstName: 'Alex', lastName: 'Cruz', gender: 'Male' }, vi.fn());
+      await openArchiveEditor('transferredOut', '2026-2027', { learnerId: '123456789012', firstName: 'Alex', lastName: 'Cruz', gender: 'Male', transferSchoolId: '001234', transferSchool: 'Receiving School', transferSchoolAddress: 'Receiving Town', transferSchoolZipCode: '0010' }, vi.fn());
       const status = document.querySelector<HTMLSelectElement>('[data-document-status]')!;
       status.value = 'Received Documents';
       status.dispatchEvent(new Event('change', { bubbles: true }));

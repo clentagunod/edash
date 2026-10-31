@@ -18,7 +18,7 @@ const LEARNER_FIELDS = [
   "literacyLanguageCommunication", "socioEmotionalDevelopment", "valuesDevelopment", "physicalHealthMotorDevelopment",
   "aestheticCreativeDevelopment", "cognitiveDevelopment", "gmrc", "language", "readingLiteracy", "makabansa", "eppTle",
   "tle", "valuesEducation", "mapeh", "gradesByTerm",
-  "transferType", "transferIn", "transferOut", "transferSchool", "transferDate", "transferReason", "transferNotes", "documentStatus", "documentStatusCustom", "documentStatusDates", "anecdotalRecords", "teacherComments", "attendance", "extra",
+  "transferType", "transferIn", "transferOut", "transferSchoolId", "transferSchool", "transferSchoolAddress", "transferSchoolZipCode", "transferDate", "transferReason", "transferNotes", "documentStatus", "documentStatusCustom", "documentStatusDates", "anecdotalRecords", "teacherComments", "attendance", "extra",
 ];
 const BOOLEAN_FIELDS = new Set(["is4Ps", "isIP", "isSNED", "isARAL", "isMuslim", "transferIn", "transferOut"]);
 const JSON_FIELDS = new Set(["extra", "gradesByTerm", "teacherComments", "attendance", "documentStatusDates"]);
