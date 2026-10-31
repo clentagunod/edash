@@ -94,7 +94,7 @@ describe('certificate student information and output', () => {
     act(() => { type.value = format; type.dispatchEvent(new Event('change', { bubbles: true })); });
     expect(fsMarkSf10RequestEmailed).not.toHaveBeenCalled();
     await act(async () => container.querySelector('.sf10-email-dialog form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
-    expect(fsMarkSf10RequestEmailed).toHaveBeenCalledWith('2026-2027', format === 'png' ? ['123'] : ['123', '456'], { messageId: 'confirmed-id', sentAt: expect.any(String) }, 'user');
+    expect(fsMarkSf10RequestEmailed).toHaveBeenCalledWith('2026-2027', format === 'png' ? ['123'] : ['123', '456'], { messageId: 'confirmed-id', sentAt: expect.any(String), to: ['records@example.edu'], cc: [], bcc: [] }, 'user');
     expect(sendGmailMessage).toHaveBeenCalledTimes(1);
   });
   it('autofills SF10 recipient information from the persisted Transfer In school', async () => {

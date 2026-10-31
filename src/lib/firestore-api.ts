@@ -17,7 +17,7 @@ import { CERTIFICATE_PREFERENCES_DOCUMENT, normalizeCertificatePreferences, vali
 import { normalizeRecordDocumentPreferences, validateRecordDocumentPreference, type RecordDocumentPreferences, type RecordDocumentPreference } from './record-document-preferences';
 import type { RecordDocumentKind } from './printables';
 import { TRANSFER_SCHOOL_FIELDS, transferSchoolDetails, validateTransferSchoolDetails } from './learner-transfer';
-import type { Sf10EmailReceipt } from './sf10-email';
+import { sf10EmailRecord, type Sf10EmailReceipt } from './sf10-email';
 
 /**
  * ============================================================================
@@ -62,6 +62,8 @@ let FS_DYNAMIC_CURRICULUM_SUBJECT_IDS = [];
 export function fsCanonicalLearner_(learner) {
   const result = {};
   FS_LEARNER_FIELD_ORDER.forEach((field) => { result[field] = learner[field] ?? (field === "extra" ? {} : ""); });
+  // Email tracking is optional system metadata; ordinary edits must not clear it.
+  if (!Object.prototype.hasOwnProperty.call(learner, 'sf10Email')) delete result.sf10Email;
   FS_DYNAMIC_CURRICULUM_SUBJECT_IDS.forEach((field) => { result[field] = learner[field] ?? ""; });
   return { ...result, ...transferSchoolDetails(learner), ...learnerCardRecord(learner, true), ...documentStatusRecord(learner, true) };
 }
@@ -2193,6 +2195,8 @@ export async function fsPromoteLearner(sourceSchoolYear, targetSchoolYear, learn
         progressionSourceSchoolYear: sourceYear,
         progressionType: normalizedProgressionType,
       };
+      // A request sent in the source year does not belong to the new enrollment.
+      delete promotedRecord.sf10Email;
       transaction.set(targetRef, promotedRecord);
       return { ...promotedRecord, previousYearLearner: sourceLearner };
     });
@@ -2651,10 +2655,11 @@ export async function fsMarkSf10RequestEmailed(schoolYear: string, learnerIds: s
   if (!staffUid || auth.currentUser?.uid !== staffUid || !['School Admin', 'Registrar'].includes(appRole())) {
     throw new Error('Sign in with the same authorized school account to update document statuses.');
   }
-  const sentAt = new Date(receipt?.sentAt);
-  if (typeof receipt?.messageId !== 'string' || !receipt.messageId.trim() || receipt.messageId.length > 256 || typeof receipt?.sentAt !== 'string' || Number.isNaN(sentAt.getTime())) {
+  const emailRecord = sf10EmailRecord(receipt);
+  if (!emailRecord) {
     throw new Error('A confirmed Gmail receipt is required to mark a request as Emailed.');
   }
+  const sentAt = new Date(emailRecord.sentAt);
   if (!Array.isArray(learnerIds) || learnerIds.some((id) => typeof id !== 'string' || !id.trim() || id.includes('/'))) {
     throw new Error('Valid learner IDs are required to track SF10 requests.');
   }
@@ -2674,12 +2679,13 @@ export async function fsMarkSf10RequestEmailed(schoolYear: string, learnerIds: s
         refs.forEach((ref) => transaction.update(ref, {
           documentStatus: 'Emailed',
           'documentStatusDates.Emailed': emailedDate,
+          sf10Email: emailRecord,
         }));
       });
     }
     if (ids.length) fsAudit_('SF10_REQUEST_EMAILED', {
       sheet: `learners_${year}`, recordId: ids.join(', '),
-      newValue: JSON.stringify({ documentStatus: 'Emailed', date: emailedDate, messageId: receipt.messageId }),
+      newValue: JSON.stringify({ documentStatus: 'Emailed', date: emailedDate, sf10Email: emailRecord }),
     });
   } finally {
     // A later chunk can fail after an earlier one committed.

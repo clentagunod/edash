@@ -1,3 +1,5 @@
+import { sf10EmailDetails } from './sf10-email';
+
 export const DOCUMENT_STATUSES = ['Successfully Transmitted', 'Transmitted', 'Preparing Documents', 'Received Documents', 'Emailed', 'Custom'] as const;
 export const DOCUMENT_STATUS_FIELDS = ['documentStatus', 'documentStatusCustom', 'documentStatusDates'] as const;
 export type DocumentStatusRecord = {
@@ -109,6 +111,20 @@ export function renderDocumentStatusFields(host: HTMLElement, learner: Record<st
     showSelection();
   });
   showSelection();
+  const emailDetails = sf10EmailDetails(learner.sf10Email);
+  if (emailDetails.length) {
+    const summary = document.createElement('div');
+    summary.className = 'document-status-email-summary';
+    const heading = document.createElement('strong');
+    heading.textContent = 'Latest SF10 email';
+    summary.append(heading);
+    emailDetails.forEach((detail) => {
+      const row = document.createElement('p');
+      row.textContent = detail;
+      summary.append(row);
+    });
+    container.append(summary);
+  }
 }
 
 export function collectDocumentStatusFields(host: HTMLElement): DocumentStatusRecord {

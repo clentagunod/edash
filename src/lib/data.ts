@@ -25,6 +25,7 @@ export const DATA_FIELDS = [
   ["transferType", "Transfer Type"], ["transferSchoolId", "Transfer School ID"], ["transferSchool", "Transfer School"], ["transferSchoolAddress", "Transfer School Address"], ["transferSchoolZipCode", "Transfer School ZIP Code"], ["transferDate", "Transfer Date"],
   ["transferReason", "Transfer Reason"], ["transferNotes", "Transfer Notes"],
   ["documentStatus", "Document Status"], ["documentStatusCustom", "Custom Document Status"], ["documentStatusDates", "Document Status Dates"],
+  ["sf10Email", "SF10 Email"],
   ["anecdotalRecords", "Anecdotal Records"],
   ["teacherComments", "Teacher Comments"], ["attendance", "Attendance"],
   ["enrollmentStatus", "Enrollment Status"], ["eosyStatus", "EOSY Status"], ["schoolYear", "School Year"],
@@ -207,7 +208,7 @@ export function humanizeDataHeader(value) {
 }
 
 export function exportValue(record, key, schoolYear = "") {
-  if (key === "teacherComments" || key === "attendance" || key === "documentStatusDates") {
+  if (key === "teacherComments" || key === "attendance" || key === "documentStatusDates" || key === "sf10Email") {
     return record[key] != null && record[key] !== "" ? JSON.stringify(record[key]) : "";
   }
   if (key === "schoolYear") {

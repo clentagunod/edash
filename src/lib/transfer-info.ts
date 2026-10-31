@@ -9,6 +9,7 @@ import { cancelLearnerMovement, deleteArchiveRecord, openArchiveEditor } from '.
 import { compareLearnersBySurname, formatLearnerNameSurnameFirst } from './learner-sorting';
 import { paginationPageNumbers } from './app-config';
 import { documentStatusLabel } from './document-status';
+import { sf10EmailDetails } from './sf10-email';
 
 export let transferRecords = [];
 export let transferSearch = "";
@@ -81,7 +82,7 @@ export function renderTransferTable(records = []) {
       <td>${escapeHtml(record?.transferSchool || "—")}</td>
       <td>${escapeHtml(formatAppDate(record?.transferDate))}</td>
       <td>${escapeHtml(record?.transferReason || "—")}</td>
-      <td>${escapeHtml(documentStatusLabel(record))}</td>
+      <td>${escapeHtml(documentStatusLabel(record))}${sf10EmailDetails(record.sf10Email).map((detail) => `<br><small>${escapeHtml(detail)}</small>`).join('')}</td>
       <td><div class="row-actions"><button class="icon-btn" type="button" title="Edit" aria-label="Edit transfer record" data-transfer-edit="${escapeHtml(record.learnerId)}" data-transfer-type="${escapeHtml(record.transferType)}">${Icon.edit}</button><button class="icon-btn" type="button" title="Cancel transfer and return to masterlist" aria-label="Cancel transfer and return to masterlist" data-transfer-cancel="${escapeHtml(record.learnerId)}" data-transfer-type="${escapeHtml(record.transferType)}">${Icon.x}</button><button class="icon-btn danger" type="button" title="Delete" aria-label="Delete" data-transfer-delete="${escapeHtml(record.learnerId)}">${Icon.trash}</button></div></td>
     </tr>
   `).join("");

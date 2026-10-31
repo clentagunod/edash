@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { connectGmail, gmailClientId, loadGoogleIdentity, sendGmailMessage, validateGmailMessage, type GmailConnection, type GmailMessage } from '../lib/gmail-send';
+import { connectGmail, gmailClientId, loadGoogleIdentity, parseEmailAddresses, sendGmailMessage, validateGmailMessage, type GmailConnection, type GmailMessage } from '../lib/gmail-send';
 import type { CertificateExportFormat } from '../lib/certificate-export';
 import type { PreparedSf10Email, Sf10EmailReceipt } from '../lib/sf10-email';
 import '../styles/components/sf10-email.css';
@@ -70,7 +70,10 @@ export default function Sf10EmailDialog({ open, onClose, prepare, count, learner
       setStatus('Sending with Gmail…');
       const messageId = await sendGmailMessage(connection, message, attachment.file);
       if (!messageId) throw new Error('Gmail did not confirm sending. Check Sent before trying again.');
-      confirmedSend.current = { attachment, receipt: { messageId, sentAt: new Date().toISOString() }, recipient: message.to };
+      confirmedSend.current = { attachment, receipt: {
+        messageId, sentAt: new Date().toISOString(),
+        to: parseEmailAddresses(message.to, true), cc: parseEmailAddresses(message.cc), bcc: parseEmailAddresses(message.bcc),
+      }, recipient: message.to };
       if (alive.current) { setSent(true); setStatus('Email sent. Updating Document Status…'); }
       await saveTracking();
     } catch (failure) { if (alive.current) { setStatus(''); setError(failure instanceof Error ? failure.message : 'The email could not be sent.'); } }
