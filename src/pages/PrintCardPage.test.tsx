@@ -126,7 +126,7 @@ describe('Card print studio', () => {
     act(() => container.querySelector('main')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'z', ctrlKey: true, bubbles: true })));
     expect(widthInput().value).toBe(originalWidth);
     act(() => (container.querySelector('.student-card-learner-select') as HTMLButtonElement).click());
-    act(() => button('02 / Card details').click());
+    act(() => button('02 / Information').click());
     const panels = container.querySelectorAll<HTMLElement>('.student-card-editor-section');
     expect(panels[0].hidden).toBe(true);
     expect(panels[1].hidden).toBe(false);

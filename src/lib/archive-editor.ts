@@ -5,6 +5,7 @@ import { ensureAnecdotalRecordsInput, organizeLearnerForm } from './learner-form
 import { collectLearnerCardFields, loadLearnerCardFields } from './learner-card-record';
 import { fsGetCardPrintingPreferences } from './firestore-api';
 import { collectDocumentStatusFields, renderDocumentStatusFields } from './document-status';
+import { collectTransferSchoolInputs, ensureTransferSchoolInputs, loadTransferSchoolInputs } from './learner-transfer';
 
 export let archiveEditorState = null;
 
@@ -16,6 +17,7 @@ export function ensureArchiveEditor() {
   if (document.getElementById("archiveEditorBackdrop")) return;
   document.body.insertAdjacentHTML("beforeend", `<div class="modal-backdrop" id="archiveEditorBackdrop"><div class="modal archive-editor-modal"><div class="modal-header"><h3 id="archiveEditorTitle">Edit archived learner</h3><button class="modal-close" type="button" id="archiveEditorClose" aria-label="Close"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><form id="archiveEditorForm"><div class="modal-body"><div class="field-grid"><div class="field"><label for="archiveFirstName">First name</label><input id="archiveFirstName" required /></div><div class="field"><label for="archiveMiddleName">Middle name</label><input id="archiveMiddleName" /></div><div class="field"><label for="archiveLastName">Last name</label><input id="archiveLastName" required /></div><div class="field"><label for="archiveSuffix">Suffix</label><select id="archiveSuffix"><option value="">None</option><option value="Jr.">Jr.</option><option value="II">II</option><option value="III">III</option><option value="custom">Please specify…</option></select></div><div class="field" id="archiveCustomSuffixWrap" hidden><label for="archiveCustomSuffix">Please specify suffix</label><input id="archiveCustomSuffix" maxlength="32" /></div><div class="field"><label for="archiveBirthDate">Birthdate</label><input id="archiveBirthDate" type="date" /></div><div class="field"><label for="archiveGrade">Grade level</label><input id="archiveGrade" /></div><div class="field"><label for="archiveSection">Section</label><input id="archiveSection" /></div><div class="field"><label for="archiveGender">Gender</label><select id="archiveGender" required aria-required="true"><option value="">Select gender</option><option>Male</option><option>Female</option></select></div><div class="field"><label for="archiveDateAdded">Date added</label><input id="archiveDateAdded" type="date" /></div><div class="field span-2"><label for="archiveTransferSchool">Transfer school</label><input id="archiveTransferSchool" /></div><div class="field"><label for="archiveTransferDate">Transfer date</label><input id="archiveTransferDate" type="date" /></div><div class="field span-2"><label for="archiveReason">Transfer reason</label><textarea id="archiveReason" rows="3"></textarea></div><div class="field span-2"><label for="archiveNotes">Transfer notes</label><textarea id="archiveNotes" rows="3"></textarea></div></div></div><div class="modal-footer"><button class="btn btn-secondary" type="button" id="archiveEditorCancel">Cancel</button><button class="btn btn-primary" type="submit" id="archiveEditorSave">Save changes</button></div></form></div></div>`);
   const form = document.getElementById("archiveEditorForm");
+  ensureTransferSchoolInputs(form, true);
   const notesField = form.querySelector('#archiveNotes').closest('.field');
   notesField.replaceChildren();
   notesField.classList.add('document-status-fields');
@@ -49,7 +51,7 @@ export function ensureArchiveEditor() {
         section: document.getElementById("archiveSection").value.trim(),
         gender: document.getElementById("archiveGender").value,
         dateAdded: document.getElementById("archiveDateAdded").value,
-        transferSchool: document.getElementById("archiveTransferSchool").value.trim(),
+        ...collectTransferSchoolInputs(event.target, true),
         transferDate: document.getElementById("archiveTransferDate").value,
         transferReason: document.getElementById("archiveReason").value.trim(),
         enrollmentStatus: document.getElementById("archiveEnrollmentStatus").value,
@@ -90,6 +92,7 @@ export async function openArchiveEditor(archive, schoolYear, record, reload) {
   document.getElementById("archiveGender").value = record.gender || "";
   document.getElementById("archiveDateAdded").value = archiveDateInputValue(record.dateAdded);
   document.getElementById("archiveTransferSchool").value = record.transferSchool || "";
+  loadTransferSchoolInputs(document.getElementById('archiveEditorForm'), archive === 'transferredOut' && !record.transferType ? { ...record, transferType: 'Transfer Out' } : record, true);
   document.getElementById("archiveTransferDate").value = archiveDateInputValue(record.transferDate);
   document.getElementById("archiveReason").value = record.transferReason || "";
   document.getElementById("archiveEnrollmentStatus").value = record.enrollmentStatus === 'ACTIVE' ? 'ACTIVE' : 'INACTIVE';

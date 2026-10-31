@@ -16,6 +16,7 @@ import { DOCUMENT_STATUS_FIELDS, documentStatusRecord } from './document-status'
 import { CERTIFICATE_PREFERENCES_DOCUMENT, normalizeCertificatePreferences, validateCertificatePreferences, type CertificatePreferences } from './certificate-preferences';
 import { normalizeRecordDocumentPreferences, validateRecordDocumentPreference, type RecordDocumentPreferences, type RecordDocumentPreference } from './record-document-preferences';
 import type { RecordDocumentKind } from './printables';
+import { TRANSFER_SCHOOL_FIELDS, transferSchoolDetails, validateTransferSchoolDetails } from './learner-transfer';
 
 /**
  * ============================================================================
@@ -61,7 +62,7 @@ export function fsCanonicalLearner_(learner) {
   const result = {};
   FS_LEARNER_FIELD_ORDER.forEach((field) => { result[field] = learner[field] ?? (field === "extra" ? {} : ""); });
   FS_DYNAMIC_CURRICULUM_SUBJECT_IDS.forEach((field) => { result[field] = learner[field] ?? ""; });
-  return { ...result, ...learnerCardRecord(learner, true), ...documentStatusRecord(learner, true) };
+  return { ...result, ...transferSchoolDetails(learner), ...learnerCardRecord(learner, true), ...documentStatusRecord(learner, true) };
 }
 
 export function fsLearnersCollection_(schoolYear) {
@@ -1100,7 +1101,7 @@ export function fsSubscribeSections(schoolYear, onChange, onError) {
               ...data,
               schoolYear: year,
               gradeLevel,
-              adviser: teacher.teacherName || teacher.name || data.adviser || "",
+              adviser: fsSectionAdviser_(data, teacher),
               teacherUid: teacherSnapshot.docs[0]?.id || "",
               id: fsSectionId_(year, gradeLevel, data.section || doc.id),
             };
@@ -1337,7 +1338,7 @@ export async function fsGetSections(schoolYear) {
             ...data,
             schoolYear: year,
             gradeLevel: data.gradeLevel || gradeData.gradeLevel || "",
-            adviser: teacher.teacherName || teacher.name || data.adviser || "",
+            adviser: fsSectionAdviser_(data, teacher),
             teacherUid: teachers.docs[0]?.id || "",
             id: fsSectionId_(year, data.gradeLevel || gradeData.gradeLevel, data.section || sectionDoc.id),
           };
@@ -1501,11 +1502,17 @@ export function fsSectionId_(schoolYear, gradeLevel, section, adviser = "") {
   return `${schoolYear}|${fsNormalizeKey_(gradeLevel)}|${fsNormalizeKey_(section)}`;
 }
 
+/** Preserve explicit School Structure edits while retaining linked names for ordinary account assignments. */
+export function fsSectionAdviser_(section, teacher = {}) {
+  return section.adviserOverride === true ? String(section.adviser || '').trim() : String(teacher.teacherName || teacher.name || section.adviser || '').trim();
+}
+
 export async function fsSaveSection(section) {
   const schoolYear = fsNormalizeSchoolYear_(section.schoolYear);
   const gradeLevel = fsNormalizeGrade_(section.gradeLevel);
   const sectionName = String(section.section || "").trim();
   const adviser = String(section.adviser || "").trim();
+  const adviserOverride = Boolean(adviser || section.id);
   if (!/^\d{4}-\d{4}$/.test(schoolYear) || !gradeLevel || !sectionName) throw new Error("School year, grade level, and section name are required.");
   const gradeRef = fsGradesCollection_(schoolYear).doc(fsNormalizeKey_(gradeLevel));
   const sectionRef = gradeRef.collection(FS_PATHS.sections).doc(fsNormalizeKey_(sectionName));
@@ -1524,13 +1531,14 @@ export async function fsSaveSection(section) {
       await batch.commit();
     }
   }
-  await gradeRef.set({ schoolYear, gradeLevel, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-  await sectionRef.set({ schoolYear, gradeLevel, section: sectionName, adviser, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  const write = db.batch();
+  write.set(gradeRef, { schoolYear, gradeLevel, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  write.set(sectionRef, { schoolYear, gradeLevel, section: sectionName, adviser, adviserOverride, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
   if (adviser) {
     const matchingTeachers = await db.collection(FS_USERS).where("name", "==", adviser).limit(1).get();
     if (!matchingTeachers.empty) {
       const teacherDoc = matchingTeachers.docs[0];
-      await sectionRef.collection(FS_PATHS.teachers).doc(teacherDoc.id).set({
+      write.set(sectionRef.collection(FS_PATHS.teachers).doc(teacherDoc.id), {
         teacherUid: teacherDoc.id,
         teacherName: adviser,
         schoolYear,
@@ -1539,9 +1547,22 @@ export async function fsSaveSection(section) {
         status: teacherDoc.data()?.status || "Active",
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
       }, { merge: true });
+    } else if (before.exists && before.data()?.adviser !== adviser) {
+      const linked = await sectionRef.collection(FS_PATHS.teachers).get();
+      const primary = linked.docs[0];
+      if (primary) write.set(primary.ref, { teacherName: adviser, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
     }
   }
+  await write.commit();
   fsInvalidateReadCaches_(schoolYear);
+  for (const scope of [schoolYear, '']) {
+    const live = fsLiveData_('sections', scope);
+    if (!Array.isArray(live)) continue;
+    const id = fsSectionId_(schoolYear, gradeLevel, sectionName);
+    const previous = live.find((item) => item.id === section.id || item.id === id) || {};
+    const updated = { ...previous, id, schoolYear, gradeLevel, section: sectionName, adviser, adviserOverride };
+    fsLiveSet_(fsLiveKey_('sections', scope), [...live.filter((item) => item.id !== section.id && item.id !== id), updated]);
+  }
   fsAudit_(before.exists ? "SECTION_UPDATE" : "SECTION_ADD", { sheet: "sections", recordId: fsSectionId_(schoolYear, gradeLevel, sectionName), oldValue: JSON.stringify(before.data() || {}), newValue: JSON.stringify({ schoolYear, gradeLevel, section: sectionName, adviser }) });
   return { id: fsSectionId_(schoolYear, gradeLevel, sectionName), schoolYear, gradeLevel, section: sectionName, adviser };
 }
@@ -1770,7 +1791,19 @@ export async function fsUpdateArchiveRecord(archive, schoolYear, learnerId, lear
   const before = await ref.get();
   if (!before.exists) throw new Error("Archived learner record was not found.");
   const update = { ...fsCanonicalLearner_({ ...before.data(), ...learner }), schoolYear };
-  await ref.set(update, { merge: true });
+  validateTransferSchoolDetails(update);
+  const targetArchive = fsLearnerArchiveType_(update);
+  const targetName = targetArchive ? String(targetArchive).toLowerCase() : 'learners';
+  if (['learners', 'transferredout'].includes(archiveName) && targetName !== archiveName) {
+    const targetRef = targetArchive ? fsArchiveCollection_(targetArchive, schoolYear).doc(learnerId) : fsLearnersCollection_(schoolYear).doc(learnerId);
+    await db.runTransaction(async (transaction) => {
+      const [source, target] = await Promise.all([transaction.get(ref), transaction.get(targetRef)]);
+      if (!source.exists) throw new Error('This transfer record was changed or removed. Reload before editing.');
+      if (target.exists) throw new Error('A learner record already exists at the destination. Resolve the duplicate before changing transfer type.');
+      transaction.set(targetRef, { ...fsCanonicalLearner_({ ...source.data(), ...learner }), schoolYear });
+      transaction.delete(ref);
+    });
+  } else await ref.set(update, { merge: true });
   fsInvalidateReadCaches_(schoolYear);
   void fsUpdatePublicStatsForChange_(schoolYear, {}, {}).catch(() => {});
   fsAudit_("LEARNER_UPDATE", { sheet: `${archiveName}_${schoolYear}`, recordId: learnerId, oldValue: JSON.stringify(before.data()), newValue: JSON.stringify(learner) });
@@ -1816,6 +1849,9 @@ export async function fsCancelLearnerMovement(archive, schoolYear, learnerId) {
     transferIn: false,
     transferOut: false,
     transferSchool: "",
+    transferSchoolId: "",
+    transferSchoolAddress: "",
+    transferSchoolZipCode: "",
     transferDate: "",
     transferReason: "",
     transferNotes: "",
@@ -2147,6 +2183,9 @@ export async function fsPromoteLearner(sourceSchoolYear, targetSchoolYear, learn
         transferIn: false,
         transferOut: false,
         transferSchool: "",
+        transferSchoolId: "",
+        transferSchoolAddress: "",
+        transferSchoolZipCode: "",
         transferDate: "",
         transferReason: "",
         transferNotes: "",
@@ -2586,6 +2625,7 @@ export function fsSubscribeRecentLearners(schoolYear, onChange, onError) {
 
 export async function fsAddLearner(schoolYear, learner) {
   try {
+    validateTransferSchoolDetails(learner);
     const learnerId = String(learner.learnerId || "").trim();
     if (!/^\d{12}$/.test(learnerId)) throw new Error("A valid 12-digit LRN is required.");
     const archiveType = fsLearnerArchiveType_(learner);
@@ -2604,10 +2644,11 @@ export async function fsAddLearner(schoolYear, learner) {
 
 export async function fsUpdateLearner(schoolYear, learnerId, learner) {
   try {
+    validateTransferSchoolDetails(learner);
     const ref = fsLearnersCollection_(schoolYear).doc(learnerId);
     const update = fsCanonicalLearner_(learner);
     // Older callers may update other fields without sending the card record.
-    for (const field of ["teacherComments", "attendance", ...DOCUMENT_STATUS_FIELDS]) {
+    for (const field of ["teacherComments", "attendance", ...DOCUMENT_STATUS_FIELDS, ...TRANSFER_SCHOOL_FIELDS]) {
       if (!Object.prototype.hasOwnProperty.call(learner, field)) delete update[field];
     }
     if (!Object.prototype.hasOwnProperty.call(learner, "dateAdded")) delete update.dateAdded;

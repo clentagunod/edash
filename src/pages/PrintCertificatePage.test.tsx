@@ -26,7 +26,7 @@ const school = {
   schoolHead: { name: 'Jordan Reyes', position: 'Principal' },
 } as RegisteredSchool;
 const students = [
-  { learnerId: '123', firstName: 'Alex', lastName: 'Cruz', gradeLevel: 'Grade 4', section: 'Diamond' },
+  { learnerId: '123', firstName: 'Alex', lastName: 'Cruz', gradeLevel: 'Grade 4', section: 'Diamond', transferType: 'Transfer In', transferIn: true },
   { learnerId: '456', firstName: 'Taylor', lastName: 'Santos', gradeLevel: 'Grade 5', section: 'Pearl' },
 ];
 let root: Root;
@@ -70,6 +70,17 @@ function changeInput(element: HTMLInputElement | HTMLTextAreaElement, value: str
 }
 
 describe('certificate student information and output', () => {
+  it('autofills SF10 recipient information from the persisted Transfer In school', async () => {
+    vi.mocked(fsGetLearners).mockResolvedValue([{ ...students[0], transferSchoolId: '001234', transferSchool: 'Previous School', transferSchoolAddress: 'Previous Town', transferSchoolZipCode: '0010', previousGradeLevel: '3', previousSchoolYear: '2025-2026', previousAdviser: 'Previous Teacher' }, students[1]]);
+    await act(async () => root.render(<PrintCertificatePage kind="sf10-request" />));
+    act(() => button('Cruz, Alex').click());
+    expect(input('Recipient school ID').value).toBe('001234');
+    expect(input('Recipient school name').value).toBe('Previous School');
+    expect(input('Recipient school address').value).toBe('Previous Town');
+    expect(input('Recipient ZIP code').value).toBe('0010');
+    expect(container.querySelector('.certificate-student-list')?.textContent).not.toContain('Santos, Taylor');
+  });
+
   it('uses the envelope preset, school ZIP code, and transferred-out learner records', async () => {
     vi.mocked(fsGetArchiveRecords).mockResolvedValue([{ learnerId: '789', firstName: 'Sam', middleName: 'Miguel', lastName: 'Reyes', transferSchool: 'Recipient School', transferSchoolAddress: 'Recipient Town' }]);
     await act(async () => root.render(<PrintCertificatePage kind="outgoing-envelope" />));
@@ -79,6 +90,8 @@ describe('certificate student information and output', () => {
     expect(container.querySelector<HTMLSelectElement>('.certificate-toolbar select')?.value).toBe('envelope');
     expect(container.querySelector('.record-envelope-sender')?.textContent).toContain('8804');
     expect(button('Print document').disabled).toBe(false);
+    expect(container.querySelector('.certificate-student-list')?.textContent).not.toContain('Cruz, Alex');
+    expect(container.querySelector('.certificate-student-list')?.textContent).not.toContain('Santos, Taylor');
   });
 
   it('fills the SF10 current and previous enrollment columns and keeps A4 as default', async () => {
@@ -93,6 +106,7 @@ describe('certificate student information and output', () => {
     expect([...container.querySelectorAll('.certificate-preview-stage tbody td')].map((cell) => cell.textContent)).toEqual(['Cruz, Alex', '4', '2026-2027', '3', '2025-2026', 'Taylor Reyes']);
     expect(container.querySelector<HTMLSelectElement>('.certificate-toolbar select')?.value).toBe('a4');
     expect(button('Print document').disabled).toBe(false);
+    expect(container.querySelector('.certificate-student-list')?.textContent).not.toContain('Santos, Taylor');
   });
 
   it('keeps a running export on one template when the admin changes preferences', async () => {

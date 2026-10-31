@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { clampSignaturePlacement, normalizeSignatureLibrary, prepareSignatureImage } from './printable-signatures';
+import { clampSignaturePlacement, signatureBoxMetrics, normalizeSignatureLibrary, prepareSignatureImage } from './printable-signatures';
 afterEach(() => vi.restoreAllMocks());
 describe('school signature preparation and layout', () => {
   it('offers only existing signature slots explicitly enabled for each printable', () => {
@@ -36,5 +36,13 @@ describe('school signature preparation and layout', () => {
     await expect(prepareSignatureImage(new File(['<svg/>'], 'signature.svg', { type: 'image/svg+xml' }), true)).rejects.toThrow('PNG');
     const file = new File(['image'], 'signature.png', { type: 'image/png' }); Object.defineProperty(file, 'size', { value: 6 * 1024 * 1024 });
     await expect(prepareSignatureImage(file, true)).rejects.toThrow('5 MB');
+  });
+  it('keeps rotated and vertical signatures inside page bounds at every paper aspect ratio', () => {
+    for (const surface of [210 / 297, 241.3 / 104.775, 470 / 884]) for (const rotation of [-180, -45, 0, 45, 90, 180]) {
+      const placement = clampSignaturePlacement({ x: .99, y: .99, width: .7, orientation: 'vertical', rotation }, 3, surface);
+      const metrics = signatureBoxMetrics(placement, 3, surface);
+      expect(placement.x + metrics.width).toBeLessThanOrEqual(1.00001);
+      expect(placement.y + metrics.height).toBeLessThanOrEqual(1.00001);
+    }
   });
 });

@@ -3,6 +3,7 @@ import { currentUserPreferences, readRememberedView, rememberView } from './pref
 import { LPSApi } from './sheets-api';
 import { getSelectedSchoolYear, initYearSwitcher } from './school-year';
 import { Icon } from './icons';
+import { collectTransferSchoolInputs, ensureTransferSchoolInputs, loadTransferSchoolInputs, updateTransferSchoolInputs } from './learner-transfer';
 import { canManageLearners, confirmDiscardChanges, formSnapshot, isSchoolAdmin, isTeacher, isVisitorSession, paginationPageNumbers, storedAppProfile, teacherAssignmentsForProfile } from './app-config';
 import { escapeHtml, formatAppDate, programBadges, renderShell, showToast } from './shell';
 import { DEMO_LEARNERS, isSheetsApiConfigured } from './demo-data';
@@ -86,7 +87,7 @@ const LEARNER_DETAIL_GROUPS = [
   { title: "Learning assessments", matches: (key) => /^(bosy|mosy|eosy)(crla|philiri|rma)$/i.test(key) },
   { title: "Nutrition", matches: (key) => /^(bosy|mosy|eosy)(height|weight|nutritionalstatus)$/i.test(key) },
   { title: "Academic grades", matches: (key) => CURRICULUM_SUBJECT_IDS.has(key) || key === "gradesByTerm" },
-  { title: "Transfer information", matches: (key) => ["transferType", "transferIn", "transferOut", "transferSchool", "transferDate", "transferReason", "transferNotes", "documentStatus", "documentStatusCustom", "documentStatusDates"].includes(key) },
+  { title: "Transfer information", matches: (key) => ["transferType", "transferIn", "transferOut", "transferSchoolId", "transferSchool", "transferSchoolAddress", "transferSchoolZipCode", "transferDate", "transferReason", "transferNotes", "documentStatus", "documentStatusCustom", "documentStatusDates"].includes(key) },
   { title: "Anecdotal Records", matches: (key) => key === "anecdotalRecords" },
 ];
 
@@ -116,6 +117,9 @@ const LEARNER_DETAIL_LABELS = {
   gradesByTerm: "Grades by term",
   transferIn: "Transfer in",
   transferOut: "Transfer out",
+  transferSchoolId: "Transfer school ID",
+  transferSchoolAddress: "Transfer school address",
+  transferSchoolZipCode: "Transfer school ZIP code",
   anecdotalRecords: "Anecdotal Records",
   documentStatus: "Document Status",
   documentStatusCustom: "Custom Document Status",
@@ -1358,6 +1362,7 @@ export async function openEditModal(learnerId) {
   const transferType = learner.transferType || (learner.transferIn ? "Transfer In" : (learner.transferOut ? "Transfer Out" : ""));
   setLearnerFieldValue("f_transferType", transferType);
   setLearnerFieldValue("f_transferSchool", learner.transferSchool);
+  loadTransferSchoolInputs(document.getElementById('learnerForm'), learner);
   setLearnerFieldValue("f_transferDate", learner.transferDate);
   setLearnerFieldValue("f_transferReason", learner.transferReason);
   renderDocumentStatusFields(document.getElementById("learnerForm"), learner, 'learner');
@@ -1610,7 +1615,7 @@ export async function handleLearnerFormSubmit(e) {
     transferType: transferType,
     transferIn: transferType === "Transfer In",
     transferOut: transferType === "Transfer Out",
-    transferSchool: getLearnerFieldValue("f_transferSchool").trim(),
+    ...collectTransferSchoolInputs(form),
     transferDate: getLearnerFieldValue("f_transferDate"),
     transferReason: getLearnerFieldValue("f_transferReason").trim(),
     transferNotes: LL.editingLearnerOriginal?.transferNotes || '',
@@ -2014,7 +2019,7 @@ export function updateReadingReferenceVisibility() {
 }
 
 export function ensureTransferInputs() {
-  if (document.getElementById("f_transferType")) return;
+  if (document.getElementById("f_transferType")) { ensureTransferSchoolInputs(document.getElementById('learnerForm')); return; }
   const formGrid = document.querySelector("#learnerForm .field-grid");
   if (!formGrid) return;
   formGrid.insertAdjacentHTML("beforeend", `
@@ -2044,6 +2049,8 @@ export function ensureTransferInputs() {
       <div class="field span-2 document-status-fields" data-document-status-fields></div>
     </div>`);
   renderDocumentStatusFields(document.getElementById("learnerForm"), {}, 'learner');
+  ensureTransferSchoolInputs(document.getElementById('learnerForm'));
+  updateTransferSchoolInputs(document.getElementById('learnerForm'));
 }
 
 export function ensureLearnerStatusInputs() {
@@ -2058,13 +2065,12 @@ export function ensureLearnerStatusInputs() {
 }
 
 export function updateTransferVisibility() {
+  updateTransferSchoolInputs(document.getElementById('learnerForm'));
   const type = document.getElementById("f_transferType")?.value || "";
   const detailRow = document.getElementById("transferDetailRow");
-  const schoolLabel = document.getElementById("transferSchoolLabel");
   if (!detailRow) return;
   const isVisible = !!type;
   detailRow.hidden = !isVisible;
-  if (schoolLabel) schoolLabel.textContent = type === "Transfer In" ? "From school" : type === "Transfer Out" ? "To school" : "Transfer school";
   if (!isVisible) {
     detailRow.querySelectorAll("input, textarea").forEach((field) => { field.value = ""; });
   }

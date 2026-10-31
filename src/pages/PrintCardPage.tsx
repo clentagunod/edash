@@ -1286,10 +1286,9 @@ export default function PrintCardPage() {
 
       <div className="student-card-workspace">
         <aside className="student-card-editor" aria-label="Learner card editor">
-          <fieldset className="signature-studio-fieldset" disabled={exporting}>{signature.controls}</fieldset>
           <div className="student-card-editor-tabs" role="group" aria-label="Editor panel">
             <button type="button" aria-pressed={editorTab === 'learners'} onClick={() => setEditorTab('learners')}>01 / Learners</button>
-            <button type="button" aria-pressed={editorTab === 'details'} onClick={() => setEditorTab('details')}>02 / Card details</button>
+            <button type="button" aria-pressed={editorTab === 'details'} onClick={() => setEditorTab('details')}>02 / Information</button>
           </div>
           <section className="student-card-editor-section" hidden={editorTab !== 'learners'}>
             <div className="student-card-section-heading">
@@ -1435,6 +1434,7 @@ export default function PrintCardPage() {
               </div>
             </section>
           )}
+          <fieldset className="signature-studio-fieldset" hidden={editorTab !== 'details'} disabled={exporting}>{signature.controls}</fieldset>
         </aside>
 
         <section className="student-card-studio" aria-label="Print layout studio">

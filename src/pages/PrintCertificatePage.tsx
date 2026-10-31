@@ -14,6 +14,7 @@ import { DOCUMENT_PAPER_SIZES, RECORD_TEMPLATE_DIMENSIONS, documentPaperDimensio
 import { createCertificateFile, exportCertificateSheets, prepareCertificateSheets, type CertificateExportFormat } from '../lib/certificate-export';
 import { usePrintableSignature } from '../components/PrintableSignature';
 import Sf10EmailDialog from '../components/Sf10EmailDialog';
+import { learnerTransferDirection } from '../lib/learner-transfer';
 import { makeCertificateFields, missingCertificateFields, missingRecordDocumentFields, isRecordDocumentKind, envelopeLearnerName, PRINTABLES, text, type CertificateFields, type CertificateKind, type CertificateLearner, type PrintableDocumentKind, type RecordDocumentKind } from '../lib/printables';
 import '../styles/pages/print-certificate.css';
 
@@ -217,8 +218,8 @@ export default function PrintCertificatePage({ kind }: { kind: PrintableDocument
     setGrade('');
     const loadStudents = kind === 'outgoing-envelope'
       ? Promise.all([fsGetLearners(year), fsGetArchiveRecords('transferredOut', year)]).then(([activeRows, archivedRows]) =>
-        [...new Map([...activeRows, ...archivedRows].map((row) => [text(row.learnerId), row])).values()])
-      : fsGetLearners(year);
+        [...new Map([...activeRows.filter((row) => learnerTransferDirection(row) === 'Transfer Out'), ...archivedRows].map((row) => [text(row.learnerId), row])).values()])
+      : fsGetLearners(year).then((rows) => kind === 'sf10-request' ? rows.filter((row) => learnerTransferDirection(row) === 'Transfer In') : rows);
     void loadStudents.then((rows) => {
       if (active) setStudents((rows as CertificateLearner[]).filter((row) => text(row.learnerId)).sort(compareLearnersBySurname));
     }).catch((failure: unknown) => {
@@ -348,7 +349,6 @@ export default function PrintCertificatePage({ kind }: { kind: PrintableDocument
     </div>}
     <div className="certificate-workspace">
       <aside className="certificate-editor" aria-label="Document information">
-        <fieldset className="certificate-editor-fields" disabled={busy}>{signature.controls}</fieldset>
         <fieldset className="certificate-editor-fields" disabled={busy || !preferencesReady}>
         <label className="certificate-field"><span>School year</span><select value={year} disabled={!ready || loading} onChange={(event) => setYear(event.currentTarget.value)}>{!schoolYears.length && <option value="">No school years available</option>}{schoolYears.map((option) => <option key={option}>{option}</option>)}</select></label>
         {!recordKind && templatePreference && <label className="certificate-field"><span>Certificate template</span><select value={templateId} disabled={!preferencesReady || !templatePreference.allowTeacherTemplateChoice || templatePreference.enabledTemplates.length < 2} onChange={(event) => setRequestedTemplate(event.currentTarget.value as CertificateTemplateId)}>{CERTIFICATE_TEMPLATES[kind].filter(({ id }) => templatePreference.enabledTemplates.includes(id)).map(({ id, name }) => <option value={id} key={id}>{name}</option>)}</select><small>{templatePreference.allowTeacherTemplateChoice ? 'Choose from the templates enabled by your administrator.' : 'Your administrator has fixed the template for this certificate.'}</small></label>}
@@ -378,6 +378,7 @@ export default function PrintCertificatePage({ kind }: { kind: PrintableDocument
           {kind === 'good-moral' && <label className="certificate-field"><span>Verified anecdotal record</span><textarea rows={3} value={fields.conduct} placeholder="Enter the verified record to follow ‘has’" onChange={(event) => updateField('conduct', event.currentTarget.value)} /><small>Loaded from the learner?s Anecdotal Records when available. Review the wording to follow ?has? before printing.</small></label>}
           <button type="button" className="certificate-text-button" onClick={() => setDrafts((previous) => { const next = { ...previous }; delete next[`${year}:${activeId || 'manual'}`]; return next; })}>Reset this student's information</button>
           <details className="certificate-school-details"><summary>School information & footer</summary><p className="certificate-hint">{canEditSchool ? 'Loaded from the selected school. Edits here apply to every certificate in this studio.' : 'School information is managed by your administrator. Contact them to correct missing details.'}</p>{SCHOOL_FIELDS.map((field) => fieldInput(field, true))}{canEditSchool && <button type="button" className="certificate-text-button" onClick={() => setSchoolDraft({})}>Restore school information</button>}</details>
+          {signature.controls}
         </section>
         </fieldset>
       </aside>

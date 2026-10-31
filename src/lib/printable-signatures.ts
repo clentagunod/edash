@@ -22,7 +22,7 @@ export interface CloudinarySignatureReference {
 export type StoredCloudinarySignature = SignatureMetadata & CloudinarySignatureReference;
 export const MAX_SIGNATURE_IMAGE_BYTES = 1024 * 1024;
 export const MAX_SIGNATURE_DATA_URL_LENGTH = Math.ceil(MAX_SIGNATURE_IMAGE_BYTES / 3) * 4 + 22;
-export interface SignaturePlacement { x: number; y: number; width: number }
+export interface SignaturePlacement { x: number; y: number; width: number; orientation?: 'horizontal' | 'vertical'; rotation?: number }
 export function isSignatureSlot(value: unknown): value is SignatureSlot { return SIGNATURE_SLOTS.includes(value as SignatureSlot); }
 export function normalizeSignatureLibrary(input?: unknown): SignatureLibrary {
   const value = (input && typeof input === 'object' ? input : {}) as Partial<SignatureLibrary>;
@@ -36,10 +36,17 @@ export function normalizeSignatureLibrary(input?: unknown): SignatureLibrary {
   ])) as SignatureLibrary['assignments'] };
 }
 /** Coordinates are relative to a document side, so preview zoom and paper scaling stay independent. */
+export function signatureBoxMetrics(value: SignaturePlacement, aspect: number, surfaceAspect: number) {
+  const angle = (value.orientation === 'vertical' ? 90 : 0) + (Number.isFinite(value.rotation) ? value.rotation! : 0);
+  const radians = angle * Math.PI / 180;
+  const widthFactor = Math.abs(Math.cos(radians)) + Math.abs(Math.sin(radians)) / aspect;
+  const heightFactor = surfaceAspect * (Math.abs(Math.sin(radians)) + Math.abs(Math.cos(radians)) / aspect);
+  return { angle, widthFactor, heightFactor, width: value.width * widthFactor, height: value.width * heightFactor };
+}
 export function clampSignaturePlacement(value: SignaturePlacement, aspect: number, surfaceAspect: number): SignaturePlacement {
-  const width = Math.max(.05, Math.min(.7, value.width, .8 * aspect / surfaceAspect));
-  const height = width * surfaceAspect / aspect;
-  return { width, x: Math.max(0, Math.min(1 - width, value.x)), y: Math.max(0, Math.min(1 - height, value.y)) };
+  const metrics = signatureBoxMetrics(value, aspect, surfaceAspect);
+  const width = Math.max(.02, Math.min(.7, Number.isFinite(value.width) ? value.width : .2, .98 / metrics.widthFactor, .98 / metrics.heightFactor));
+  return { ...value, width, x: Math.max(0, Math.min(1 - width * metrics.widthFactor, Number.isFinite(value.x) ? value.x : 0)), y: Math.max(0, Math.min(1 - width * metrics.heightFactor, Number.isFinite(value.y) ? value.y : 0)) };
 }
 
 /** Re-encode raster inputs, remove a white scan background, and crop empty pixels before storage. */

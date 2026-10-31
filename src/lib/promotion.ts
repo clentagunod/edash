@@ -23,7 +23,7 @@ let progressionMode = "promotion";
 const PROMOTION_SYSTEM_FIELDS = new Set([
   "learnerId", "name", "gradeLevel", "section", "age", "schoolYear", "dateAdded",
   "enrollmentStatus", "eosyStatus", "transferType", "transferIn", "transferOut",
-  "transferSchool", "transferDate", "transferReason", "transferNotes",
+  "transferSchool", "transferSchoolId", "transferSchoolAddress", "transferSchoolZipCode", "transferDate", "transferReason", "transferNotes",
   "progressionSourceSchoolYear", "progressionType",
   "teacherComments", "attendance",
   ...DOCUMENT_STATUS_FIELDS,

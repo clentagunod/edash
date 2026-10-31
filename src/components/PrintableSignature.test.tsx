@@ -39,6 +39,22 @@ describe('optional signature placement', () => {
     expect(preview.style.left).not.toBe(start);
     expect(container.querySelector<HTMLElement>('[data-print] .printable-signature')!.style.left).toBe(preview.style.left);
     expect(container.querySelector('[data-print] .is-draggable')).toBeNull();
+    const resize = preview.querySelector<HTMLButtonElement>('[aria-label="Resize E-Signature"]')!;
+    resize.setPointerCapture = vi.fn();
+    const oldWidth = preview.style.width;
+    act(() => {
+      resize.dispatchEvent(new MouseEvent('pointerdown', { button: 0, clientX: 100, clientY: 100, bubbles: true }));
+      resize.dispatchEvent(new MouseEvent('pointermove', { clientX: 150, clientY: 150, bubbles: true }));
+      resize.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }));
+    });
+    expect(preview.style.width).not.toBe(oldWidth);
+    const orientation = [...container.querySelectorAll('label')].find((label) => label.textContent?.startsWith('Signature orientation'))!.querySelector('select')!;
+    act(() => { orientation.value = 'vertical'; orientation.dispatchEvent(new Event('change', { bubbles: true })); });
+    expect(container.querySelector<HTMLImageElement>('[data-print] img')!.style.transform).toContain('rotate(90deg)');
+    const rotation = container.querySelector<HTMLInputElement>('[aria-label="Rotate E-Signature"]')!;
+    act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(rotation, '35'); rotation.dispatchEvent(new Event('input', { bubbles: true })); });
+    expect(container.querySelector<HTMLImageElement>('[data-print] img')!.style.transform).toContain('rotate(125deg)');
+    expect(container.querySelector('[data-print] .signature-resize-handle')).toBeNull();
     act(() => [...container.querySelectorAll('button')].find((button) => button.textContent === 'Remove from document')!.click());
     expect(container.querySelector('[data-print] img')).toBeNull();
   });

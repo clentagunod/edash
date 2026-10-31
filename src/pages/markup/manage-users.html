@@ -228,13 +228,19 @@
 
       <section class="admin-section-panel" id="adminPrintablesPanel" role="tabpanel" aria-labelledby="adminPrintablesTab" tabindex="0" hidden>
         <div class="admin-section-label"><div><h2>Printables</h2><small>Manage learner card, certificate, SF10 request, and outgoing-envelope templates. Each preference group has its own save action.</small></div></div>
-        <div class="admin-printables-tabs" role="tablist" aria-label="Printable preferences">
+        <div class="admin-printables-workspace">
+        <nav class="admin-printables-navigation" aria-label="Printables configuration">
+        <div class="admin-printables-tabs" role="tablist" aria-label="Printable preferences" aria-orientation="vertical">
+          <span class="admin-printables-group" role="presentation">Document templates</span>
           <button type="button" id="adminCardPreferencesTab" role="tab" aria-selected="true" aria-controls="adminCardPreferencesPanel" tabindex="0">Learner Card (SF9)</button>
           <button type="button" id="adminCertificatePreferencesTab" role="tab" aria-selected="false" aria-controls="adminCertificatePreferencesPanel" tabindex="-1">Certificates</button>
           <button type="button" id="adminSf10PreferencesTab" role="tab" aria-selected="false" aria-controls="adminSf10PreferencesPanel" tabindex="-1">Request for Permanent Records (SF10)</button>
           <button type="button" id="adminEnvelopePreferencesTab" role="tab" aria-selected="false" aria-controls="adminEnvelopePreferencesPanel" tabindex="-1">Envelope template for Outgoing Records</button>
-          <button type="button" id="adminSignatureLibraryTab" role="tab" aria-selected="false" aria-controls="adminSignatureLibraryPanel" tabindex="-1">School head signatures</button>
+          <span class="admin-printables-group" role="presentation">Shared assets</span>
+          <button type="button" id="adminSignatureLibraryTab" role="tab" aria-selected="false" aria-controls="adminSignatureLibraryPanel" tabindex="-1">E-Signatures</button>
         </div>
+        </nav>
+        <div class="admin-printables-content">
       <section class="admin-section-panel" id="adminCardPreferencesPanel" role="tabpanel" aria-labelledby="adminCardPreferencesTab" tabindex="0">
         <section class="panel admin-card-preferences-panel">
           <div class="panel-header"><div><span class="admin-card-preferences-eyebrow">Print setup</span><h3>Learner Card (SF9)</h3><p class="panel-helper">Choose the template used for learner cards, assign it by grade level, and configure attendance labels.</p></div></div>
@@ -309,6 +315,8 @@
       <section class="admin-section-panel" id="adminSf10PreferencesPanel" role="tabpanel" aria-labelledby="adminSf10PreferencesTab" tabindex="0" hidden><div id="adminSf10PreferencesRoot"></div></section>
       <section class="admin-section-panel" id="adminEnvelopePreferencesPanel" role="tabpanel" aria-labelledby="adminEnvelopePreferencesTab" tabindex="0" hidden><div id="adminEnvelopePreferencesRoot"></div></section>
       <section class="admin-section-panel" id="adminSignatureLibraryPanel" role="tabpanel" aria-labelledby="adminSignatureLibraryTab" tabindex="0" hidden><div id="adminSignatureLibraryRoot"></div></section>
+        </div>
+        </div>
 
 
       </section>
