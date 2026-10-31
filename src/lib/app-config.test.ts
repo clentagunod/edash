@@ -71,7 +71,8 @@ describe('shared application configuration', () => {
     expect(APP_CONFIG.firestore.documents.currentSchoolYear).toBe('currentSchoolYear');
     expect(APP_CONFIG.firestore.documents.gradeTerms).toBe('gradeTerms');
     expect(APP_CONFIG.firestore.documents.toggles).toBe('toggles');
-    expect(APP_CONFIG.firestore.settingsDefaults.toggles).toEqual({ canParentAccess: true, canPromoteStudents: false });
+    expect(APP_CONFIG.firestore.settingsDefaults.toggles).toMatchObject({ canParentAccess: true, canPromoteStudents: false });
+    expect(APP_CONFIG.firestore.settingsDefaults.toggles.printables['outgoing-envelope'].defaultPaperSize).toBe('envelope');
     expect(APP_CONFIG.firestore.schoolDefaults.gradeTerms).toEqual({ termCount: 3, passingThreshold: 75, gradeLevels: {} });
     expect(APP_CONFIG.firestore.schoolYearDefaults).toEqual({ gradeTerms: { termCount: 3, passingThreshold: 75, gradeLevels: {} }, isCurrent: false });
     expect(APP_CONFIG.firestore.userDefaults.teacherPrefs).toEqual(preferenceDefaults);
@@ -1667,7 +1668,7 @@ describe('visitor session handling', () => {
     expect(movementLinks.map((link) => link.textContent?.trim())).toEqual(["Promotion", "Retention", "Transfer Info", "Dropout Info"]);
     expect(movementLinks.map((link) => link.getAttribute("href"))).toEqual(["pages/promotion.html", "pages/retention.html", "pages/transfer-info.html", "pages/dropout.html"]);
     expect(movementLinks[0]?.closest('.nav-category')?.querySelector('.nav-category-trigger')?.textContent).toContain('Movement');
-    expect(Array.from(document.querySelectorAll('#nav-category-printables a'), (link) => link.textContent?.trim())).toEqual(['Learner Card', 'Good Moral', 'Certificate of Enrollment']);
+    expect(Array.from(document.querySelectorAll('#nav-category-printables a'), (link) => link.textContent?.trim())).toEqual(['Learner Card (SF9)', 'Good Moral Certificate', 'Certificate of Enrollment', 'Request for Permanent Records (SF10)', 'Envelope template for Outgoing Records']);
     expect(document.querySelector('.nav-feedback a[href="pages/feedback.html"]')?.textContent).toContain('Feedback');
 
     document.getElementById('menuToggle')?.click();

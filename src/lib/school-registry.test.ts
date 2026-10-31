@@ -174,6 +174,9 @@ describe('school directory tenant selection', () => {
     expect(isRegisteredSchool({ ...school, schoolInfo: { ...school.schoolInfo, region: 9 } })).toBe(false);
     expect(isRegisteredSchool({ ...school, schoolInfo: { ...school.schoolInfo, schoolAddr: 'Example Town' } })).toBe(true);
     expect(isRegisteredSchool({ ...school, schoolInfo: { ...school.schoolInfo, schoolAddr: 9 } })).toBe(false);
+    expect(isRegisteredSchool({ ...school, schoolInfo: { ...school.schoolInfo, zipCode: '0123' } })).toBe(true);
+    expect(isRegisteredSchool({ ...school, schoolInfo: { ...school.schoolInfo, zipCode: 8804 } })).toBe(true);
+    expect(isRegisteredSchool({ ...school, schoolInfo: { ...school.schoolInfo, zipCode: [] } })).toBe(false);
     expect(isRegisteredSchool({ ...school, schoolInfo: { ...school.schoolInfo, contactNumber: 917 } })).toBe(false);
     expect(isRegisteredSchool({ ...school, schoolInfo: { ...school.schoolInfo, email: [] } })).toBe(false);
     expect(isRegisteredSchool({ ...school, schoolInfo: [] })).toBe(false);

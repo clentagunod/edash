@@ -1,4 +1,7 @@
 .printable-intro { max-width: 850px; }
+.printable-intro .panel-header { justify-content: flex-start; gap: 16px; }
+.printable-element-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 12px; background: var(--blue-100); color: var(--blue-600); flex: 0 0 auto; }
+.printable-element-icon svg { width: 28px; height: 28px; }
 .printable-intro .panel-body { padding: 24px; }
 .printable-intro p { max-width: 680px; color: var(--ink-700); line-height: 1.75; }
 .printable-intro .printable-intro-note { color: var(--ink-500); font-size: 13px; margin-bottom: 24px; }

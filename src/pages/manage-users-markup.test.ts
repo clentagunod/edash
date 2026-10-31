@@ -6,11 +6,23 @@ describe('Admin Console collapsible sections', () => {
     const document = new DOMParser().parseFromString(markup, 'text/html');
     const tab = document.querySelector('#adminCertificatePreferencesTab')!;
     const panel = document.querySelector('#adminCertificatePreferencesPanel')!;
-    expect(tab.textContent).toContain('Certificates Preferences');
+    expect(tab.textContent).toContain('Certificates');
     expect(tab.getAttribute('aria-controls')).toBe(panel.id);
     expect(panel.getAttribute('aria-labelledby')).toBe(tab.id);
     expect(panel.hidden).toBe(true);
     expect(panel.querySelector('#adminCertificatePreferencesRoot')).not.toBeNull();
+  });
+  it('groups both preference panels under one Printables destination', () => {
+    const document = new DOMParser().parseFromString(markup, 'text/html');
+    const panel = document.querySelector('#adminPrintablesPanel')!;
+    expect(document.querySelector('#adminPrintablesTab')?.getAttribute('aria-controls')).toBe(panel.id);
+    expect(panel.querySelectorAll('[role="tab"]')).toHaveLength(5);
+    expect(panel.querySelector('#adminCardPreferencesPanel')).not.toBeNull();
+    expect(panel.querySelector('#adminCertificatePreferencesPanel')).not.toBeNull();
+    expect(panel.querySelector('#adminSf10PreferencesRoot')).not.toBeNull();
+    expect(panel.querySelector('#adminEnvelopePreferencesRoot')).not.toBeNull();
+    expect(panel.querySelector('#adminSignatureLibraryRoot')).not.toBeNull();
+    expect(document.querySelectorAll('.admin-section-tabs > [role="tab"]')).toHaveLength(5);
   });
   it('keeps tenant backup collapsed with a hidden summary and separate restore action', () => {
     const document = new DOMParser().parseFromString(markup, 'text/html');

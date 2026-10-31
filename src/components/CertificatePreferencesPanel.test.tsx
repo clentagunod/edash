@@ -49,10 +49,10 @@ describe('certificate preferences administration', () => {
   it('preserves the draft after a failed save and allows retry', async () => {
     vi.mocked(fsSetCertificatePreferences).mockRejectedValueOnce(new Error('Connection lost'));
     await act(async () => root.render(<CertificatePreferencesPanel />));
-    act(() => control<HTMLInputElement>('Allow teachers to edit school details').click());
+    act(() => control<HTMLInputElement>('Allow registrars to edit school details').click());
     await act(async () => button('Save certificate preferences').click());
     expect(container.querySelector('[role="alert"]')?.textContent).toContain('Connection lost');
-    expect(control<HTMLInputElement>('Allow teachers to edit school details').checked).toBe(false);
+    expect(control<HTMLInputElement>('Allow registrars to edit school details').checked).toBe(false);
     expect(button('Save certificate preferences').disabled).toBe(false);
     await act(async () => button('Save certificate preferences').click());
     expect(fsSetCertificatePreferences).toHaveBeenCalledTimes(2);

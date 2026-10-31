@@ -8,12 +8,13 @@ vi.mock('../lib/firebase', () => ({ auth: { onAuthStateChanged: vi.fn(() => vi.f
 vi.mock('../lib/shell', () => ({ applySavedTheme: vi.fn() }));
 vi.mock('../lib/app-config', () => ({ APP_CONFIG: { schoolId: 'school-a' }, isSchoolAdmin: () => false, appDocumentTitle: (value: string) => value, appBrandAssetUrl: (value: string) => value }));
 vi.mock('../lib/school-registry', () => ({ getStoredSchool: () => null, getRegisteredSchools: vi.fn() }));
-vi.mock('../lib/firestore-api', () => ({ fsGetSchoolYears: vi.fn(), fsGetLearners: vi.fn(), fsSubscribeCertificatePreferences: vi.fn() }));
+vi.mock('../lib/firestore-api', () => ({ fsGetSchoolYears: vi.fn(), fsGetLearners: vi.fn(), fsGetArchiveRecords: vi.fn(), fsSubscribeCertificatePreferences: vi.fn(), fsSubscribeRecordDocumentPreferences: vi.fn() }));
 vi.mock('../lib/certificate-export', () => ({ exportCertificateSheets: vi.fn().mockResolvedValue(undefined), prepareCertificateSheets: vi.fn().mockResolvedValue(undefined) }));
 
 import PrintCertificatePage from './PrintCertificatePage';
 import CertificateTemplate from '../components/CertificateTemplate';
-import { fsGetLearners, fsGetSchoolYears, fsSubscribeCertificatePreferences } from '../lib/firestore-api';
+import { fsGetLearners, fsGetArchiveRecords, fsGetSchoolYears, fsSubscribeCertificatePreferences, fsSubscribeRecordDocumentPreferences } from '../lib/firestore-api';
+import { normalizeRecordDocumentPreferences } from '../lib/record-document-preferences';
 import { normalizeCertificatePreferences, type CertificatePreferences } from '../lib/certificate-preferences';
 import { getRegisteredSchools, type RegisteredSchool } from '../lib/school-registry';
 import { makeCertificateFields, missingCertificateFields, certificateDate, printableWorkspaceHref } from '../lib/printables';
@@ -21,7 +22,7 @@ import { exportCertificateSheets } from '../lib/certificate-export';
 
 const school = {
   id: 'school-a', name: 'Example Elementary School', logoUrl: '/assets/edash/edash.png',
-  schoolInfo: { id: '123456', region: 'XI', divisionOffice: 'Schools Division Office of Example', district: 'Example District', schoolAddr: 'Example Town', address: 'Legacy address', contactNumber: '09123456789', email: 'school@example.test', fbPage: 'Example School', motto: 'Learn together' },
+  schoolInfo: { id: '123456', region: 'XI', divisionOffice: 'Schools Division Office of Example', district: 'Example District', schoolAddr: 'Example Town', zipCode: '8804', address: 'Legacy address', contactNumber: '09123456789', email: 'school@example.test', fbPage: 'Example School', motto: 'Learn together' },
   schoolHead: { name: 'Jordan Reyes', position: 'Principal' },
 } as RegisteredSchool;
 const students = [
@@ -35,6 +36,8 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true, ResizeObserver: clas
 beforeEach(() => {
   vi.mocked(fsGetSchoolYears).mockResolvedValue([{ schoolYear: '2026-2027', isCurrent: true }, { schoolYear: '2025-2026' }] as never);
   vi.mocked(fsGetLearners).mockResolvedValue(students);
+  vi.mocked(fsGetArchiveRecords).mockResolvedValue([]);
+  vi.mocked(fsSubscribeRecordDocumentPreferences).mockImplementation((next) => { next(normalizeRecordDocumentPreferences()); return vi.fn(); });
   vi.mocked(getRegisteredSchools).mockResolvedValue([school]);
   vi.mocked(fsSubscribeCertificatePreferences).mockImplementation((next) => { next(normalizeCertificatePreferences()); return vi.fn(); });
   container = document.createElement('div');
@@ -67,6 +70,31 @@ function changeInput(element: HTMLInputElement | HTMLTextAreaElement, value: str
 }
 
 describe('certificate student information and output', () => {
+  it('uses the envelope preset, school ZIP code, and transferred-out learner records', async () => {
+    vi.mocked(fsGetArchiveRecords).mockResolvedValue([{ learnerId: '789', firstName: 'Sam', middleName: 'Miguel', lastName: 'Reyes', transferSchool: 'Recipient School', transferSchoolAddress: 'Recipient Town' }]);
+    await act(async () => root.render(<PrintCertificatePage kind="outgoing-envelope" />));
+    act(() => button('Reyes, Sam').click());
+    expect(fsGetArchiveRecords).toHaveBeenCalledWith('transferredOut', '2026-2027');
+    expect(input('Student name').value).toBe('Sam M. Reyes');
+    expect(container.querySelector<HTMLSelectElement>('.certificate-toolbar select')?.value).toBe('envelope');
+    expect(container.querySelector('.record-envelope-sender')?.textContent).toContain('8804');
+    expect(button('Print document').disabled).toBe(false);
+  });
+
+  it('fills the SF10 current and previous enrollment columns and keeps A4 as default', async () => {
+    await act(async () => root.render(<PrintCertificatePage kind="sf10-request" />));
+    act(() => button('Cruz, Alex').click());
+    expect(button('Print document').disabled).toBe(true);
+    changeInput(input('Recipient school name'), 'Recipient School');
+    changeInput(input('Recipient school address'), 'Recipient Town');
+    changeInput(input('Previous grade'), '3');
+    changeInput(input('Previous school year'), '2025-2026');
+    changeInput(input('Previous teacher adviser'), 'Taylor Reyes');
+    expect([...container.querySelectorAll('.certificate-preview-stage tbody td')].map((cell) => cell.textContent)).toEqual(['Cruz, Alex', '4', '2026-2027', '3', '2025-2026', 'Taylor Reyes']);
+    expect(container.querySelector<HTMLSelectElement>('.certificate-toolbar select')?.value).toBe('a4');
+    expect(button('Print document').disabled).toBe(false);
+  });
+
   it('keeps a running export on one template when the admin changes preferences', async () => {
     let receive: (value: CertificatePreferences) => void;
     let finish: () => void;
@@ -180,7 +208,7 @@ describe('certificate student information and output', () => {
     let resolveOld: (value: typeof students) => void;
     vi.mocked(fsGetLearners).mockReturnValueOnce(new Promise((resolve) => { resolveOld = resolve; }));
     await act(async () => root.render(<PrintCertificatePage kind="enrollment" />));
-    const select = container.querySelector<HTMLSelectElement>('.certificate-editor select')!;
+    const select = container.querySelector<HTMLSelectElement>('.certificate-editor .certificate-field select')!;
     await act(async () => resolveOld!(students));
     act(() => button('Cruz, Alex').click());
     changeInput(input('Student name'), 'Current-year correction');

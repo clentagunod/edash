@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { requireAuth } from '../lib/auth';
 import { appDocumentTitle } from '../lib/app-config';
 import { renderShell } from '../lib/shell';
-import { PRINTABLES, printableWorkspaceHref, type PrintableKind } from '../lib/printables';
+import { PRINTABLES, PRINTABLE_ICONS, printableWorkspaceHref, type PrintableKind } from '../lib/printables';
+import { Icon } from '../lib/icons';
 import '../styles/pages/printables.css';
 
 export default function PrintablesPage({ kind }: { kind: PrintableKind }) {
@@ -38,7 +39,7 @@ export default function PrintablesPage({ kind }: { kind: PrintableKind }) {
       <main className="page">
         <div className="page-header"><div><h1>{printable.title}</h1><p className="desc">Printables · School records</p></div></div>
         <section className="panel printable-intro">
-          <div className="panel-header"><div><span className="eyebrow">Printables</span><h3>{printable.title}</h3></div></div>
+          <div className="panel-header"><span className="printable-element-icon" aria-hidden="true" dangerouslySetInnerHTML={{ __html: Icon[PRINTABLE_ICONS[kind]] }} /><div><span className="eyebrow">Printables</span><h3>{printable.title}</h3></div></div>
           <div className="panel-body">
             <p>{printable.description}</p>
             <p className="printable-intro-note">The print studio opens in a separate tab so you can keep working here.</p>

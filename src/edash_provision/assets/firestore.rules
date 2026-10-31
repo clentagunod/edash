@@ -269,7 +269,10 @@ service cloud.firestore {
     match /settings/{settingId} {
       // Backup exports list this entire collection. Authorize staff without
       // requiring the query to resolve a condition on each document ID.
-      allow read: if isStaff() || (isSignedIn() && settingId != "eduai");
+      allow read: if isStaff() || (isSignedIn() && !(settingId in [
+        "eduai", "printableSignatures", "printable-signature-1",
+        "printable-signature-2", "printable-signature-3"
+      ]));
       allow write: if isAdmin();
       match /years/{schoolYear} {
         allow read: if isSignedIn() && settingId == "gradeTerms";

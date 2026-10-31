@@ -25,48 +25,39 @@ export function debounce(fn, delay) {
 }
 
 export function initAdminSectionTabs() {
-  const tabs = [
-    document.getElementById("adminStructureTab"),
-    document.getElementById("adminCardPreferencesTab"),
-    document.getElementById("adminCertificatePreferencesTab"),
-    document.getElementById("adminAccessTab"),
-    document.getElementById("adminBackupTab"),
-    document.getElementById("adminAuditTab"),
-  ];
-  const panels = [
-    document.getElementById("adminStructurePanel"),
-    document.getElementById("adminCardPreferencesPanel"),
-    document.getElementById("adminCertificatePreferencesPanel"),
-    document.getElementById("adminAccessPanel"),
-    document.getElementById("adminBackupPanel"),
-    document.getElementById("adminAuditPanel"),
-  ];
-  const validPairs = tabs.map((tab, index) => ({ tab, panel: panels[index] })).filter(({ tab, panel }) => tab && panel);
-  const activeTabs = validPairs.map(({ tab }) => tab);
-  const activePanels = validPairs.map(({ panel }) => panel);
-  if (!activeTabs.length) return;
+  document.querySelectorAll('[role="tablist"]').forEach((tablist) => {
+    const tabs = [...tablist.querySelectorAll('[role="tab"]')];
+    const panels = tabs.map((tab) => document.getElementById(tab.getAttribute('aria-controls')));
+    const validPairs = tabs.map((tab, index) => ({ tab, panel: panels[index] })).filter(({ tab, panel }) => tab && panel);
+    const activeTabs = validPairs.map(({ tab }) => tab);
+    const activePanels = validPairs.map(({ panel }) => panel);
+    if (!activeTabs.length) return;
 
-  const activate = (index, moveFocus = false) => {
-    activeTabs.forEach((tab, tabIndex) => {
-      const isActive = tabIndex === index;
-      tab.setAttribute("aria-selected", String(isActive));
-      tab.tabIndex = isActive ? 0 : -1;
-      activePanels[tabIndex].hidden = !isActive;
-    });
-    if (moveFocus) activeTabs[index].focus();
-  };
+    const activate = (index, moveFocus = false) => {
+      activeTabs.forEach((tab, tabIndex) => {
+        const isActive = tabIndex === index;
+        tab.setAttribute("aria-selected", String(isActive));
+        tab.tabIndex = isActive ? 0 : -1;
+        activePanels[tabIndex].hidden = !isActive;
+      });
+      if (moveFocus) activeTabs[index].focus();
+    };
 
-  activeTabs.forEach((tab, index) => {
-    tab.addEventListener("click", () => activate(index));
-    tab.addEventListener("keydown", (event) => {
-      let nextIndex;
-      if (event.key === "ArrowRight") nextIndex = (index + 1) % activeTabs.length;
-      if (event.key === "ArrowLeft") nextIndex = (index + activeTabs.length - 1) % activeTabs.length;
-      if (event.key === "Home") nextIndex = 0;
-      if (event.key === "End") nextIndex = activeTabs.length - 1;
-      if (nextIndex === undefined) return;
-      event.preventDefault();
-      activate(nextIndex, true);
+    const selected = activeTabs.findIndex((tab) => tab.getAttribute("aria-selected") === "true");
+    activate(selected < 0 ? 0 : selected);
+
+    activeTabs.forEach((tab, index) => {
+      tab.addEventListener("click", () => activate(index));
+      tab.addEventListener("keydown", (event) => {
+        let nextIndex;
+        if (event.key === "ArrowRight" || event.key === "ArrowDown") nextIndex = (index + 1) % activeTabs.length;
+        if (event.key === "ArrowLeft" || event.key === "ArrowUp") nextIndex = (index + activeTabs.length - 1) % activeTabs.length;
+        if (event.key === "Home") nextIndex = 0;
+        if (event.key === "End") nextIndex = activeTabs.length - 1;
+        if (nextIndex === undefined) return;
+        event.preventDefault();
+        activate(nextIndex, true);
+      });
     });
   });
 }

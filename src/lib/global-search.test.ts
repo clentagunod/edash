@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+const role = vi.hoisted(() => ({ value: 'School Admin' }));
 
 vi.mock('./app-config', () => ({
   APP_PAGE_PREFIX: 'pages/',
   isVisitorSession: () => false,
-  isSchoolAdmin: () => true,
+  isSchoolAdmin: () => role.value === 'School Admin',
+  appRole: () => role.value,
+  normalizedAppRole: (value: string) => value,
   canViewGradesProfile: () => true,
 }));
 
@@ -35,6 +38,7 @@ function setupTopbar() {
 
 describe('global search', () => {
   beforeEach(() => {
+    role.value = 'School Admin';
     window.localStorage.clear();
     setupTopbar();
     mountGlobalSearch(NAV);
@@ -54,6 +58,21 @@ describe('global search', () => {
     expect(items.length).toBeGreaterThanOrEqual(2);
     expect(results.querySelector('.gsi-group')?.textContent).toBe('Pages');
     expect(results.querySelector('.gsi-recent-remove')).toBeNull();
+  });
+
+  it('does not offer restricted printable search actions to a teacher', () => {
+    role.value = 'Teacher';
+    mountGlobalSearch(NAV);
+    const input = document.querySelector<HTMLInputElement>('#globalSearchInput')!;
+    for (const query of ['good moral', 'permanent records', 'outgoing envelope']) {
+      input.value = query;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      const links = [...document.querySelectorAll('.global-search-item')].map((node) => node.textContent);
+      expect(links.join(' ')).not.toMatch(/Good Moral|SF10|Outgoing Records/);
+    }
+    input.value = 'print card';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(document.querySelector('#globalSearchResults')?.textContent).toContain('Print Card');
   });
 
   it('does not add suggested pages to recent component history', () => {

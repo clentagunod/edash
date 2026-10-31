@@ -664,3 +664,39 @@ Personal settings are stored in `users/{uid}.teacherPrefs` for every staff role.
 - Reset Preferences requires confirmation, restores the defaults above, and clears the current account's remembered views and tab photo cache. It does not change profile photos, assignments, passwords, or school records.
 
 Deploy the updated root `firestore.rules` to each tenant before publishing this frontend. The rules allow validated personal preference updates without granting users permission to change their roles or assignments. The standalone Python provisioner includes the same rules and a mirrored `assets/user-preferences.json` snapshot; its asset integrity hashes are updated together.
+
+
+### Records printables
+
+`schools/{schoolId}.schoolInfo.zipCode` supplies the sender postal code for outgoing envelopes. Store it as a string to preserve leading zeros; older numeric ZIP codes are also accepted when reading school metadata. The registration examples include this optional field.
+
+SF10 and envelope preferences use independent maps under `settings/toggles.printables`: `sf10-request` defaults to A4 portrait, and `outgoing-envelope` defaults to 241 ? 105 mm landscape. Each config includes `version`, `template`, `defaultPaperSize`, `defaultOrientation`, `defaultMargin`, `defaultScale`, `defaultTextSize`, and `allowSchoolDetailsOverride`. Save with a merge mask for the individual document map. The original Word envelope dimensions (241.3 ? 104.775 mm) are available as `envelope-source`. The packaged tenant structure includes these defaults. Existing tenants receive the same defaults when no config has been saved.
+
+Teachers can open Learner Card (SF9) only; Registrars and School Admins can open all Printables. Settings writes remain limited to School Admins by the existing Firestore rules. No new rules or document collections are required.
+
+### Printable signatures and SF10 Gmail sending
+
+Admin Console -> Printables -> School head signatures manages a maximum of three signature slots. `settings/printableSignatures` contains `{ version: 1, slots, assignments }`. Slots `signature-1`, `signature-2`, and `signature-3` contain only `{ label, revision, width, height }`; `assignments` maps each printable kind to its permitted slot IDs. New transparent PNGs are uploaded to Cloudinary using the existing `VITE_CLOUDINARY_CLOUD_NAME` and `VITE_CLOUDINARY_UPLOAD_PRESET` environment variables. Optional `VITE_CLOUDINARY_SIGNATURE_UPLOAD_PRESET` selects a separate unsigned signature preset without affecting profile-photo uploads; otherwise the existing preset is reused. No API secret is used or stored in the browser.
+
+`settings/printable-signature-1`, `settings/printable-signature-2`, and `settings/printable-signature-3` now store `{ storage: "cloudinary", url, publicId, cloudName, format: "png", label, revision, width, height, updatedBy }`. No new image bytes are stored in Firestore. Assets are downloaded only when needed and embedded in memory for consistent printing, canvas exports, and email attachments, with caching by tenant and revision. The prepared PNG is limited to 1 MB and 1208 x 608 pixels. Upload verification rejects presets that change the image format, dimensions, or transparent background. Configure the unsigned preset to allow PNG, preserve the original image, and avoid incoming JPEG conversion, background flattening, or profile-photo cropping. For separate storage, give the optional signature preset a fixed asset folder; uploads are tagged `edash-school-signature`.
+
+Existing inline signature documents remain readable. The **Move to Cloudinary** action uploads one existing signature, replaces its inline bytes with a Cloudinary reference, refreshes its revision, and preserves every printable assignment. A concurrent edit prevents replacement. New uploads never perform Cloudinary requests inside retryable Firestore transactions. If upload or verification fails, no signature record is created. If the subsequent Firestore commit fails, the Cloudinary upload can remain unlinked; review tagged assets in Cloudinary for cleanup.
+
+Removing a signature atomically removes its Firestore reference, metadata, and all printable assignments. As with profile-photo removal, it does not destroy the original Cloudinary asset: permanent Cloudinary deletion requires the Cloudinary Console or a trusted backend with server-side credentials. The configured unsigned preset delivers public Cloudinary URLs; Firestore restricts access to the signature library and its stored references, not access to an already-known delivery URL. The tenant provisioning snapshot includes the empty library and documents the Cloudinary reference and legacy schemas without creating sample signatures.
+
+Staff optionally select an approved signature and place it in each studio. Drag, arrow keys (Shift for larger steps), or Left/Top/Width controls adjust its position. Placement applies to the current batch and remains temporary; it is not written into a learner record. SF9 stores independent front/back placements in the current session. Preview, print, PDF, Word, PNG, and SF10 email attachments use the same placed image. Upload accepts raster PNG/JPEG/WebP up to 5 MB, removes white scan backgrounds when enabled, crops empty space, and re-encodes a transparent PNG. Remove an occupied slot before replacing its signature.
+
+The SF10 studio’s **Send with Gmail** dialog creates an attachment from the current documents and sends it only when the user presses **Send email with attachment**. PDF and Word include the selected batch; PNG includes the current preview. The composer supports To, CC, BCC, Reply-to, Subject, and Message. No SMTP password, service account, or refresh token is stored. Google access tokens are held only in the open dialog’s memory and cleared when it closes. The actual sending account is selected and verified through Google, separately from Firebase sign-in.
+
+Before enabling Gmail in a deployment:
+
+1. Enable the Gmail API in a Google Cloud project, configure its OAuth consent screen, and create a **Web application** OAuth client. Add the site’s exact HTTPS origin and the development origin, if needed, to Authorized JavaScript origins.
+2. Set `VITE_GMAIL_CLIENT_ID=YOUR_CLIENT_ID.apps.googleusercontent.com` in the deployment/build environment, rebuild, and deploy. The client ID is public; do not place a client secret in frontend configuration.
+3. Configure the consent screen audience/test users or publish the consent app as appropriate. Request only `https://www.googleapis.com/auth/gmail.send` and `https://www.googleapis.com/auth/userinfo.email`. Google may require verification for a public app; Workspace administrator restrictions also apply.
+4. Connect the sending account from the studio and review the recipients and attachment before sending. A missing client ID leaves sending unavailable with setup guidance. Sending is never automatically retried after a network interruption; check the account’s Sent folder before trying again.
+
+Deploy the updated `firestore.rules` to each tenant before using signatures: the new library and asset documents require an active School Admin, Registrar, or Teacher profile to read. Upload, deletion, and assignment writes remain admin-only. Anonymous Parent Portal sessions and inactive/non-staff accounts cannot retrieve the signature library or asset references from Firestore. The packaged provisioner mirrors this rule change.
+
+References: [Google’s browser token model](https://developers.google.com/identity/oauth2/web/guides/use-token-model) and [Gmail MIME attachments and sending](https://developers.google.com/workspace/gmail/api/guides/sending).
+
+Cloudinary signature references: [unsigned upload parameters](https://cloudinary.com/documentation/image_upload_api_reference#unsigned_upload_parameters) and [upload preset behavior](https://cloudinary.com/documentation/upload_presets).

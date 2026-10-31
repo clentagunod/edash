@@ -7,7 +7,7 @@ import { getStoredSchool } from '../lib/school-registry';
 import { PAPER_SIZES, type PaperOrientation, type PaperSizeId } from '../lib/student-card-layout';
 import '../styles/components/certificate-preferences.css';
 
-const kindName = (kind: CertificateKind) => kind === 'good-moral' ? 'Good Moral' : 'Certificate of Enrollment';
+const kindName = (kind: CertificateKind) => kind === 'good-moral' ? 'Good Moral Certificate' : 'Certificate of Enrollment';
 
 export default function CertificatePreferencesPanel() {
   const [draft, setDraft] = useState(normalizeCertificatePreferences);
@@ -78,7 +78,7 @@ export default function CertificatePreferencesPanel() {
   }
 
   return <section className="panel certificate-preferences-panel" aria-labelledby="certificate-preferences-title" aria-busy={loading || saving}>
-    <div className="certificate-preferences-heading"><span className="eyebrow-label">Printables setup</span><h2 id="certificate-preferences-title">Certificates Preferences</h2><p>Choose the templates teachers can use and the default for each certificate. Saved preferences apply across this school.</p></div>
+    <div className="certificate-preferences-heading"><span className="eyebrow-label">Printables setup</span><h2 id="certificate-preferences-title">Certificate Preferences</h2><p>Choose the templates Registrars and School Admins can use and the default for each certificate. Saved preferences apply across this school.</p></div>
     {error && <p className="certificate-preferences-error" role="alert">{error} {!saved && !loading && <button type="button" className="btn btn-secondary" onClick={() => setReload((value) => value + 1)}>Retry preferences</button>}</p>}
     {loading && <p role="status">Loading certificate preferences…</p>}
     <form onSubmit={(event) => void save(event)}>
@@ -87,7 +87,7 @@ export default function CertificatePreferencesPanel() {
           const config = draft.templates[kind];
           return <section className="certificate-preference-section" key={kind} aria-labelledby={`certificate-preference-${kind}`}>
             <h3 id={`certificate-preference-${kind}`}>{kindName(kind)}</h3>
-            <p>{kind === 'good-moral' ? 'The default template is available now. Additional templates can be added later.' : 'Enable the COE layouts you want to make available to teachers.'}</p>
+            <p>{kind === 'good-moral' ? 'The default template is available now. Additional templates can be added later.' : 'Enable the COE layouts you want to make available to authorized staff.'}</p>
             <div className="certificate-template-options">
               {CERTIFICATE_TEMPLATES[kind].map((template) => {
                 const enabled = config.enabledTemplates.includes(template.id);
@@ -103,17 +103,17 @@ export default function CertificatePreferencesPanel() {
             </div>
             <div className="certificate-preference-grid">
               <label className="certificate-preference-field"><span>Default {kind === 'good-moral' ? 'Good Moral' : 'COE'} template</span><select value={config.defaultTemplate} onChange={(event) => updateTemplate(kind, { defaultTemplate: event.currentTarget.value as CertificateTemplateId })}>{CERTIFICATE_TEMPLATES[kind].filter(({ id }) => config.enabledTemplates.includes(id)).map(({ id, name }) => <option value={id} key={id}>{name}</option>)}</select></label>
-              <label className="certificate-preference-check"><input type="checkbox" checked={config.allowTeacherTemplateChoice} onChange={(event) => updateTemplate(kind, { allowTeacherTemplateChoice: event.currentTarget.checked })} /><span><strong>Let teachers choose a template</strong><small>When off, every certificate uses the default template.</small></span></label>
+              <label className="certificate-preference-check"><input type="checkbox" checked={config.allowTeacherTemplateChoice} onChange={(event) => updateTemplate(kind, { allowTeacherTemplateChoice: event.currentTarget.checked })} /><span><strong>Let authorized staff choose a template</strong><small>When off, every certificate uses the default template.</small></span></label>
             </div>
           </section>;
         })}
         <section className="certificate-preference-section" aria-labelledby="certificate-output-preferences">
           <h3 id="certificate-output-preferences">Layout & school information</h3>
-          <p>These defaults apply to both certificate types. Teachers can adjust the paper layout in the print studio.</p>
+          <p>These defaults apply to both certificate types. Registrars and School Admins can adjust the paper layout in the print studio.</p>
           <div className="certificate-preference-grid">
             <label className="certificate-preference-field"><span>Default paper size</span><select value={draft.defaultPaperSize} onChange={(event) => setDraft({ ...draft, defaultPaperSize: event.currentTarget.value as PaperSizeId })}>{Object.entries(PAPER_SIZES).map(([id, size]) => <option value={id} key={id}>{size.label}</option>)}</select></label>
             <label className="certificate-preference-field"><span>Default orientation</span><select value={draft.defaultOrientation} onChange={(event) => setDraft({ ...draft, defaultOrientation: event.currentTarget.value as PaperOrientation })}><option value="portrait">Portrait</option><option value="landscape">Landscape</option></select></label>
-            <label className="certificate-preference-check"><input type="checkbox" checked={draft.allowSchoolDetailsOverride} onChange={(event) => setDraft({ ...draft, allowSchoolDetailsOverride: event.currentTarget.checked })} /><span><strong>Allow teachers to edit school details</strong><small>Allow temporary changes to the signatory, school information, logos, and footer. Administrators can always edit these in the studio.</small></span></label>
+            <label className="certificate-preference-check"><input type="checkbox" checked={draft.allowSchoolDetailsOverride} onChange={(event) => setDraft({ ...draft, allowSchoolDetailsOverride: event.currentTarget.checked })} /><span><strong>Allow registrars to edit school details</strong><small>Allow temporary changes to the signatory, school information, logos, and footer. Administrators can always edit these in the studio.</small></span></label>
             <label className="certificate-preference-check"><input type="checkbox" checked={draft.showSealNotice} onChange={(event) => setDraft({ ...draft, showSealNotice: event.currentTarget.checked })} /><span><strong>Show school-seal notice</strong><small>Include “Not valid without school seal” on printed and exported certificates.</small></span></label>
           </div>
         </section>

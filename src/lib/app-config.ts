@@ -1,6 +1,8 @@
 // @ts-nocheck -- ported from the original site; behavior preserved, not yet fully typed.
 import { getActiveSchool, getStoredSchool } from "./school-registry";
 import { DEFAULT_GRADE_TERMS_SETTINGS } from "./grading-config";
+import { normalizeRecordDocumentPreferences } from './record-document-preferences';
+import { normalizeSignatureLibrary } from './printable-signatures';
 
 import userPreferenceDefaults from "../../shared/user-preferences.json";
 
@@ -40,6 +42,7 @@ export const APP_CONFIG = Object.freeze({
       isCurrent: false,
     }),
     settingsDefaults: Object.freeze({
+      printableSignatures: Object.freeze(normalizeSignatureLibrary()),
       cardPrintingPreferences: Object.freeze({
         activeTemplate: "sf9",
         gradeTemplates: Object.freeze({ kinder: "sf9", grade1: "sf9", grade2: "sf9", grade3: "sf9", grade4: "sf9", grade5: "sf9", grade6: "sf9" }),
@@ -51,6 +54,7 @@ export const APP_CONFIG = Object.freeze({
         canPromoteStudents: false,
         trashConfg: "30",
         roundType: "nearest_integer",
+        printables: Object.freeze(normalizeRecordDocumentPreferences()),
       }),
     }),
     userDefaults: Object.freeze({

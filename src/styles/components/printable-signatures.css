@@ -1,0 +1,33 @@
+.signature-library fieldset { border: 0; border-top: 1px solid var(--line-200); padding: 22px 0; margin: 0; min-width: 0; }
+.signature-library legend { font-size: 15px; font-weight: 700; padding: 0 10px 0 0; color: var(--ink-900); }
+.signature-library p, .signature-studio-controls p { color: var(--ink-500); font-size: 12px; line-height: 1.6; }
+.signature-library-slots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
+.signature-library-slot { border: 1px solid var(--line-200); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.signature-library h3, .signature-studio-controls h3 { margin: 0; font-size: 14px; color: var(--ink-900); }
+.signature-checkerboard { background-color: #fff; background-image: linear-gradient(45deg, #e6e9ee 25%, transparent 25%), linear-gradient(-45deg, #e6e9ee 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e6e9ee 75%), linear-gradient(-45deg, transparent 75%, #e6e9ee 75%); background-size: 16px 16px; background-position: 0 0, 0 8px, 8px -8px, -8px 0; border-radius: 8px; padding: 12px; min-height: 72px; display: flex; align-items: center; justify-content: center; }
+.signature-checkerboard img { display: block; max-height: 100px; max-width: 100%; object-fit: contain; }
+.signature-upload-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.signature-library label, .signature-studio-controls label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--ink-700); min-width: 0; }
+.signature-library input:not([type=checkbox]):not([type=range]), .signature-library select, .signature-studio-controls input, .signature-studio-controls select { width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid var(--line-200); border-radius: 8px; background: var(--bg-app); color: var(--ink-900); font: inherit; }
+.signature-library .signature-checkbox { flex-direction: row; align-items: center; gap: 8px; }
+.signature-upload-preview { margin-top: 16px; max-width: 400px; }
+.signature-control-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.signature-library .btn, .signature-studio-controls .btn { display: inline-flex; align-items: center; justify-content: center; width: auto; min-height: 38px; padding: 9px 13px; border: 1px solid var(--line-200); border-radius: 8px; background: var(--bg-card, #fff); color: var(--ink-700); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.signature-library .btn-primary, .signature-studio-controls .btn-primary { background: var(--blue-600); border-color: var(--blue-600); color: #fff; }
+.signature-library .btn:disabled, .signature-studio-controls .btn:disabled { opacity: .5; cursor: not-allowed; }
+.signature-assignment-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin: 16px 0; }
+.signature-assignment-list section { padding: 14px; border: 1px solid var(--line-200); border-radius: 10px; display: grid; gap: 12px; }
+.signature-studio-controls { padding: 16px; border-bottom: 1px solid var(--line-200); }
+.signature-studio-fieldset { padding: 0; margin: 0; border: 0; min-width: 0; }
+.signature-studio-controls h3 small { font-size: 11px; font-weight: 400; color: var(--ink-500); margin-left: 6px; }
+.signature-studio-controls summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--ink-900); }
+.signature-studio-controls summary small { margin-left: 8px; font-weight: 400; color: var(--ink-500); }
+.signature-studio-swatch { margin-top: 12px; }
+.signature-position-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.sf9-card-side { position: relative; }
+.printable-signature { position: absolute; z-index: 5; pointer-events: none; line-height: 0; background: transparent !important; border: 0; padding: 0; margin: 0; }
+.printable-signature > img { display: block; width: 100%; height: 100%; max-width: none; object-fit: contain; filter: none !important; background: transparent !important; user-select: none; }
+.printable-signature.is-draggable { pointer-events: auto; touch-action: none; cursor: move; }
+.printable-signature.is-draggable:hover, .printable-signature.is-draggable:focus-visible { outline: 1px dashed #2563eb; }
+@media(max-width: 700px) { .signature-library-slots, .signature-upload-fields { grid-template-columns: 1fr; } }
+@media print { .signature-studio-controls { display: none !important; } .printable-signature { outline: 0 !important; pointer-events: none !important; } }

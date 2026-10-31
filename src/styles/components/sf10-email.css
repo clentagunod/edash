@@ -1,0 +1,21 @@
+.sf10-email-dialog { width: min(680px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); border: 1px solid var(--line-200); border-radius: 16px; padding: 0; color: var(--ink-900); background: var(--bg-app); box-shadow: 0 24px 80px #0004; }
+.sf10-email-dialog::backdrop { background: #10203880; backdrop-filter: blur(3px); }
+.sf10-email-dialog header { padding: 22px; display: flex; justify-content: space-between; gap: 12px; align-items: center; border-bottom: 1px solid var(--line-200); }
+.sf10-email-dialog h2 { margin: 4px 0 0; font-size: 22px; }
+.sf10-email-dialog .btn { display: inline-flex; justify-content: center; align-items: center; width: auto; min-height: 38px; padding: 9px 13px; border: 1px solid var(--line-200); border-radius: 8px; background: var(--bg-card, #fff); color: var(--ink-700); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.sf10-email-dialog .btn-primary { background: var(--blue-600); border-color: var(--blue-600); color: #fff; }
+.sf10-email-dialog .btn:disabled { opacity: .5; cursor: not-allowed; }
+.sf10-email-dialog form { padding: 22px; }
+.sf10-email-dialog fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 16px; min-width: 0; }
+.sf10-email-dialog label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
+.sf10-email-dialog input, .sf10-email-dialog textarea, .sf10-email-dialog select { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--line-200); border-radius: 8px; color: var(--ink-900); background: var(--bg-surface, var(--bg-app)); font: inherit; }
+.sf10-email-dialog textarea { resize: vertical; }
+.sf10-email-dialog p { color: var(--ink-500); font-size: 12px; line-height: 1.6; }
+.sf10-email-dialog .sf10-email-hint { margin: -10px 0 0; }
+.sf10-email-optional { display: grid; gap: 12px; margin-top: 12px; }
+.sf10-email-dialog summary { cursor: pointer; font-size: 13px; }
+.sf10-email-account { border: 1px solid var(--line-200); border-radius: 10px; padding: 12px; }
+.sf10-email-dialog .sf10-email-error { color: var(--danger-600, #b42318); }
+.sf10-email-dialog footer { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; border-top: 1px solid var(--line-200); padding-top: 12px; }
+.sf10-email-dialog footer p { max-width: 300px; }
+@media print { .sf10-email-dialog { display: none !important; } }

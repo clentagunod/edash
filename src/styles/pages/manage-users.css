@@ -470,3 +470,29 @@ body.dark-mode .admin-backup-warning { border-color: #6b5421; color: #f2d98c; ba
   .admin-card-template-choice-content { padding: 10px; }
   .admin-card-template-copy strong { font-size: 12px; }
 }
+
+/* Shared hierarchy for all console sections and their settings. */
+.admin-section-label h2 { margin: 0; color: var(--ink-900); font-size: 20px; font-weight: 750; line-height: 1.35; }
+.admin-section-label small { display: block; margin-top: 6px; line-height: 1.6; }
+.admin-section-panel > .admin-section-label { margin-bottom: 20px; }
+.admin-accordion-content > .panel { margin: 0; border-radius: 12px; box-shadow: none; }
+.admin-section-content :is(input:not([type="checkbox"]), select, textarea) { min-height: 40px; border-radius: 8px; }
+.admin-section-content :is(button, select, input, textarea, summary):focus-visible { outline: 2px solid var(--blue-600); outline-offset: 3px; }
+.admin-printables-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; padding: 6px; border: 1px solid var(--line-200); border-radius: 12px; background: var(--bg-page); }
+.admin-printables-tabs button { flex: 1 1 180px; min-height: 44px; padding: 10px 16px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--ink-500); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.admin-printables-tabs button[aria-selected="true"] { border-color: var(--line-200); background: var(--bg-card); color: var(--blue-600); box-shadow: var(--shadow-card); }
+.admin-printables-tabs button:hover { color: var(--blue-600); }
+#adminPrintablesPanel :is(.certificate-preferences-heading, .admin-card-preferences-panel > .panel-header) { padding: 20px; border-bottom: 1px solid var(--line-200); }
+#adminPrintablesPanel .certificate-preferences-panel { padding: 0; overflow: hidden; }
+#adminPrintablesPanel .certificate-preferences-heading h2 { margin: 6px 0; font-size: 16px; }
+#adminPrintablesPanel .certificate-preferences-heading p { font-size: 12px; }
+#adminPrintablesPanel .certificate-preferences-panel form { padding: 20px; }
+#adminPrintablesPanel .certificate-preferences-panel > [role] { margin: 16px 20px; }
+#adminPrintablesPanel .certificate-preferences-fields { display: grid; gap: 14px; }
+#adminPrintablesPanel .certificate-preference-section { padding: 18px; border: 1px solid var(--line-200); border-radius: 12px; }
+#adminPrintablesPanel .certificate-preference-section h3 { font-size: 15px; }
+#adminPrintablesPanel .certificate-preferences-footer { margin-top: 18px; border-top: 1px solid var(--line-200); }
+@media (max-width: 600px) {
+  #adminPrintablesPanel :is(.certificate-preferences-heading, .admin-card-preferences-panel > .panel-header, .certificate-preferences-panel form) { padding: 16px; }
+  #adminPrintablesPanel .certificate-preference-section { padding: 14px; }
+}

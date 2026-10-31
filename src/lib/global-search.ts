@@ -13,6 +13,7 @@
  */
 import { APP_PAGE_PREFIX, canViewGradesProfile, isSchoolAdmin, isVisitorSession } from './app-config';
 import { Icon } from './icons';
+import { canAccessPrintable } from './printable-access';
 
 /* ============================================================================
  * State (module singleton survives SPA route changes)
@@ -44,6 +45,8 @@ const MAX_CACHED_QUERIES = 50;
 const ROLE_GATES = {
   admin: isSchoolAdmin,
   grades: canViewGradesProfile,
+  printableRecords: () => canAccessPrintable('enrollment'),
+  printableCard: () => canAccessPrintable('student-card'),
 };
 
 function E(page, label, href, selector, icon, keywords = '', role = null) {
@@ -237,9 +240,11 @@ const CURATED = [
   E('Admin Console', 'Add User', 'manage-users.html', '#addUserBtn', 'plus', 'new user account', 'admin'),
 
   /* ---- Print Card -------------------------------------------------------- */
-  E('Learner Card', 'Print Card', 'student-card.html', '#openPrintableStudio', 'clipboard', 'print report card learner student card grades printables', 'grades'),
-  E('Good Moral', 'Print Good Moral', 'good-moral.html', '#openPrintableStudio', 'sheet', 'certificate good moral conduct printables'),
-  E('Certificate of Enrollment', 'Print Certificate of Enrollment', 'certificate-of-enrollment.html', '#openPrintableStudio', 'graduationCap', 'certificate enrollment coe printables'),
+  E('Learner Card (SF9)', 'Print Card', 'student-card.html', '#openPrintableStudio', 'learnerCard', 'print report card learner student card grades printables', 'printableCard'),
+  E('Good Moral Certificate', 'Print Good Moral Certificate', 'good-moral.html', '#openPrintableStudio', 'moralCertificate', 'certificate good moral conduct printables', 'printableRecords'),
+  E('Certificate of Enrollment', 'Print Certificate of Enrollment', 'certificate-of-enrollment.html', '#openPrintableStudio', 'enrollmentCertificate', 'certificate enrollment coe printables', 'printableRecords'),
+  E('Request for Permanent Records (SF10)', 'Print SF10 Request', 'request-permanent-records.html', '#openPrintableStudio', 'recordsRequest', 'sf10 form 137 permanent records request printables', 'printableRecords'),
+  E('Envelope template for Outgoing Records', 'Print outgoing envelope', 'outgoing-records-envelope.html', '#openPrintableStudio', 'outgoingEnvelope', 'envelope outgoing transfer records printables', 'printableRecords'),
 ];
 
 /* ============================================================================
@@ -593,7 +598,8 @@ export function mountGlobalSearch(navItems = []) {
   }));
   const navHrefs = new Set(S.navEntries.map((entry) => entry.href));
   S.subEntries = CURATED.filter((entry) =>
-    navHrefs.has(entry.href) || (!isVisitorSession() && (!entry.role || (ROLE_GATES[entry.role] && ROLE_GATES[entry.role]()))),
+    (!entry.role || (ROLE_GATES[entry.role] && ROLE_GATES[entry.role]())) &&
+    (navHrefs.has(entry.href) || !isVisitorSession()),
   );
   S.recentKeys = loadRecentKeys();
   S.resultCache.clear();

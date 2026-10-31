@@ -14,6 +14,8 @@ import { formatLearnerName } from './learner-sorting';
 import { learnerCardRecord } from './learner-card-record';
 import { DOCUMENT_STATUS_FIELDS, documentStatusRecord } from './document-status';
 import { CERTIFICATE_PREFERENCES_DOCUMENT, normalizeCertificatePreferences, validateCertificatePreferences, type CertificatePreferences } from './certificate-preferences';
+import { normalizeRecordDocumentPreferences, validateRecordDocumentPreference, type RecordDocumentPreferences, type RecordDocumentPreference } from './record-document-preferences';
+import type { RecordDocumentKind } from './printables';
 
 /**
  * ============================================================================
@@ -1968,6 +1970,27 @@ const DEFAULT_CARD_PRINTING_PREFERENCES = {
 export async function fsGetCertificatePreferences(): Promise<CertificatePreferences> {
   const snapshot = await db.collection(FS_SETTINGS).doc(CERTIFICATE_PREFERENCES_DOCUMENT).get();
   return normalizeCertificatePreferences(snapshot.exists ? snapshot.data() : undefined);
+}
+
+/** New records templates share settings/toggles without overwriting unrelated switches. */
+export async function fsGetRecordDocumentPreferences(): Promise<RecordDocumentPreferences> {
+  const snapshot = await db.collection(FS_SETTINGS).doc('toggles').get();
+  return normalizeRecordDocumentPreferences(snapshot.exists ? snapshot.data()?.printables : undefined);
+}
+
+export function fsSubscribeRecordDocumentPreferences(next: (value: RecordDocumentPreferences) => void, error: (failure: Error) => void): () => void {
+  return db.collection(FS_SETTINGS).doc('toggles').onSnapshot(
+    (snapshot) => next(normalizeRecordDocumentPreferences(snapshot.exists ? snapshot.data()?.printables : undefined)), error,
+  );
+}
+
+export async function fsSetRecordDocumentPreference(kind: RecordDocumentKind, input: unknown): Promise<RecordDocumentPreference> {
+  if (appRole() !== 'School Admin') throw new Error('Only a School Admin can configure printable preferences.');
+  const value = validateRecordDocumentPreference(kind, input);
+  const ref = db.collection(FS_SETTINGS).doc('toggles');
+  await ref.set({ printables: { [kind]: value } }, { mergeFields: [`printables.${kind}`] });
+  fsAudit_('SETTINGS_UPDATE', { sheet: 'settings', recordId: 'settings/toggles', newValue: JSON.stringify({ printables: { [kind]: value } }) });
+  return value;
 }
 
 /** Each open studio receives policy changes from the tenant's shared settings. */

@@ -28,6 +28,7 @@
 .certificate-document .certificate-district { font: bold 10pt/1.15 Arial, sans-serif; }
 .certificate-document h1 { margin: 17mm 0 12.7mm; color: #000 !important; font: bold 20pt/1.15 Arial, sans-serif; text-align: center; letter-spacing: normal; }
 .certificate-document .certificate-body { font: 11pt/2.3 Arial, sans-serif; }
+.certificate-document .certificate-body, .certificate-document .certificate-body * { font-family: Arial, sans-serif; }
 .certificate-document .certificate-body > p { margin: 0 0 2.8mm; text-align: justify; text-indent: 12.7mm; overflow-wrap: anywhere; }
 .certificate-document--good-moral .certificate-body > p { margin-bottom: 0; }
 .certificate-document .certificate-body > .certificate-salutation { font-weight: bold; margin-bottom: 3mm; }
@@ -41,6 +42,7 @@
 .certificate-document .certificate-footer-logos { display: flex; width: 85mm; margin-left: -5mm; flex-shrink: 0; align-items: center; gap: 1.4mm; padding-top: 1mm; }
 .certificate-document .certificate-footer-logos img, .certificate-document .certificate-logo-space { display: block; width: 16mm; height: 18mm; object-fit: contain; }
 .certificate-document .certificate-contact { flex: 1; min-width: 0; font: 11pt/1.15 'Times New Roman', serif; overflow-wrap: anywhere; }
+.certificate-document .certificate-contact, .certificate-document .certificate-contact * { font-family: 'Times New Roman', serif; }
 .certificate-document .certificate-motto { margin-top: 1mm; text-align: center; font: 18pt/1.1 'Edwardian Script ITC', 'Brush Script MT', cursive; }
 .certificate-document .certificate-motto img { display: block; width: 58.2mm; max-width: 100%; height: auto; margin: 0 auto; }
 .certificate-document--sres .certificate-division { border-bottom: 1.5pt solid #000; }

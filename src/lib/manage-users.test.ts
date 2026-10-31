@@ -62,6 +62,21 @@ describe('Admin Console section navigation', () => {
     `;
   });
 
+  it('keeps printable tabs independent from workspace navigation', () => {
+    document.body.innerHTML = manageUsersMarkup;
+    initAdminSectionTabs();
+    document.getElementById('adminPrintablesTab')!.click();
+    document.getElementById('adminCertificatePreferencesTab')!.click();
+    expect(document.getElementById('adminPrintablesPanel')!.hidden).toBe(false);
+    expect(document.getElementById('adminCardPreferencesPanel')!.hidden).toBe(true);
+    expect(document.getElementById('adminCertificatePreferencesPanel')!.hidden).toBe(false);
+    document.getElementById('adminAccessTab')!.click();
+    document.getElementById('adminPrintablesTab')!.click();
+    expect(document.getElementById('adminCertificatePreferencesPanel')!.hidden).toBe(false);
+    document.getElementById('adminCertificatePreferencesTab')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+    expect(document.getElementById('adminCardPreferencesPanel')!.hidden).toBe(false);
+  });
+
   it('navigates between the remaining sections without a Database usage tab', () => {
     initAdminSectionTabs();
     const backupTab = document.getElementById('adminBackupTab') as HTMLButtonElement;
