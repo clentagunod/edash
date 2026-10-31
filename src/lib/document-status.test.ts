@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collectDocumentStatusFields, DOCUMENT_STATUSES, documentStatusRecord, renderDocumentStatusFields } from './document-status';
+import { collectDocumentStatusFields, DOCUMENT_STATUSES, documentStatusLabel, documentStatusRecord, renderDocumentStatusFields } from './document-status';
 
 function form() {
   document.body.innerHTML = '<form><div class="field-grid"></div></form>';
@@ -7,6 +7,16 @@ function form() {
 }
 
 describe('Document Status', () => {
+  it('offers Emailed in every shared editor and displays it in Notes', () => {
+    const learner = { documentStatus: 'Emailed', documentStatusDates: { Emailed: '2026-10-31', 'Received Documents': '2026-10-30' }, transferNotes: 'Legacy note' };
+    const host = form();
+    renderDocumentStatusFields(host, learner, 'test');
+    expect(host.querySelector<HTMLSelectElement>('[data-document-status]')!.value).toBe('Emailed');
+    expect(collectDocumentStatusFields(host).documentStatusDates).toEqual(learner.documentStatusDates);
+    expect(documentStatusLabel(learner)).toBe('Emailed');
+    expect(documentStatusLabel({ transferNotes: 'Legacy note' })).toBe('Legacy note');
+    expect(documentStatusLabel({ documentStatus: 'Custom', documentStatusCustom: 'Waiting' })).toBe('Waiting');
+  });
   it('loads renamed successful statuses without losing legacy or newer dates', () => {
     const learner = { documentStatus: 'Successfully', documentStatusDates: { Successfully: '2026-10-28' } };
     const host = form();

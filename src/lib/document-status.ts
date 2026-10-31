@@ -1,10 +1,16 @@
-export const DOCUMENT_STATUSES = ['Successfully Transmitted', 'Transmitted', 'Preparing Documents', 'Received Documents', 'Custom'] as const;
+export const DOCUMENT_STATUSES = ['Successfully Transmitted', 'Transmitted', 'Preparing Documents', 'Received Documents', 'Emailed', 'Custom'] as const;
 export const DOCUMENT_STATUS_FIELDS = ['documentStatus', 'documentStatusCustom', 'documentStatusDates'] as const;
 export type DocumentStatusRecord = {
   documentStatus: string;
   documentStatusCustom: string;
   documentStatusDates: Record<string, string>;
 };
+
+/** The transfer table's legacy Notes column displays the shared document status. */
+export function documentStatusLabel(learner: Record<string, unknown>): string {
+  const value = documentStatusRecord(learner);
+  return value.documentStatus === 'Custom' ? value.documentStatusCustom : value.documentStatus || 'No Documents Received';
+}
 
 function validDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;

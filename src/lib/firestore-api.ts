@@ -17,6 +17,7 @@ import { CERTIFICATE_PREFERENCES_DOCUMENT, normalizeCertificatePreferences, vali
 import { normalizeRecordDocumentPreferences, validateRecordDocumentPreference, type RecordDocumentPreferences, type RecordDocumentPreference } from './record-document-preferences';
 import type { RecordDocumentKind } from './printables';
 import { TRANSFER_SCHOOL_FIELDS, transferSchoolDetails, validateTransferSchoolDetails } from './learner-transfer';
+import type { Sf10EmailReceipt } from './sf10-email';
 
 /**
  * ============================================================================
@@ -2639,6 +2640,50 @@ export async function fsAddLearner(schoolYear, learner) {
     return { learnerId: ref.id };
   } catch (error) {
     throw fsError_("Add learner", error);
+  }
+}
+
+/** Called only after Gmail returns a confirmed message ID for the prepared SF10. */
+export async function fsMarkSf10RequestEmailed(schoolYear: string, learnerIds: string[], receipt: Sf10EmailReceipt, staffUid: string): Promise<void> {
+  const year = fsNormalizeSchoolYear_(schoolYear);
+  const match = /^(\d{4})-(\d{4})$/.exec(year);
+  if (!match || Number(match[2]) !== Number(match[1]) + 1) throw new Error('A valid school year is required to track SF10 requests.');
+  if (!staffUid || auth.currentUser?.uid !== staffUid || !['School Admin', 'Registrar'].includes(appRole())) {
+    throw new Error('Sign in with the same authorized school account to update document statuses.');
+  }
+  const sentAt = new Date(receipt?.sentAt);
+  if (typeof receipt?.messageId !== 'string' || !receipt.messageId.trim() || receipt.messageId.length > 256 || typeof receipt?.sentAt !== 'string' || Number.isNaN(sentAt.getTime())) {
+    throw new Error('A confirmed Gmail receipt is required to mark a request as Emailed.');
+  }
+  if (!Array.isArray(learnerIds) || learnerIds.some((id) => typeof id !== 'string' || !id.trim() || id.includes('/'))) {
+    throw new Error('Valid learner IDs are required to track SF10 requests.');
+  }
+  const ids = [...new Set(learnerIds)];
+  const emailedDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(sentAt);
+  try {
+    // Bounded transactions keep large batches within Firestore's write limits.
+    for (let offset = 0; offset < ids.length; offset += 200) {
+      const chunk = ids.slice(offset, offset + 200);
+      await db.runTransaction(async (transaction) => {
+        const refs = chunk.map((id) => fsLearnersCollection_(year).doc(id));
+        const snapshots = await Promise.all(refs.map((ref) => transaction.get(ref)));
+        if (snapshots.some((snapshot) => !snapshot.exists)) {
+          throw new Error('A requested learner was moved or removed. Review the learner records before retrying the status update.');
+        }
+        // All reads precede writes; update never recreates a deleted learner.
+        refs.forEach((ref) => transaction.update(ref, {
+          documentStatus: 'Emailed',
+          'documentStatusDates.Emailed': emailedDate,
+        }));
+      });
+    }
+    if (ids.length) fsAudit_('SF10_REQUEST_EMAILED', {
+      sheet: `learners_${year}`, recordId: ids.join(', '),
+      newValue: JSON.stringify({ documentStatus: 'Emailed', date: emailedDate, messageId: receipt.messageId }),
+    });
+  } finally {
+    // A later chunk can fail after an earlier one committed.
+    fsInvalidateReadCaches_(year);
   }
 }
 

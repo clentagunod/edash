@@ -4,7 +4,7 @@ import RecordDocumentTemplate from '../components/RecordDocumentTemplate';
 import { APP_CONFIG, appDocumentTitle, isSchoolAdmin } from '../lib/app-config';
 import { loginPageUrl, requireAuth } from '../lib/auth';
 import { auth } from '../lib/firebase';
-import { fsGetLearners, fsGetArchiveRecords, fsGetSchoolYears, fsSubscribeCertificatePreferences, fsSubscribeRecordDocumentPreferences } from '../lib/firestore-api';
+import { fsGetLearners, fsGetArchiveRecords, fsGetSchoolYears, fsSubscribeCertificatePreferences, fsSubscribeRecordDocumentPreferences, fsMarkSf10RequestEmailed } from '../lib/firestore-api';
 import { CERTIFICATE_TEMPLATES, normalizeCertificatePreferences, resolveCertificateTemplate, type CertificatePreferences, type CertificateTemplateId } from '../lib/certificate-preferences';
 import { compareLearnersBySurname, formatLearnerNameSurnameFirst } from '../lib/learner-sorting';
 import { getRegisteredSchools, getStoredSchool, type RegisteredSchool } from '../lib/school-registry';
@@ -14,6 +14,7 @@ import { DOCUMENT_PAPER_SIZES, RECORD_TEMPLATE_DIMENSIONS, documentPaperDimensio
 import { createCertificateFile, exportCertificateSheets, prepareCertificateSheets, type CertificateExportFormat } from '../lib/certificate-export';
 import { usePrintableSignature } from '../components/PrintableSignature';
 import Sf10EmailDialog from '../components/Sf10EmailDialog';
+import { sf10EmailLearnerIds, type PreparedSf10Email } from '../lib/sf10-email';
 import { learnerTransferDirection } from '../lib/learner-transfer';
 import { makeCertificateFields, missingCertificateFields, missingRecordDocumentFields, isRecordDocumentKind, envelopeLearnerName, PRINTABLES, text, type CertificateFields, type CertificateKind, type CertificateLearner, type PrintableDocumentKind, type RecordDocumentKind } from '../lib/printables';
 import '../styles/pages/print-certificate.css';
@@ -280,13 +281,19 @@ export default function PrintCertificatePage({ kind }: { kind: PrintableDocument
     return <div className="certificate-sheet" style={{ width: `${width}mm`, height: `${height}mm` }}>{recordKind ? <RecordDocumentTemplate kind={kind} fields={value} style={documentStyle} textSize={textSize}>{signature.controller.render('document', interactive)}</RecordDocumentTemplate> : <CertificateTemplate kind={kind as CertificateKind} fields={value} templateId={templateId} showSealNotice={preferences.showSealNotice} style={documentStyle}>{signature.controller.render('document', interactive)}</CertificateTemplate>}</div>;
   }
 
-  async function prepareEmailAttachment(format: CertificateExportFormat): Promise<File> {
+  async function prepareEmailAttachment(format: CertificateExportFormat): Promise<PreparedSf10Email> {
     if (outputInProgress.current || !canOutput) throw new Error('Complete the selected documents before sending.');
+    const targetYear = year;
+    const staffUid = auth.currentUser?.uid || '';
+    const learnerIds = sf10EmailLearnerIds(format, activeStudent?.learnerId || '', selectedStudents.map((student) => student.learnerId));
     outputInProgress.current = true; setBusy(true);
     try {
       const source = format === 'png' ? currentExportRef.current : printRef.current;
-      return await createCertificateFile({ sheets: Array.from(source?.querySelectorAll<HTMLElement>('.certificate-sheet') || []), format, width, height, orientation,
+      const file = await createCertificateFile({ sheets: Array.from(source?.querySelectorAll<HTMLElement>('.certificate-sheet') || []), format, width, height, orientation,
         name: `SF10-request-${format === 'png' ? fields.studentName : batch.length === 1 ? batch[0].fields.studentName : `${batch.length}-learners`}-${year}` });
+      return { file, recordSent: async (receipt) => {
+        if (learnerIds.length) await fsMarkSf10RequestEmailed(targetYear, learnerIds, receipt, staffUid);
+      } };
     } finally {
       outputInProgress.current = false; setBusy(false);
       if (pendingRecordPreferences.current) { const next = pendingRecordPreferences.current; pendingRecordPreferences.current = null; applyRecordPreferences(next); }
