@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { connectGmail, gmailClientId, loadGoogleIdentity, sendGmailMessage, validateGmailMessage, type GmailConnection, type GmailMessage } from '../lib/gmail-send';
 import type { CertificateExportFormat } from '../lib/certificate-export';
+import type { PreparedSf10Email, Sf10EmailReceipt } from '../lib/sf10-email';
 import '../styles/components/sf10-email.css';
 
-export default function Sf10EmailDialog({ open, onClose, prepare, count, learnerName }: { open: boolean; onClose(): void; prepare(format: CertificateExportFormat): Promise<File>; count: number; learnerName: string }) {
+export default function Sf10EmailDialog({ open, onClose, prepare, count, learnerName }: { open: boolean; onClose(): void; prepare(format: CertificateExportFormat): Promise<PreparedSf10Email>; count: number; learnerName: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [connection, setConnection] = useState<GmailConnection | null>(null);
   const [format, setFormat] = useState<CertificateExportFormat>('pdf');
@@ -13,12 +14,15 @@ export default function Sf10EmailDialog({ open, onClose, prepare, count, learner
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
   const [sent, setSent] = useState(false);
+  const [trackingPending, setTrackingPending] = useState(false);
+  const confirmedSend = useRef<{ attachment: PreparedSf10Email; receipt: Sf10EmailReceipt; recipient: string } | null>(null);
   const sending = useRef(false);
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
   useEffect(() => {
     if (!open) { if (dialog.current?.open) dialog.current.close(); setConnection(null); return; }
-    dialog.current?.showModal(); setStatus(''); setError(''); setReady(false); setSent(false);
+    dialog.current?.showModal(); setStatus(''); setError(''); setReady(false); setSent(Boolean(confirmedSend.current)); setTrackingPending(Boolean(confirmedSend.current));
+    if (confirmedSend.current) { setStatus('The email was sent. Retry the document status update below; the email will not be resent.'); return; }
     setMessage((previous) => ({ ...previous, subject: `Request for Permanent Records (SF10) — ${count > 1 ? `${count} learners` : learnerName || 'Learner'}`, body: `Dear School Head,\n\nPlease find attached our request for the permanent records of ${count > 1 ? 'the learners listed in the attached document' : learnerName || 'the learner listed in the attached document'}.\n\nThank you.` }));
     if (!gmailClientId()) return;
     let active = true;
@@ -31,17 +35,44 @@ export default function Sf10EmailDialog({ open, onClose, prepare, count, learner
     setBusy(true); setError('');
     void connectGmail().then((value) => { if (alive.current) { setConnection(value); setStatus(`Connected as ${value.email}.`); } }).catch((failure: unknown) => { if (alive.current) setError(failure instanceof Error ? failure.message : 'Could not connect Gmail.'); }).finally(() => { if (alive.current) setBusy(false); });
   }
+  async function saveTracking() {
+    const confirmed = confirmedSend.current;
+    if (!confirmed) return;
+    try {
+      // Continue recording a confirmed send even if the studio unmounts.
+      await confirmed.attachment.recordSent(confirmed.receipt);
+      confirmedSend.current = null;
+      if (alive.current) {
+        setTrackingPending(false); setError('');
+        setStatus(`Email sent to ${confirmed.recipient}. The attachment is also available in your Gmail Sent folder.`);
+      }
+    } catch (failure) {
+      if (alive.current) {
+        setTrackingPending(true);
+        setStatus('The email was sent successfully. Its document status update is pending.');
+        setError(`Could not save Document Status. ${failure instanceof Error ? failure.message : 'Try again.'} Use Retry status update; the email will not be resent.`);
+      }
+    }
+  }
+  async function retryTracking() {
+    if (busy || sending.current || !confirmedSend.current) return;
+    setBusy(true); setError('');
+    try { await saveTracking(); } finally { if (alive.current) setBusy(false); }
+  }
   async function send(event: FormEvent) {
     event.preventDefault();
     if (!connection || busy || sending.current || sent) return;
     try { validateGmailMessage(message); } catch (failure) { setError((failure as Error).message); return; }
     sending.current = true; setBusy(true); setError(''); setStatus('Preparing the attachment…');
     try {
-      const file = await prepare(format);
+      const attachment = await prepare(format);
       if (!alive.current) return;
       setStatus('Sending with Gmail…');
-      await sendGmailMessage(connection, message, file);
-      if (alive.current) { setSent(true); setStatus(`Email sent to ${message.to}. The attachment is also available in your Gmail Sent folder.`); }
+      const messageId = await sendGmailMessage(connection, message, attachment.file);
+      if (!messageId) throw new Error('Gmail did not confirm sending. Check Sent before trying again.');
+      confirmedSend.current = { attachment, receipt: { messageId, sentAt: new Date().toISOString() }, recipient: message.to };
+      if (alive.current) { setSent(true); setStatus('Email sent. Updating Document Status…'); }
+      await saveTracking();
     } catch (failure) { if (alive.current) { setStatus(''); setError(failure instanceof Error ? failure.message : 'The email could not be sent.'); } }
     finally { sending.current = false; if (alive.current) setBusy(false); }
   }
@@ -56,6 +87,7 @@ export default function Sf10EmailDialog({ open, onClose, prepare, count, learner
       <details><summary>CC, BCC, and Reply-to</summary><div className="sf10-email-optional">{field('cc', 'CC')}{field('bcc', 'BCC')}{field('replyTo', 'Reply-to (optional)')}</div></details>
       {field('subject', 'Subject', true)}<label>Message<textarea rows={7} required maxLength={20000} value={message.body} onChange={(event) => { const value = event.currentTarget.value; setMessage((previous) => ({ ...previous, body: value })); }} /></label>
     </fieldset>{error && <p className="sf10-email-error" role="alert">{error}</p>}<p role="status" aria-live="polite">{status}</p>
+      {trackingPending && <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => void retryTracking()}>Retry status update</button>}
       <footer><p>The attachment uses your current layout, selected learners, and placed signature.</p><button type="submit" className="btn btn-primary" disabled={!connection || busy || sent}>{sent ? 'Email sent' : busy ? 'Working…' : 'Send email with attachment'}</button></footer>
     </form>
   </dialog>;

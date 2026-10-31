@@ -4,21 +4,23 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../lib/auth', () => ({ requireAuth: vi.fn().mockResolvedValue({ uid: 'user' }), loginPageUrl: vi.fn() }));
-vi.mock('../lib/firebase', () => ({ auth: { onAuthStateChanged: vi.fn(() => vi.fn()) } }));
+vi.mock('../lib/firebase', () => ({ auth: { currentUser: { uid: 'user' }, onAuthStateChanged: vi.fn(() => vi.fn()) } }));
 vi.mock('../lib/shell', () => ({ applySavedTheme: vi.fn() }));
 vi.mock('../lib/app-config', () => ({ APP_CONFIG: { schoolId: 'school-a' }, isSchoolAdmin: () => false, appDocumentTitle: (value: string) => value, appBrandAssetUrl: (value: string) => value }));
 vi.mock('../lib/school-registry', () => ({ getStoredSchool: () => null, getRegisteredSchools: vi.fn() }));
-vi.mock('../lib/firestore-api', () => ({ fsGetSchoolYears: vi.fn(), fsGetLearners: vi.fn(), fsGetArchiveRecords: vi.fn(), fsSubscribeCertificatePreferences: vi.fn(), fsSubscribeRecordDocumentPreferences: vi.fn() }));
-vi.mock('../lib/certificate-export', () => ({ exportCertificateSheets: vi.fn().mockResolvedValue(undefined), prepareCertificateSheets: vi.fn().mockResolvedValue(undefined) }));
+vi.mock('../lib/firestore-api', () => ({ fsGetSchoolYears: vi.fn(), fsGetLearners: vi.fn(), fsGetArchiveRecords: vi.fn(), fsSubscribeCertificatePreferences: vi.fn(), fsSubscribeRecordDocumentPreferences: vi.fn(), fsMarkSf10RequestEmailed: vi.fn() }));
+vi.mock('../lib/certificate-export', () => ({ exportCertificateSheets: vi.fn().mockResolvedValue(undefined), prepareCertificateSheets: vi.fn().mockResolvedValue(undefined), createCertificateFile: vi.fn() }));
+vi.mock('../lib/gmail-send', async (original) => ({ ...await original<typeof import('../lib/gmail-send')>(), gmailClientId: () => 'client-id', loadGoogleIdentity: async () => {}, connectGmail: vi.fn(), sendGmailMessage: vi.fn() }));
 
 import PrintCertificatePage from './PrintCertificatePage';
 import CertificateTemplate from '../components/CertificateTemplate';
-import { fsGetLearners, fsGetArchiveRecords, fsGetSchoolYears, fsSubscribeCertificatePreferences, fsSubscribeRecordDocumentPreferences } from '../lib/firestore-api';
+import { fsGetLearners, fsGetArchiveRecords, fsGetSchoolYears, fsSubscribeCertificatePreferences, fsSubscribeRecordDocumentPreferences, fsMarkSf10RequestEmailed } from '../lib/firestore-api';
 import { normalizeRecordDocumentPreferences } from '../lib/record-document-preferences';
 import { normalizeCertificatePreferences, type CertificatePreferences } from '../lib/certificate-preferences';
 import { getRegisteredSchools, type RegisteredSchool } from '../lib/school-registry';
 import { makeCertificateFields, missingCertificateFields, certificateDate, printableWorkspaceHref } from '../lib/printables';
-import { exportCertificateSheets } from '../lib/certificate-export';
+import { createCertificateFile, exportCertificateSheets } from '../lib/certificate-export';
+import { connectGmail, sendGmailMessage } from '../lib/gmail-send';
 
 const school = {
   id: 'school-a', name: 'Example Elementary School', logoUrl: '/assets/edash/edash.png',
@@ -34,6 +36,12 @@ let container: HTMLDivElement;
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true, ResizeObserver: class { observe() {} disconnect() {} } });
 
 beforeEach(() => {
+  HTMLDialogElement.prototype.showModal = function () { this.open = true; };
+  HTMLDialogElement.prototype.close = function () { this.open = false; };
+  vi.mocked(connectGmail).mockResolvedValue({ token: 'token', email: 'sender@gmail.com', expiresAt: Date.now() + 10000 });
+  vi.mocked(sendGmailMessage).mockResolvedValue('confirmed-id');
+  vi.mocked(createCertificateFile).mockResolvedValue(new File(['document'], 'sf10.pdf', { type: 'application/pdf' }));
+  vi.mocked(fsMarkSf10RequestEmailed).mockResolvedValue(undefined);
   vi.mocked(fsGetSchoolYears).mockResolvedValue([{ schoolYear: '2026-2027', isCurrent: true }, { schoolYear: '2025-2026' }] as never);
   vi.mocked(fsGetLearners).mockResolvedValue(students);
   vi.mocked(fsGetArchiveRecords).mockResolvedValue([]);
@@ -70,6 +78,25 @@ function changeInput(element: HTMLInputElement | HTMLTextAreaElement, value: str
 }
 
 describe('certificate student information and output', () => {
+  it.each(['pdf', 'png'] as const)('tracks exactly the learners in a successfully emailed %s attachment', async (format) => {
+    vi.mocked(fsGetLearners).mockResolvedValue(students.map((student) => ({ ...student,
+      transferType: 'Transfer In', transferIn: true, transferSchool: 'Previous School', transferSchoolAddress: 'Previous Town',
+      previousGradeLevel: '3', previousSchoolYear: '2025-2026', previousAdviser: 'Previous Teacher',
+    })));
+    await act(async () => root.render(<PrintCertificatePage kind="sf10-request" />));
+    act(() => button('Select filtered').click());
+    act(() => button('Cruz, Alex').click());
+    await act(async () => button('Send with Gmail').click());
+    await act(async () => button('Connect Gmail').click());
+    const recipient = container.querySelector<HTMLInputElement>('.sf10-email-dialog label input')!;
+    changeInput(recipient, 'records@example.edu');
+    const type = container.querySelector<HTMLSelectElement>('.sf10-email-dialog select')!;
+    act(() => { type.value = format; type.dispatchEvent(new Event('change', { bubbles: true })); });
+    expect(fsMarkSf10RequestEmailed).not.toHaveBeenCalled();
+    await act(async () => container.querySelector('.sf10-email-dialog form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
+    expect(fsMarkSf10RequestEmailed).toHaveBeenCalledWith('2026-2027', format === 'png' ? ['123'] : ['123', '456'], { messageId: 'confirmed-id', sentAt: expect.any(String) }, 'user');
+    expect(sendGmailMessage).toHaveBeenCalledTimes(1);
+  });
   it('autofills SF10 recipient information from the persisted Transfer In school', async () => {
     vi.mocked(fsGetLearners).mockResolvedValue([{ ...students[0], transferSchoolId: '001234', transferSchool: 'Previous School', transferSchoolAddress: 'Previous Town', transferSchoolZipCode: '0010', previousGradeLevel: '3', previousSchoolYear: '2025-2026', previousAdviser: 'Previous Teacher' }, students[1]]);
     await act(async () => root.render(<PrintCertificatePage kind="sf10-request" />));

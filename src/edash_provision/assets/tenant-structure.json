@@ -257,7 +257,16 @@
       "documentStatus": {
         "type": "string",
         "default": "",
-        "description": "Selected category: Successfully Transmitted, Transmitted, Preparing Documents, Received Documents, or Custom. An empty string is displayed as No Documents Received. The legacy Successfully value and its saved dates remain readable."
+        "description": "Selected category: Successfully Transmitted, Transmitted, Preparing Documents, Received Documents, Emailed, or Custom. SF10 email tracking sets Emailed only after Gmail confirms sending for this learner in this school year. An empty string displays No Documents Received. Legacy Successfully values and dates remain readable.",
+        "enum": [
+          "",
+          "Successfully Transmitted",
+          "Transmitted",
+          "Preparing Documents",
+          "Received Documents",
+          "Emailed",
+          "Custom"
+        ]
       },
       "documentStatusCustom": {
         "type": "string",
@@ -267,7 +276,7 @@
       "documentStatusDates": {
         "type": "map<string,string>",
         "default": {},
-        "description": "Date-only YYYY-MM-DD values keyed by Document Status category. Each category retains its own date when the selected category changes."
+        "description": "Date-only YYYY-MM-DD values keyed by Document Status category, including Emailed. Successful SF10 email tracking fills the Emailed date using Philippine time and preserves other category dates. Each category retains its own date when the selected category changes."
       },
       "teacherComments": {
         "type": "array<string>",

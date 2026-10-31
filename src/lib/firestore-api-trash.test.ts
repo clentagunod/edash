@@ -25,6 +25,58 @@ vi.stubGlobal('firebase', {
 const { setAppUserProfile } = await import('./app-config');
 const { fsGetTrash, fsWriteAuditedSettings_, fsUpdateMyTeacherPrefs, fsGetCertificatePreferences, fsSetCertificatePreferences, fsSubscribeCertificatePreferences, fsGetRecordDocumentPreferences, fsSetRecordDocumentPreference, fsSaveSection, fsSectionAdviser_, fsCanonicalLearner_, fsUpdateArchiveRecord } = await import('./firestore-api');
 const { LPSApi } = await import('./sheets-api');
+const { fsMarkSf10RequestEmailed } = await import('./firestore-api');
+
+describe('confirmed SF10 request email tracking', () => {
+  const receipt = { messageId: 'confirmed-gmail-id', sentAt: '2026-10-31T17:05:00.000Z' };
+  let transaction: { get: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
+  beforeEach(() => {
+    mockAuth.currentUser = { uid: 'registrar' } as never;
+    setAppUserProfile({ uid: 'registrar', role: 'Registrar', status: 'Active' });
+    vi.spyOn(LPSApi, 'recordAuditEvent').mockResolvedValue({ recorded: true });
+    const ref = (path: string): any => ({ path, collection: (name: string) => ref(`${path}/${name}`), doc: (id: string) => ref(`${path}/${id}`) });
+    mockDb.collection.mockImplementation(ref);
+    transaction = { get: vi.fn(async () => ({ exists: true })), update: vi.fn() };
+    mockDb.runTransaction.mockReset().mockImplementation(async (action) => action(transaction));
+  });
+  afterEach(() => { mockAuth.currentUser = null; setAppUserProfile(null); sessionStorage.clear(); vi.restoreAllMocks(); });
+
+  it('updates only the captured year and learners, preserving other dates with a field-level patch', async () => {
+    await fsMarkSf10RequestEmailed('2026-2027', ['001', '002', '001'], receipt, 'registrar');
+    expect(transaction.update.mock.calls.map(([ref]) => ref.path)).toEqual([
+      'schoolYears/2026-2027/learners/001', 'schoolYears/2026-2027/learners/002',
+    ]);
+    expect(transaction.update.mock.calls[0][1]).toEqual({ documentStatus: 'Emailed', 'documentStatusDates.Emailed': '2026-11-01' });
+    expect(Math.max(...transaction.get.mock.invocationCallOrder)).toBeLessThan(Math.min(...transaction.update.mock.invocationCallOrder));
+    expect(LPSApi.recordAuditEvent).toHaveBeenCalledWith('SF10_REQUEST_EMAILED', expect.objectContaining({ recordId: '001, 002' }));
+  });
+
+  it('does not recreate a learner removed or archived while the email was sending', async () => {
+    transaction.get.mockResolvedValueOnce({ exists: true }).mockResolvedValueOnce({ exists: false });
+    await expect(fsMarkSf10RequestEmailed('2026-2027', ['001', 'missing'], receipt, 'registrar')).rejects.toThrow('moved or removed');
+    expect(transaction.update).not.toHaveBeenCalled();
+    expect(LPSApi.recordAuditEvent).not.toHaveBeenCalled();
+  });
+
+  it('rejects missing Gmail confirmation, invalid paths, and a changed or unauthorized account', async () => {
+    await expect(fsMarkSf10RequestEmailed('2026-2027', ['001'], { ...receipt, messageId: '' }, 'registrar')).rejects.toThrow('confirmed Gmail receipt');
+    await expect(fsMarkSf10RequestEmailed('2026-2027', ['../002'], receipt, 'registrar')).rejects.toThrow('Valid learner IDs');
+    await expect(fsMarkSf10RequestEmailed('2026-2027', ['001'], receipt, 'different-account')).rejects.toThrow('same authorized school account');
+    setAppUserProfile({ uid: 'registrar', role: 'Teacher', status: 'Active' });
+    await expect(fsMarkSf10RequestEmailed('2026-2027', ['001'], receipt, 'registrar')).rejects.toThrow('authorized school account');
+    expect(mockDb.runTransaction).not.toHaveBeenCalled();
+  });
+
+  it('uses bounded transactions for large batches and reports failed commits without auditing success', async () => {
+    await fsMarkSf10RequestEmailed('2026-2027', Array.from({ length: 201 }, (_, index) => String(index)), receipt, 'registrar');
+    expect(mockDb.runTransaction).toHaveBeenCalledTimes(2);
+    expect(transaction.update).toHaveBeenCalledTimes(201);
+    vi.mocked(LPSApi.recordAuditEvent).mockClear();
+    mockDb.runTransaction.mockRejectedValueOnce(new Error('Commit unavailable'));
+    await expect(fsMarkSf10RequestEmailed('2026-2027', ['001'], receipt, 'registrar')).rejects.toThrow('Commit unavailable');
+    expect(LPSApi.recordAuditEvent).not.toHaveBeenCalled();
+  });
+});
 
 describe('section adviser updates', () => {
   it('uses the explicitly saved name ahead of stale linked teacher metadata', () => {
