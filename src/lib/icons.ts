@@ -5,6 +5,11 @@
  * build step or external icon font request.
  */
 export const Icon = {
+  learnerCard: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="9" r="2"/><path d="M5 15c0-3 6-3 6 0M14 7h4M14 11h4M6 18h12"/></svg>`,
+  moralCertificate: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 21H4V3h16v9M7 7h10M7 11h5M7 15h3"/><path d="m17 13 4 2v3c0 2-4 4-4 4s-4-2-4-4v-3Z"/><path d="m15.5 17 1 1 2-2"/></svg>`,
+  enrollmentCertificate: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H4v18h16V9Z"/><path d="M14 3v6h6M7 8h3M7 12h6M7 16h3"/><circle cx="16" cy="16" r="2"/><path d="m14.5 17.5-.5 3 2-1 2 1-.5-3"/></svg>`,
+  recordsRequest: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H4v18h9M14 3v6h6V9l-6-6ZM7 8h3M7 12h6M7 16h3M14 17h8m-3-3 3 3-3 3"/></svg>`,
+  outgoingEnvelope: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 5H3v14h18v-6M3 5l9 7 3-2M15 5h7m-3-3 3 3-3 3"/></svg>`,
   dashboard: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/></svg>`,
   users: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
   userRound: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="9" r="2.5"/><path d="M7.5 18c.8-2.2 2.3-3.3 4.5-3.3s3.7 1.1 4.5 3.3"/></svg>`,

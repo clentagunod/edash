@@ -54,10 +54,12 @@ class ProvisionTests(unittest.TestCase):
     def test_default_manifest_covers_current_tenant_settings(self):
         plan = prepare_plan(self.options)
         docs = {doc.path: doc.data for doc in plan.documents}
-        self.assertEqual(len(docs), 9)
+        self.assertEqual(len(docs), 10)
         self.assertIn("schoolYears/2026-2027", docs)
         self.assertEqual(docs["settings/toggles"]["trashConfg"], "30")
         self.assertEqual(docs["settings/cardPrintingPreferences"]["activeTemplate"], "sf9")
+        self.assertEqual(docs["settings/printableSignatures"]["slots"], {})
+        self.assertEqual(docs["settings/printableSignatures"]["assignments"]["student-card"], [])
         self.assertEqual(docs["settings/gradeTerms/years/2026-2027"]["termCount"], 3)
         self.assertEqual(docs["settings/eduai"]["roleDefaults"]["Teacher"]["learnerNameLimit"], 0)
         self.assertFalse(any("learners/" in path or "teachers/" in path for path in docs))
@@ -228,7 +230,7 @@ class ProvisionTests(unittest.TestCase):
         client.existing.return_value = snapshots
         original = deepcopy(plan.documents[0].data)
         created, skipped = provision_documents(plan, client, lambda _: None)
-        self.assertEqual((created, skipped), (7, 2))
+        self.assertEqual((created, skipped), (8, 2))
         writes = client.commit.call_args.args[0]
         names = [write["update"]["name"] for write in writes]
         self.assertFalse(any(name.endswith("settings/toggles") for name in names))
@@ -243,7 +245,7 @@ class ProvisionTests(unittest.TestCase):
         plan = prepare_plan(self.options)
         client, session = self.client([])
         client.existing = Mock(return_value={doc.path: {"fields": {}} for doc in plan.documents})
-        self.assertEqual(provision_documents(plan, client, lambda _: None), (0, 9))
+        self.assertEqual(provision_documents(plan, client, lambda _: None), (0, 10))
         session.request.assert_not_called()
 
     def test_permission_error_does_not_commit_or_expose_response_content(self):
@@ -329,7 +331,7 @@ class ProvisionTests(unittest.TestCase):
         shutil.copytree(package, self.folder / "src/edash_provision", ignore=shutil.ignore_patterns("node_modules", "__pycache__", "tests"))
         result = subprocess.run([sys.executable, str(self.folder / "main.py"), "tenant", "--project", "sample-tenant", "--dry-run"], cwd=self.folder, text=True, encoding="utf-8", capture_output=True, timeout=20)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("Document candidates: 9", result.stdout)
+        self.assertIn("Document candidates: 10", result.stdout)
         self.assertIn("DRY RUN COMPLETE", result.stdout)
 
 

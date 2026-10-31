@@ -3,6 +3,7 @@ import { Link, Routes, Route, Navigate, matchPath, useLocation, useNavigate } fr
 import LoginPage from './pages/LoginPage';
 import SchoolSelectionPage from './pages/SchoolSelectionPage';
 import RouteErrorBoundary from './components/RouteErrorBoundary';
+import PrintableAccessGate from './components/PrintableAccessGate';
 import RouteLoadingFallback from './components/RouteLoadingFallback';
 import MaintenancePage from './pages/MaintenancePage';
 import { APP_CONFIG, isVisitorSession } from './lib/app-config';
@@ -370,12 +371,16 @@ export default function App() {
           <Route path="/pages/reports.html" element={<ReportsPage />} />
           <Route path="/pages/eosy-report.html" element={<EosyReportPage />} />
           <Route path="/pages/grades-profile.html" element={<GradesProfilePage />} />
-          <Route path="/pages/print-card.html" element={<PrintCardPage />} />
-          <Route path="/pages/student-card.html" element={<PrintablesPage key="student-card" kind="student-card" />} />
-          <Route path="/pages/good-moral.html" element={<PrintablesPage key="good-moral" kind="good-moral" />} />
-          <Route path="/pages/certificate-of-enrollment.html" element={<PrintablesPage key="enrollment" kind="enrollment" />} />
-          <Route path="/pages/print-good-moral.html" element={<PrintCertificatePage key="good-moral" kind="good-moral" />} />
-          <Route path="/pages/print-enrollment.html" element={<PrintCertificatePage key="enrollment" kind="enrollment" />} />
+          <Route path="/pages/print-card.html" element={<PrintableAccessGate kind="student-card"><PrintCardPage /></PrintableAccessGate>} />
+          <Route path="/pages/student-card.html" element={<PrintableAccessGate kind="student-card"><PrintablesPage key="student-card" kind="student-card" /></PrintableAccessGate>} />
+          <Route path="/pages/good-moral.html" element={<PrintableAccessGate kind="good-moral"><PrintablesPage key="good-moral" kind="good-moral" /></PrintableAccessGate>} />
+          <Route path="/pages/certificate-of-enrollment.html" element={<PrintableAccessGate kind="enrollment"><PrintablesPage key="enrollment" kind="enrollment" /></PrintableAccessGate>} />
+          <Route path="/pages/print-good-moral.html" element={<PrintableAccessGate kind="good-moral"><PrintCertificatePage key="good-moral" kind="good-moral" /></PrintableAccessGate>} />
+          <Route path="/pages/print-enrollment.html" element={<PrintableAccessGate kind="enrollment"><PrintCertificatePage key="enrollment" kind="enrollment" /></PrintableAccessGate>} />
+          <Route path="/pages/request-permanent-records.html" element={<PrintableAccessGate kind="sf10-request"><PrintablesPage key="sf10-request" kind="sf10-request" /></PrintableAccessGate>} />
+          <Route path="/pages/outgoing-records-envelope.html" element={<PrintableAccessGate kind="outgoing-envelope"><PrintablesPage key="outgoing-envelope" kind="outgoing-envelope" /></PrintableAccessGate>} />
+          <Route path="/pages/print-sf10-request.html" element={<PrintableAccessGate kind="sf10-request"><PrintCertificatePage key="sf10-request" kind="sf10-request" /></PrintableAccessGate>} />
+          <Route path="/pages/print-outgoing-envelope.html" element={<PrintableAccessGate kind="outgoing-envelope"><PrintCertificatePage key="outgoing-envelope" kind="outgoing-envelope" /></PrintableAccessGate>} />
           <Route path="/pages/reading-profile.html" element={<ReadingProfilePage />} />
           <Route path="/pages/math-profile.html" element={<MathProfilePage />} />
           <Route path="/pages/nutritional-status.html" element={<NutritionalStatusPage />} />

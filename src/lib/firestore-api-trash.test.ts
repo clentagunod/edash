@@ -23,10 +23,39 @@ vi.stubGlobal('firebase', {
 });
 
 const { setAppUserProfile } = await import('./app-config');
-const { fsGetTrash, fsWriteAuditedSettings_, fsUpdateMyTeacherPrefs, fsGetCertificatePreferences, fsSetCertificatePreferences, fsSubscribeCertificatePreferences } = await import('./firestore-api');
+const { fsGetTrash, fsWriteAuditedSettings_, fsUpdateMyTeacherPrefs, fsGetCertificatePreferences, fsSetCertificatePreferences, fsSubscribeCertificatePreferences, fsGetRecordDocumentPreferences, fsSetRecordDocumentPreference } = await import('./firestore-api');
 const { LPSApi } = await import('./sheets-api');
 const { normalizeUserPreferences } = await import('./user-preferences');
 const { normalizeCertificatePreferences } = await import('./certificate-preferences');
+const { normalizeRecordDocumentPreferences } = await import('./record-document-preferences');
+
+describe('record preferences in settings/toggles', () => {
+  afterEach(() => { setAppUserProfile(null); sessionStorage.clear(); vi.restoreAllMocks(); });
+  it('reads persisted settings and saves one document without replacing other toggles', async () => {
+    setAppUserProfile({ role: 'School Admin', uid: 'admin' });
+    const preferences = normalizeRecordDocumentPreferences();
+    const before = { canParentAccess: false, canPromoteStudents: true, printables: preferences };
+    const ref = { get: vi.fn().mockResolvedValue({ exists: true, data: () => before }), set: vi.fn().mockResolvedValue(undefined) };
+    const doc = vi.fn(() => ref);
+    mockDb.collection.mockReturnValue({ doc });
+    vi.spyOn(LPSApi, 'recordAuditEvent').mockResolvedValue({ recorded: true });
+    expect(await fsGetRecordDocumentPreferences()).toEqual(preferences);
+    const changed = { ...preferences['outgoing-envelope'], defaultTextSize: 90 };
+    await fsSetRecordDocumentPreference('outgoing-envelope', changed);
+    expect(doc).toHaveBeenCalledWith('toggles');
+    expect(ref.set).toHaveBeenCalledWith({ printables: { 'outgoing-envelope': changed } }, { mergeFields: ['printables.outgoing-envelope'] });
+    expect(before.canParentAccess).toBe(false);
+    expect(before.printables['sf10-request'].defaultPaperSize).toBe('a4');
+  });
+  it('rejects registrar or teacher configuration writes before contacting Firestore', async () => {
+    for (const role of ['Registrar', 'Teacher']) {
+      setAppUserProfile({ role, uid: 'user' });
+      mockDb.collection.mockClear();
+      await expect(fsSetRecordDocumentPreference('sf10-request', normalizeRecordDocumentPreferences()['sf10-request'])).rejects.toThrow('School Admin');
+      expect(mockDb.collection).not.toHaveBeenCalled();
+    }
+  });
+});
 
 describe('shared certificate preference persistence', () => {
   afterEach(() => { vi.restoreAllMocks(); });

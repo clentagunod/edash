@@ -11,7 +11,8 @@
   "schoolInfo": {
     "region": "IX",
     "divisionOffice": "Schools Division Office of Davao de Oro",
-    "district": "New Bataan"
+    "district": "New Bataan",
+    "zipCode": ""
   },
   "schoolHead": {
     "name": "",

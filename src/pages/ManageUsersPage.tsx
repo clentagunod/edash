@@ -11,6 +11,8 @@ import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import StudentImportPanel from '../components/StudentImportPanel';
 import CertificatePreferencesPanel from '../components/CertificatePreferencesPanel';
+import RecordDocumentPreferencesPanel from '../components/RecordDocumentPreferencesPanel';
+import SignatureLibraryPanel from '../components/SignatureLibraryPanel';
 import { isSchoolAdmin } from '../lib/app-config';
 import ParentPortalLinkPanel from '../components/ParentPortalLinkPanel';
 
@@ -21,7 +23,7 @@ export default function ManageUsersPage() {
       html={html}
       title="Admin Console"
       portalSelector="#adminCardTemplateChooser"
-      children={<><AdminCardTemplateChooser />{ready && <><StudentImportPortal /><CertificatePreferencesPortal /><ParentPortalLinkPortal /></>}</>}
+      children={<><AdminCardTemplateChooser />{ready && <><StudentImportPortal /><CertificatePreferencesPortal /><RecordPreferencesPortal /><SignatureLibraryPortal /><ParentPortalLinkPortal /></>}</>}
       onMount={async () => {
         await requireAuth();
         setReady(isSchoolAdmin());
@@ -44,4 +46,15 @@ function ParentPortalLinkPortal() {
 function StudentImportPortal() {
   const target = document.getElementById('adminStudentImportRoot');
   return target ? createPortal(<StudentImportPanel />, target) : null;
+}
+
+function RecordPreferencesPortal() {
+  const request = document.getElementById('adminSf10PreferencesRoot');
+  const envelope = document.getElementById('adminEnvelopePreferencesRoot');
+  return <>{request && createPortal(<RecordDocumentPreferencesPanel kind="sf10-request" />, request)}{envelope && createPortal(<RecordDocumentPreferencesPanel kind="outgoing-envelope" />, envelope)}</>;
+}
+
+function SignatureLibraryPortal() {
+  const target = document.getElementById('adminSignatureLibraryRoot');
+  return target ? createPortal(<SignatureLibraryPanel />, target) : null;
 }

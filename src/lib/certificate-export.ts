@@ -37,28 +37,36 @@ export async function prepareCertificateSheets(sheets: HTMLElement[]): Promise<v
     const footer = sheet.querySelector<HTMLElement>('.certificate-footer');
     const doc = sheet.querySelector<HTMLElement>('.certificate-document');
     const letterhead = sheet.querySelector<HTMLElement>('.certificate-letterhead');
-    if (!body || !note || !footer || !doc || !letterhead) {
+    const envelope = doc?.dataset.documentLayout === 'envelope';
+    if (!body || !footer || !doc || (!envelope && !letterhead)) {
       throw new Error('The certificate preview is incomplete. Reload the studio and try again.');
     }
-    const bodyOverlapsSeal = body.getBoundingClientRect().bottom > note.getBoundingClientRect().top - 4;
-    const footerOverflows = footer.getBoundingClientRect().bottom > doc.getBoundingClientRect().bottom;
-    const footerOverlapsSeal = footer.getBoundingClientRect().top < note.getBoundingClientRect().bottom + 4;
-    const letterheadOverflows = letterhead.scrollHeight > letterhead.clientHeight + 1;
-    if (bodyOverlapsSeal || footerOverflows || footerOverlapsSeal || letterheadOverflows) {
+    const documentBounds = doc.getBoundingClientRect();
+    const footerBounds = footer.getBoundingClientRect();
+    const bodyOverlapsSeal = !envelope && body.getBoundingClientRect().bottom > (note?.getBoundingClientRect().top ?? footerBounds.top) - 4;
+    const footerOverflows = footerBounds.bottom > documentBounds.bottom || footerBounds.right > documentBounds.right;
+    const footerOverlapsSeal = !!note && footerBounds.top < note.getBoundingClientRect().bottom + 4;
+    const letterheadOverflows = !!letterhead && letterhead.scrollHeight > letterhead.clientHeight + 1;
+    const envelopeOverflows = envelope && Array.from(doc.querySelectorAll<HTMLElement>('[data-record-block]')).some((block) => {
+      const rect = block.getBoundingClientRect();
+      const overlapsFooter = rect.left < footerBounds.right && rect.right > footerBounds.left && rect.top < footerBounds.bottom && rect.bottom > footerBounds.top;
+      return rect.right > documentBounds.right || rect.bottom > documentBounds.bottom || rect.left < documentBounds.left || rect.top < documentBounds.top || block.scrollHeight > block.clientHeight + 1 || overlapsFooter;
+    });
+    if (bodyOverlapsSeal || footerOverflows || footerOverlapsSeal || letterheadOverflows || envelopeOverflows) {
       throw new Error('The entered text exceeds the template space. Shorten the long fields before printing or exporting.');
     }
   }
 }
 
 /** Export the same composed sheets used by the browser print view. */
-export async function exportCertificateSheets({ sheets, format, width, height, orientation, name }: {
+export async function createCertificateFile({ sheets, format, width, height, orientation, name }: {
   sheets: HTMLElement[];
   format: CertificateExportFormat;
   width: number;
   height: number;
   orientation: PaperOrientation;
   name: string;
-}): Promise<void> {
+}): Promise<File> {
   if (!sheets.length) throw new Error('Choose a student before exporting.');
   await prepareCertificateSheets(sheets);
   const { toPng } = await import('html-to-image');
@@ -70,7 +78,7 @@ export async function exportCertificateSheets({ sheets, format, width, height, o
   if (format === 'png') {
     const response = await fetch(images[0]);
     if (!response.ok) throw new Error('Could not prepare the certificate image.');
-    download(await response.blob(), `${filename}.png`);
+    return new File([await response.blob()], `${filename}.png`, { type: 'image/png' });
   } else if (format === 'pdf') {
     const { jsPDF } = await import('jspdf');
     const pdf = new jsPDF({ orientation, unit: 'mm', format: [width, height], compress: true });
@@ -78,7 +86,7 @@ export async function exportCertificateSheets({ sheets, format, width, height, o
       if (index) pdf.addPage([width, height], orientation);
       pdf.addImage(image, 'PNG', 0, 0, width, height);
     });
-    pdf.save(`${filename}.pdf`);
+    return new File([pdf.output('blob')], `${filename}.pdf`, { type: 'application/pdf' });
   } else {
     const { Document, ImageRun, Packer, Paragraph } = await import('docx');
     const doc = new Document({ sections: images.map((image) => ({
@@ -92,6 +100,11 @@ export async function exportCertificateSheets({ sheets, format, width, height, o
         transformation: { width: width / 25.4 * 96, height: (height - 1) / 25.4 * 96 },
       })] })],
     })) });
-    download(await Packer.toBlob(doc), `${filename}.docx`);
+    return new File([await Packer.toBlob(doc)], `${filename}.docx`, { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
   }
+}
+
+export async function exportCertificateSheets(options: Parameters<typeof createCertificateFile>[0]): Promise<void> {
+  const file = await createCertificateFile(options);
+  download(file, file.name);
 }

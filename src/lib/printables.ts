@@ -3,12 +3,18 @@ import type { RegisteredSchool } from './school-registry';
 import type { CertificateTemplateId } from './certificate-preferences';
 
 export type CertificateKind = 'good-moral' | 'enrollment';
-export type PrintableKind = 'student-card' | CertificateKind;
+export type RecordDocumentKind = 'sf10-request' | 'outgoing-envelope';
+export type PrintableDocumentKind = CertificateKind | RecordDocumentKind;
+export type PrintableKind = 'student-card' | PrintableDocumentKind;
 export type CertificateLearner = Record<string, unknown> & { learnerId: string };
+export const PRINTABLE_ICONS: Record<PrintableKind, string> = {
+  'student-card': 'learnerCard', 'good-moral': 'moralCertificate', enrollment: 'enrollmentCertificate',
+  'sf10-request': 'recordsRequest', 'outgoing-envelope': 'outgoingEnvelope',
+};
 
 export const PRINTABLES = {
   'student-card': {
-    title: 'Learner Card',
+    title: 'Learner Card (SF9)',
     navKey: 'student-card',
     page: 'student-card.html',
     workspace: 'print-card.html',
@@ -16,7 +22,7 @@ export const PRINTABLES = {
     description: 'Prepare and print learner report cards with grades, attendance, and school details. Select students and adjust the card layout in the print studio.',
   },
   'good-moral': {
-    title: 'Good Moral',
+    title: 'Good Moral Certificate',
     navKey: 'good-moral',
     page: 'good-moral.html',
     workspace: 'print-good-moral.html',
@@ -30,6 +36,18 @@ export const PRINTABLES = {
     workspace: 'print-enrollment.html',
     button: 'Go to another page to Print Certificate of Enrollment',
     description: 'Prepare a Certificate of Enrollment using the school template. Student and school information fill automatically, with editable fields for any missing details.',
+  },
+  'sf10-request': {
+    title: 'Request for Permanent Records (SF10)', navKey: 'sf10-request',
+    page: 'request-permanent-records.html', workspace: 'print-sf10-request.html',
+    button: 'Go to another page to Print SF10 Request',
+    description: 'Request a learner’s permanent records using the supplied school letter. Select a learner, enter the previous school and enrollment details, and review the request before printing.',
+  },
+  'outgoing-envelope': {
+    title: 'Envelope template for Outgoing Records', navKey: 'outgoing-envelope',
+    page: 'outgoing-records-envelope.html', workspace: 'print-outgoing-envelope.html',
+    button: 'Go to another page to Print Outgoing Envelope',
+    description: 'Prepare an outgoing-records envelope with the school’s return address, recipient school, learner name, and LRN. The default envelope size is 241 × 105 mm.',
   },
 } satisfies Record<PrintableKind, { title: string; navKey: string; page: string; workspace: string; button: string; description: string }>;
 
@@ -56,6 +74,17 @@ export interface CertificateFields {
   divisionLogo: string;
   districtLogo: string;
   schoolLogo: string;
+  zipCode: string;
+  destinationSchoolName: string;
+  destinationSchoolId: string;
+  destinationSchoolAddress: string;
+  destinationZipCode: string;
+  destinationSchoolHead: string;
+  previousGradeLevel: string;
+  previousSchoolYear: string;
+  previousAdviser: string;
+  requestStage: string;
+  urgent: string;
 }
 
 export function text(value: unknown): string {
@@ -101,7 +130,47 @@ export function makeCertificateFields(school: RegisteredSchool | null, year: str
     divisionLogo: text(info?.divisionLogoUrl) || '/assets/edash/division-ddo.png',
     districtLogo: text(info?.districtLogoUrl) || '/assets/edash/nb-district.png',
     schoolLogo: text(school?.logoUrl),
+    zipCode: text(info?.zipCode),
+    destinationSchoolName: text(learner?.transferSchool),
+    destinationSchoolId: text(learner?.transferSchoolId),
+    destinationSchoolAddress: text(learner?.transferSchoolAddress),
+    destinationZipCode: text(learner?.transferSchoolZipCode),
+    destinationSchoolHead: 'SCHOOL HEAD',
+    previousGradeLevel: text(learner?.previousGradeLevel),
+    previousSchoolYear: text(learner?.previousSchoolYear),
+    previousAdviser: text(learner?.previousAdviser),
+    requestStage: 'first', urgent: 'no',
   };
+}
+
+export function isRecordDocumentKind(kind: PrintableKind): kind is RecordDocumentKind {
+  return kind === 'sf10-request' || kind === 'outgoing-envelope';
+}
+
+/** Envelope identity follows the source: GIVEN NAME, middle initial, then surname. */
+export function envelopeLearnerName(learner?: CertificateLearner): string {
+  if (!learner) return '';
+  if (!text(learner.firstName) && !text(learner.lastName)) return text(learner.name);
+  const initials = text(learner.middleName).split(/\s+/).filter(Boolean).map((part) => `${part[0]}.`).join(' ');
+  return [text(learner.firstName), initials, text(learner.lastName), text(learner.suffix)].filter(Boolean).join(' ')
+    || text(learner.name);
+}
+
+export function missingRecordDocumentFields(kind: RecordDocumentKind, fields: CertificateFields): string[] {
+  const required: Array<[keyof CertificateFields, string]> = [
+    ['studentName', 'Student name'], ['schoolName', 'School name'],
+    ['schoolHead', 'School head'], ['destinationSchoolName', 'Recipient school'],
+    ['destinationSchoolAddress', 'Recipient school address'],
+  ];
+  if (kind === 'sf10-request') required.push(
+    ['gradeLevel', 'Current grade'], ['schoolYear', 'Current school year'],
+    ['previousGradeLevel', 'Previous grade'], ['previousSchoolYear', 'Previous school year'],
+    ['previousAdviser', 'Previous teacher adviser'], ['region', 'Region'], ['division', 'Division'], ['district', 'District'],
+  );
+  else required.push(['learnerId', 'LRN'], ['schoolId', 'School ID'], ['address', 'School address'], ['zipCode', 'School ZIP code']);
+  const missing = required.filter(([key]) => !fields[key].trim()).map(([, label]) => label);
+  if (!certificateDate(fields.issuedDate)) missing.push('Valid issue date');
+  return missing;
 }
 
 export function missingCertificateFields(kind: CertificateKind, fields: CertificateFields, templateId: CertificateTemplateId = 'default'): string[] {

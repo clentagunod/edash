@@ -45,6 +45,7 @@ import { APP_CONFIG, appBrandAssetUrl } from '../lib/app-config';
 import { gradeLevelConfigKey } from '../lib/grading-config';
 import '../styles/components/student-card-template.css';
 import '../styles/pages/print-card.css';
+import { usePrintableSignature, type SignatureController } from '../components/PrintableSignature';
 
 const DEFAULT_MONTHS = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'];
 const DEFAULT_ATTENDANCE_ROWS = [
@@ -499,6 +500,8 @@ function StudentCardReport({
   side = 'both',
   transform,
   className,
+  signature,
+  signatureInteractive = false,
 }: {
   learner: LearnerRecord;
   manual: ManualCardFields;
@@ -516,6 +519,8 @@ function StudentCardReport({
   side?: 'both' | 'front' | 'back';
   transform?: string;
   className?: string;
+  signature?: SignatureController;
+  signatureInteractive?: boolean;
 }) {
   const gradeRows = buildCardGradeRows(learner, subjects, termColumns, termCount, autoCalculateFinalGrades, passingThreshold, roundType);
   const averageRows = gradeRows.filter((row) => row.kind !== 'mapeh-component');
@@ -537,6 +542,7 @@ function StudentCardReport({
   return (
     <article className={`sf9-report-card${className ? ` ${className}` : ''}`} data-card-template={templateId} style={transform ? { transform } : undefined}>
       {side !== 'back' && <section className="sf9-card-side sf9-card-front">
+        {signature?.render('front', signatureInteractive)}
         <header className="sf9-letterhead">
           <img src="/assets/edash/deped-seal.png" alt="Department of Education seal" />
           <div className="sf9-letterhead-copy">
@@ -631,6 +637,7 @@ function StudentCardReport({
       </section>}
 
       {side !== 'front' && <section className="sf9-card-side sf9-card-back">
+        {signature?.render('back', signatureInteractive)}
         <section className="sf9-attendance-section">
           <h2>ATTENDANCE RECORD</h2>
           <table className="sf9-data-table sf9-attendance-table">
@@ -711,6 +718,7 @@ export default function PrintCardPage() {
   const [paperOrientation, setPaperOrientation] = useState<PaperOrientation>('landscape');
   const [studioMode, setStudioMode] = useState<'edit' | 'view'>('edit');
   const [activeSheetSide, setActiveSheetSide] = useState<SheetSide>('front');
+  const signature = usePrintableSignature('student-card', !loading, activeSheetSide);
   const [cardLayoutsBySide, setCardLayoutsBySide] = useState<Record<SheetSide, CardLayout[]>>({ front: [], back: [] });
   const [layoutPast, setLayoutPast] = useState<Array<Record<SheetSide, CardLayout[]>>>([]);
   const [layoutFuture, setLayoutFuture] = useState<Array<Record<SheetSide, CardLayout[]>>>([]);
@@ -1128,7 +1136,7 @@ export default function PrintCardPage() {
   }
 
   async function exportCard(format: 'pdf' | 'docx' | 'png') {
-    if (!selectedLearner || templateUnavailable || exporting) return;
+    if (!selectedLearner || templateUnavailable || exporting || !signature.ready) return;
     const card = document.querySelector<HTMLElement>('.student-card-export-source .sf9-report-card');
     if (!card) {
       setExportError('The learner card preview is not available to export.');
@@ -1245,7 +1253,7 @@ export default function PrintCardPage() {
               className="student-card-button"
               aria-expanded={exportMenuOpen}
               aria-haspopup="true"
-              disabled={!selectedLearner || templateUnavailable || exporting}
+              disabled={!selectedLearner || templateUnavailable || exporting || !signature.ready}
               onClick={() => setExportMenuOpen((open) => !open)}
             >
               {exporting ? 'Exporting…' : 'Export'}
@@ -1261,7 +1269,7 @@ export default function PrintCardPage() {
           <button
             type="button"
             className="student-card-button student-card-button--primary"
-            disabled={!selectedPrintLearners.length || printBatchHasUnavailableTemplate || mobileViewport}
+            disabled={!selectedPrintLearners.length || printBatchHasUnavailableTemplate || mobileViewport || !signature.ready}
             title={mobileViewport
               ? 'Card printing is available on desktop view.'
               : printBatchHasUnavailableTemplate
@@ -1278,6 +1286,7 @@ export default function PrintCardPage() {
 
       <div className="student-card-workspace">
         <aside className="student-card-editor" aria-label="Learner card editor">
+          <fieldset className="signature-studio-fieldset" disabled={exporting}>{signature.controls}</fieldset>
           <div className="student-card-editor-tabs" role="group" aria-label="Editor panel">
             <button type="button" aria-pressed={editorTab === 'learners'} onClick={() => setEditorTab('learners')}>01 / Learners</button>
             <button type="button" aria-pressed={editorTab === 'details'} onClick={() => setEditorTab('details')}>02 / Card details</button>
@@ -1554,6 +1563,8 @@ export default function PrintCardPage() {
                   >
                     {studioMode === 'edit' && <span className="student-card-canvas-label">{slotIndex + 1} · {learnerName(learner)}</span>}
                     <StudentCardReport
+                      signature={signature.controller}
+                      signatureInteractive={!exporting}
                       learner={learner}
                       manual={cardManual}
                       subjects={subjects}
@@ -1605,6 +1616,7 @@ export default function PrintCardPage() {
               ) : selectedLearner ? (
                 <article className="sf9-report-card" style={{ transform: `scale(${previewScale})` }}>
                   <section className="sf9-card-side sf9-card-front">
+                  {signature.controller.render('front')}
                   <header className="sf9-letterhead">
                     <img src="/assets/edash/deped-seal.png" alt="Department of Education seal" />
                     <div className="sf9-letterhead-copy">
@@ -1699,6 +1711,7 @@ export default function PrintCardPage() {
                   </section>
 
                   <section className="sf9-card-side sf9-card-back">
+                  {signature.controller.render('back')}
                   <section className="sf9-attendance-section">
                     <h2>ATTENDANCE RECORD</h2>
                     <table className="sf9-data-table sf9-attendance-table">
@@ -1762,6 +1775,7 @@ export default function PrintCardPage() {
                 return (
                   <div key={`${side}-${asText(learner.learnerId)}`} className="student-card-print-position" style={positionStyle}>
                     <StudentCardReport
+                      signature={signature.controller}
                       learner={learner}
                       manual={cardManual}
                       subjects={subjects}

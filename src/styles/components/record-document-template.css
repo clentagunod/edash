@@ -1,0 +1,45 @@
+@font-face { font-family: 'Edash Poppins'; src: url('/assets/fonts/poppins/Poppins-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Edash Poppins'; src: url('/assets/fonts/poppins/Poppins-Bold.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Edash Poppins'; src: url('/assets/fonts/poppins/Poppins-BoldItalic.ttf') format('truetype'); font-weight: 700; font-style: italic; font-display: swap; }
+.record-document .certificate-body { font-family: 'Edash Poppins', Arial, sans-serif; font-size: calc(11pt * var(--document-text-scale, 1)); line-height: 1.5; }
+.record-document .certificate-body, .record-document .certificate-body * { font-family: 'Edash Poppins', Arial, sans-serif; }
+.record-document .certificate-body p { margin: 0; text-indent: 0; }
+.record-document .certificate-body strong { font-weight: 700; }
+.record-document .record-sf10-body { margin-top: 3mm; }
+.record-document .record-sf10-date { width: 63.5mm; height: 7mm; margin-left: auto !important; border-bottom: .5pt solid #000; text-align: center; }
+.record-document .certificate-body > .record-sf10-date { text-align: center; }
+.record-document .record-sf10-recipient { margin-top: 7mm; overflow-wrap: anywhere; }
+.record-document .record-sf10-recipient > p { min-height: 5.8mm; border-bottom: .5pt solid #000; width: max-content; min-width: 90mm; max-width: 100%; }
+.record-document .record-sf10-salutation { margin-top: 10mm !important; margin-bottom: 3mm !important; }
+.record-document .record-sf10-paragraph { text-indent: 12.7mm !important; text-align: justify; overflow-wrap: anywhere; }
+.record-document .record-sf10-table { width: calc(100% + 22mm); margin-left: -12.7mm; border-collapse: collapse; table-layout: fixed; font: inherit; line-height: 1.45; }
+.record-document .record-sf10-table th, .record-document .record-sf10-table td { border: .5pt solid #000; padding: 1mm 1.2mm; text-align: center; vertical-align: middle; overflow-wrap: anywhere; }
+.record-document .record-sf10-table th { line-height: 1.2; }
+.record-document .record-sf10-table td { font-size: calc(9pt * var(--document-text-scale, 1)); line-height: 1.1; }
+.record-document .record-sf10-table thead tr:first-child { height: 9mm; }
+.record-document .record-sf10-table thead tr:last-child { height: 11.5mm; }
+.record-document .record-sf10-table tbody tr { height: 9mm; }
+.record-document .record-sf10-return { margin-top: 1mm !important; }
+.record-document .record-sf10-thanks { margin-top: 5mm !important; padding-left: 12.7mm; }
+.record-document .record-sf10-priority { margin: 4mm 0 0 12.7mm; }
+.record-document .record-sf10-signature { margin: 5mm 0 0 auto; width: 57mm; text-align: left; overflow-wrap: anywhere; }
+.record-document .record-sf10-signature strong { display: block; margin-top: 10mm; }
+.record-document--outgoing-envelope { width: 241.3mm; height: 104.775mm; padding: 0; }
+.record-document--outgoing-envelope .certificate-body { font-size: calc(12pt * var(--document-text-scale, 1)); line-height: 1.5; }
+.record-envelope-body [data-record-block] { position: absolute; overflow-wrap: anywhere; }
+.record-envelope-body [data-record-block] strong { display: block; }
+.record-document .record-envelope-date { left: 157mm; top: 5.5mm; width: 78mm; max-height: 11mm; }
+.record-document .record-envelope-date strong { display: inline; }
+.record-envelope-sender { left: 15mm; top: 16mm; width: 103mm; max-height: 46mm; }
+.record-envelope-sender > div { margin: 0 0 0 15.5mm; }
+.record-envelope-recipient { left: 131.5mm; top: 58.5mm; width: 103mm; max-height: 43mm; }
+.record-envelope-recipient > div { margin-left: 9.5mm; }
+.record-document .record-envelope-school { font-weight: 700; color: #385623 !important; }
+.record-envelope-student { left: 23.5mm; top: 70.5mm; width: 100mm; max-height: 16mm; }
+.record-document .record-envelope-student { font-size: calc(10pt * var(--document-text-scale, 1)); }
+.record-document--outgoing-envelope .certificate-footer { left: 2mm; right: auto; bottom: 3.5mm; width: 112mm; gap: 8.5mm; border: 0; padding: 0; }
+.record-document--outgoing-envelope .certificate-footer-logos { width: 45mm; margin: 0; gap: 1mm; padding-top: 1mm; }
+.record-document--outgoing-envelope .certificate-footer-logos img, .record-document--outgoing-envelope .certificate-logo-space { width: 8.2mm; height: 12mm; }
+.record-document--outgoing-envelope .certificate-contact { font: 8pt/1.1 'Times New Roman', serif; }
+.record-document--outgoing-envelope .certificate-motto { margin-top: .5mm; font-size: 12pt; }
+.record-document--outgoing-envelope .certificate-motto img { width: 36mm; }

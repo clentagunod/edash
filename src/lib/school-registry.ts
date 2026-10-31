@@ -18,6 +18,7 @@ export interface SchoolInfo {
   divisionOffice: string;
   district: string;
   schoolAddr?: string;
+  zipCode?: string | number;
   address?: string;
   contactNumber?: string;
   email?: string;
@@ -157,6 +158,8 @@ export function isRegisteredSchool(value: unknown): value is RegisteredSchool {
         (school.schoolInfo.id === undefined ||
           typeof school.schoolInfo.id === "string" ||
           (typeof school.schoolInfo.id === "number" && Number.isSafeInteger(school.schoolInfo.id) && school.schoolInfo.id >= 0)) &&
+        (school.schoolInfo.zipCode === undefined || typeof school.schoolInfo.zipCode === "string" ||
+          (typeof school.schoolInfo.zipCode === "number" && Number.isSafeInteger(school.schoolInfo.zipCode) && school.schoolInfo.zipCode >= 0)) &&
         ["region", "divisionOffice", "district", "schoolAddr", "address", "contactNumber", "email", "fbPage", "motto", "divisionLogoUrl", "districtLogoUrl"].every((field) =>
           school.schoolInfo?.[field] === undefined || typeof school.schoolInfo[field] === "string",
         ))) &&

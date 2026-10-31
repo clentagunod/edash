@@ -65,6 +65,28 @@
         "roundType": "nearest_integer",
         "updatedAt": {
           "$serverTimestamp": true
+        },
+        "printables": {
+          "sf10-request": {
+            "version": 1,
+            "template": "default",
+            "defaultPaperSize": "a4",
+            "defaultOrientation": "portrait",
+            "defaultMargin": 0,
+            "defaultScale": 100,
+            "defaultTextSize": 100,
+            "allowSchoolDetailsOverride": true
+          },
+          "outgoing-envelope": {
+            "version": 1,
+            "template": "default",
+            "defaultPaperSize": "envelope",
+            "defaultOrientation": "landscape",
+            "defaultMargin": 0,
+            "defaultScale": 100,
+            "defaultTextSize": 100,
+            "allowSchoolDetailsOverride": true
+          }
         }
       }
     },
@@ -181,9 +203,51 @@
           "$serverTimestamp": true
         }
       }
+    },
+    {
+      "path": "settings/printableSignatures",
+      "data": {
+        "version": 1,
+        "slots": {},
+        "assignments": {
+          "student-card": [],
+          "good-moral": [],
+          "enrollment": [],
+          "sf10-request": [],
+          "outgoing-envelope": []
+        }
+      }
     }
   ],
   "recordSchemas": {
+    "settings/toggles": {
+      "printables": {
+        "type": "map",
+        "default": {
+          "sf10-request": {
+            "version": 1,
+            "template": "default",
+            "defaultPaperSize": "a4",
+            "defaultOrientation": "portrait",
+            "defaultMargin": 0,
+            "defaultScale": 100,
+            "defaultTextSize": 100,
+            "allowSchoolDetailsOverride": true
+          },
+          "outgoing-envelope": {
+            "version": 1,
+            "template": "default",
+            "defaultPaperSize": "envelope",
+            "defaultOrientation": "landscape",
+            "defaultMargin": 0,
+            "defaultScale": 100,
+            "defaultTextSize": 100,
+            "allowSchoolDetailsOverride": true
+          }
+        },
+        "description": "Per-document defaults for SF10 requests and outgoing envelopes. Save each printables.<kind> map with mergeFields to preserve unrelated toggles and other document preferences."
+      }
+    },
     "schoolYears/{schoolYear}/learners/{LRN}": {
       "enrollmentStatus": {
         "type": "string",
@@ -207,18 +271,96 @@
       },
       "teacherComments": {
         "type": "array<string>",
-        "default": ["", "", ""],
+        "default": [
+          "",
+          "",
+          ""
+        ],
         "description": "Teacher comments in term order, defaulting to three strings, with an optional fourth string for four-term school years. Saved per learner and school year, retained in archives, and used to prefill learner cards and the parent portal."
       },
       "attendance": {
         "type": "map<string,map<string,string>>",
-        "default": { "classDays": {}, "daysPresent": {}, "daysAbsent": {} },
+        "default": {
+          "classDays": {},
+          "daysPresent": {},
+          "daysAbsent": {}
+        },
         "description": "Monthly non-negative decimal day counts (or empty strings), keyed by Card Preferences month labels. Add/edit forms calculate daysAbsent as classDays minus daysPresent; daysAbsent is read-only. Stored per learner and school year and retained in archives."
       },
       "anecdotalRecords": {
         "type": "string",
         "default": "",
         "description": "Verified anecdotal or conduct records saved with each learner and used for Good Moral certificates. Also retained in dropout and transferred-out records."
+      }
+    },
+    "settings/printableSignatures": {
+      "version": {
+        "type": "number",
+        "default": 1
+      },
+      "slots": {
+        "type": "map",
+        "default": {},
+        "description": "Up to three metadata entries keyed signature-1, signature-2, signature-3. Each contains label, revision, width, height. Asset bytes are stored separately."
+      },
+      "assignments": {
+        "type": "map",
+        "default": {
+          "student-card": [],
+          "good-moral": [],
+          "enrollment": [],
+          "sf10-request": [],
+          "outgoing-envelope": []
+        },
+        "description": "Allowed signature slot IDs for each printable. A missing or empty list disables signatures for that printable."
+      }
+    },
+    "settings/printable-signature-{1|2|3}": {
+      "label": {
+        "type": "string",
+        "description": "School head signature label up to 80 characters."
+      },
+      "revision": {
+        "type": "string",
+        "description": "Unique revision for cache invalidation."
+      },
+      "width": {
+        "type": "number",
+        "description": "Prepared PNG pixel width, at most 1208."
+      },
+      "height": {
+        "type": "number",
+        "description": "Prepared PNG pixel height, at most 608."
+      },
+      "updatedBy": {
+        "type": "string",
+        "description": "Uploading School Admin UID."
+      },
+      "storage": {
+        "type": "string",
+        "default": "cloudinary",
+        "description": "New images are uploaded to Cloudinary; Firestore stores only the delivery reference and metadata."
+      },
+      "url": {
+        "type": "string",
+        "description": "Bounded HTTPS PNG delivery URL on res.cloudinary.com/<cloudName>/image/upload/. Cached in memory as a data URL only for print/export."
+      },
+      "publicId": {
+        "type": "string",
+        "description": "Cloudinary public_id returned by the unsigned upload."
+      },
+      "cloudName": {
+        "type": "string",
+        "description": "Cloudinary cloud name at upload time, retained so existing signatures work if the build configuration changes."
+      },
+      "format": {
+        "type": "string",
+        "default": "png",
+        "description": "PNG preserves signature transparency. Incoming transformations that crop, resize, or flatten the image are rejected."
+      },
+      "dataUrl": {
+        "type": "string",
+        "description": "Legacy only: inline transparent PNG up to 220000 characters. Still readable; the admin Move to Cloudinary action replaces it with a Cloudinary reference and preserves printable assignments."
       }
     }
   },

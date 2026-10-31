@@ -1,5 +1,7 @@
 // @ts-nocheck -- ported from the original site; behavior preserved, not yet fully typed.
 import { LPSApi } from './sheets-api';
+import { PRINTABLES } from './printables';
+import { canAccessPrintable } from './printable-access';
 import { APP_CONFIG, APP_PAGE_PREFIX, APP_USER_PROFILE, appBrandAssetUrl, canManageLearners, canViewGradesProfile, isSchoolAdmin, isVisitorSession, normalizedAppRole, setAppUserProfile, storedAppProfile, updateSchoolFavicon } from './app-config';
 import { LPS_SESSION_KEY, displayNameFromEmail, handleLogout, initials } from './auth';
 import { Icon } from './icons';
@@ -42,9 +44,11 @@ export const NAV_ITEMS = [
   { group: "Movement", key: "retention", label: "Retention", icon: "rotateCcw", href: "retention.html" },
   { group: "Movement", key: "transfer-info", label: "Transfer Info", icon: "transfer", href: "transfer-info.html" },
   { group: "Movement", key: "dropout", label: "Dropout Info", icon: "alertTriangle", href: "dropout.html" },
-  { group: "Printables", key: "student-card", label: "Learner Card", icon: "clipboard", href: "student-card.html" },
-  { group: "Printables", key: "good-moral", label: "Good Moral", icon: "sheet", href: "good-moral.html" },
-  { group: "Printables", key: "certificate-of-enrollment", label: "Certificate of Enrollment", icon: "graduationCap", href: "certificate-of-enrollment.html" },
+  { group: "Printables", key: "student-card", label: PRINTABLES["student-card"].title, icon: "learnerCard", href: "student-card.html" },
+  { group: "Printables", key: "good-moral", label: PRINTABLES["good-moral"].title, icon: "moralCertificate", href: "good-moral.html" },
+  { group: "Printables", key: "certificate-of-enrollment", label: "Certificate of Enrollment", icon: "enrollmentCertificate", href: "certificate-of-enrollment.html" },
+  { group: "Printables", key: "sf10-request", label: PRINTABLES["sf10-request"].title, icon: "recordsRequest", href: "request-permanent-records.html" },
+  { group: "Printables", key: "outgoing-envelope", label: PRINTABLES["outgoing-envelope"].title, icon: "outgoingEnvelope", href: "outgoing-records-envelope.html" },
   { group: "Utilities", key: "data", label: "Data", icon: "download", href: "data.html" },
   { group: "Utilities", key: "grade-calculator", label: "Grade Calculator", icon: "sigma", href: "grade-calculator.html" },
   { group: "Utilities", key: "bmi-calculator", label: "BMI Calculator", icon: "calculator", href: "bmi-calculator.html" },
@@ -310,7 +314,11 @@ export function renderShell(activeKey, pageTitleForMobile) {
     if (isVisitorSession()) return ["dashboard", "enrollment-data"].includes(item.key);
     if (item.key === "users") return isSchoolAdmin();
     if (item.key === "promotion" || item.key === "retention") return canManageLearners();
-    if (item.key === "grades" || item.key === "student-card") return canViewGradesProfile();
+    if (item.key === "grades") return canViewGradesProfile();
+    if (item.group === "Printables") {
+      const kind = Object.keys(PRINTABLES).find((key) => PRINTABLES[key].navKey === item.key);
+      return kind ? canAccessPrintable(kind) : false;
+    }
     return true;
   });
   const renderNavLink = (item, extraClass = "") => `
