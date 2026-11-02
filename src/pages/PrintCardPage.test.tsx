@@ -75,6 +75,52 @@ describe('Admin Card Preferences template preview', () => {
 });
 
 describe('Card print studio', () => {
+  it.each([
+    { roundType: 'nearest_integer', incomplete: false, terms: ['91', '90', '91'], final: '91', average: '91' },
+    { roundType: 'none', incomplete: false, terms: ['90.5', '90', '90.5'], final: '90.33', average: '90.17' },
+    { roundType: 'nearest_integer', incomplete: true, terms: ['91', '90', ''], final: '', average: '' },
+  ])('applies $roundType to MAPEH term averages across preview, export and print (incomplete: $incomplete)', async ({ roundType, incomplete, terms, final, average }) => {
+    Object.defineProperty(window, 'matchMedia', { configurable: true, value: vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })) });
+    vi.mocked(firestore.fsGetSchoolYears).mockResolvedValue([{ schoolYear: '2026-2027', isCurrent: true }] as never);
+    vi.mocked(firestore.fsGetLearners).mockResolvedValue([{
+      learnerId: '123', firstName: 'Alex', lastName: 'Reyes', gradeLevel: 'Grade 4',
+      gradesByTerm: {
+        quarter1: { math: '90', musicAndArts: '90', physicalEducationAndHealth: '91' },
+        quarter2: { math: '90', musicAndArts: '90', physicalEducationAndHealth: '90' },
+        quarter3: { math: '90', musicAndArts: '90', physicalEducationAndHealth: incomplete ? '' : '91' },
+      },
+    }] as never);
+    vi.mocked(firestore.fsGetSections).mockResolvedValue([]);
+    vi.mocked(firestore.fsGetGradeSubjectAssignments).mockResolvedValue({
+      grades: { 'Grade 4': { configured: true, subjectIds: ['math', 'musicAndArts', 'physicalEducationAndHealth'] } },
+      subjects: [],
+    } as never);
+    vi.mocked(firestore.fsGetGradeLevelGradingConfigurations).mockResolvedValue({ gradeLevels: {} } as never);
+    vi.mocked(firestore.fsGetGradeTermCount).mockResolvedValue(3);
+    vi.mocked(firestore.fsGetPassingThreshold).mockResolvedValue(75);
+    vi.mocked(firestore.fsGetRoundType).mockResolvedValue(roundType as never);
+    vi.mocked(firestore.fsGetCardPrintingPreferences).mockResolvedValue({ activeTemplate: 'sf9', gradeTemplates: {}, attendanceMonths: ['Jun'], attendanceRows: [] } as never);
+    const container = document.createElement('div');
+    document.body.append(container);
+    const root = createRoot(container);
+    mountedRoots.push(root);
+    await act(async () => root.render(<PrintCardPage />));
+    act(() => container.querySelector<HTMLInputElement>('.student-card-learner-check input')!.click());
+    act(() => container.querySelector<HTMLButtonElement>('.student-card-learner-select')!.click());
+
+    expect(firestore.fsGetRoundType).toHaveBeenCalled();
+    for (const selector of ['.student-card-canvas-stage', '.student-card-export-source', '.student-card-print-only']) {
+      const table = container.querySelector(`${selector} .sf9-grade-table`)!;
+      expect(table).not.toBeNull();
+      const cells = (rowSelector: string) => [...table.querySelectorAll(`${rowSelector} td`)].map((cell) => cell.textContent);
+      expect(cells('.sf9-grade-row--mapeh')).toEqual([...terms, final, incomplete ? '' : 'Passed']);
+      expect(cells('.sf9-general-average')).toEqual([average, incomplete ? '' : 'Promoted']);
+      const components = table.querySelectorAll('.sf9-grade-row--mapeh-component');
+      expect([...components[0].querySelectorAll('td')].map((cell) => cell.textContent)).toEqual(['90', '90', '90', '', '']);
+      expect([...components[1].querySelectorAll('td')].map((cell) => cell.textContent)).toEqual(['91', '90', incomplete ? '' : '91', '', '']);
+    }
+  });
+
   it('supports precision layout editing, undo/redo, preview mode and panel switching', async () => {
     Object.defineProperty(window, 'matchMedia', { configurable: true, value: vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })) });
     vi.mocked(firestore.fsGetSchoolYears).mockResolvedValue([{ schoolYear: '2026-2027', isCurrent: true }] as never);

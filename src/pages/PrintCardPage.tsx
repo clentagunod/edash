@@ -241,7 +241,7 @@ function buildCardGradeRows(
   const mapehTermGrades = termColumns.map(({ id }) => {
     const grades = components.map((subject) => cardTermGrade(learner, id, subject));
     if (grades.some((grade) => !grade.trim())) return '';
-    return numericalGradeAverage(grades, components.length);
+    return roundGradeResult(numericalGradeAverage(grades, components.length), roundType);
   });
   const mapehFinalGrade = mapehTermGrades.length === termColumns.length
     && mapehTermGrades.length === termCount
