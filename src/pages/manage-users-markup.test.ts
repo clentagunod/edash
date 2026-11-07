@@ -22,7 +22,7 @@ describe('Admin Console collapsible sections', () => {
     expect(panel.querySelector('#adminSf10PreferencesRoot')).not.toBeNull();
     expect(panel.querySelector('#adminEnvelopePreferencesRoot')).not.toBeNull();
     expect(panel.querySelector('#adminSignatureLibraryRoot')).not.toBeNull();
-    expect(document.querySelectorAll('.admin-section-tabs > [role="tab"]')).toHaveLength(5);
+    expect(document.querySelectorAll('.admin-section-tabs > [role="tab"]')).toHaveLength(6);
   });
   it('keeps tenant backup collapsed with a hidden summary and separate restore action', () => {
     const document = new DOMParser().parseFromString(markup, 'text/html');

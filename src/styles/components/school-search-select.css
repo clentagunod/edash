@@ -1,0 +1,32 @@
+.school-search-select { position:relative; width:100%; min-width:0; color:#17233a; font-family:var(--font-ui, sans-serif); }
+.school-search-control { display:flex; align-items:center; gap:0; padding:0 8px 0 15px; border:1px solid #d6dfeb; border-radius:11px; background:#fbfcfe; transition:border-color 140ms, box-shadow 140ms; }
+.school-search-control:focus-within { border-color:#356dc5; box-shadow:0 0 0 4px rgb(53 109 197 / 12%); }
+.school-search-icon { width:19px; height:19px; flex-shrink:0; color:#73829a; margin-right:10px; }
+.school-search-select .school-search-control input { width:100%; min-width:0; height:54px; padding:0; border:0; border-radius:0; background:transparent; color:#17233a; font:inherit; font-size:14px; outline:none; box-shadow:none; }
+.school-search-select .school-search-control input:focus { border:0; outline:none; box-shadow:none; }
+.school-search-select input::placeholder { color:#7b879b; opacity:1; }
+.school-search-clear, .school-search-toggle { display:grid; place-items:center; flex-shrink:0; padding:0; width:30px; height:34px; border:0; border-radius:6px; background:transparent; color:#73829a; cursor:pointer; }
+.school-search-clear:hover, .school-search-toggle:hover { color:#245bc1; background:#edf3ff; }
+.school-search-clear svg, .school-search-toggle svg { width:18px; height:18px; }
+.school-search-control.is-open .school-search-toggle svg { transform:rotate(180deg); }
+.school-search-control.is-disabled { opacity:.65; }
+.school-search-control.is-disabled button, .school-search-control.is-disabled input { cursor:default; }
+.school-search-popup { position:absolute; z-index:30; top:62px; left:0; right:0; padding:7px; border:1px solid #dce4ef; border-radius:12px; background:#fff; color:#17233a; box-shadow:0 14px 36px rgb(16 37 74 / 16%); }
+.school-search-popup[hidden] { display:none; }
+.school-search-heading { padding:8px 10px 10px; color:#75839b; font-size:10px; font-weight:700; letter-spacing:1px; text-transform:uppercase; }
+.school-search-popup ul { list-style:none; padding:0; margin:0; max-height:min(300px, 38svh); overflow:auto; overscroll-behavior:contain; scrollbar-width:thin; scrollbar-color:#c2cede transparent; }
+.school-search-popup li { padding:0; margin:0; }
+.school-search-option { display:flex; align-items:center; gap:11px; width:100%; padding:12px 10px; border:0; border-radius:8px; background:transparent; color:#17233a; text-align:left; font:inherit; cursor:pointer; }
+.school-search-option:hover, .school-search-option.is-active, .school-search-option:focus-visible { background:#edf3ff; outline:none; }
+.school-search-option[aria-selected="true"] { background:#eaf1ff; }
+.school-search-selected-logo { width:26px; height:26px; margin-right:10px; border-radius:7px; }
+.school-search-option-copy { display:flex; flex:1; flex-direction:column; gap:5px; min-width:0; overflow-wrap:anywhere; }
+.school-search-option-copy strong { font-size:13px; font-weight:600; line-height:1.45; }
+.school-search-option-copy small { color:#708098; font-size:11px; line-height:1.5; }
+.school-search-check { width:18px; height:18px; flex-shrink:0; color:#2f6fed; }
+.school-search-empty, .school-search-limit { margin:0; padding:14px 10px; color:#708098; font-size:12px; line-height:1.7; }
+.school-search-limit { border-top:1px solid #edf1f7; margin-top:6px; padding:9px 10px 3px; font-size:11px; }
+.school-search-hint { margin:8px 0 0; color:#708098; font-size:11px; line-height:1.6; }
+.school-search-clear:focus-visible, .school-search-toggle:focus-visible { outline:2px solid #356dc5; outline-offset:2px; }
+@media (max-width:480px) { .school-search-control { padding-left:12px; } .school-search-select .school-search-control input { font-size:16px; } .school-search-option { padding:11px 8px; gap:9px; } .school-search-option .school-logo { width:31px; height:31px; } }
+@media (prefers-reduced-motion:reduce) { .school-search-control { transition:none; } }

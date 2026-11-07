@@ -15,6 +15,7 @@ import RecordDocumentPreferencesPanel from '../components/RecordDocumentPreferen
 import SignatureLibraryPanel from '../components/SignatureLibraryPanel';
 import { isSchoolAdmin } from '../lib/app-config';
 import ParentPortalLinkPanel from '../components/ParentPortalLinkPanel';
+import PerformanceIndicatorsPanel from '../components/PerformanceIndicatorsPanel';
 
 export default function ManageUsersPage() {
   const [ready, setReady] = useState(false);
@@ -23,7 +24,7 @@ export default function ManageUsersPage() {
       html={html}
       title="Admin Console"
       portalSelector="#adminCardTemplateChooser"
-      children={<><AdminCardTemplateChooser />{ready && <><StudentImportPortal /><CertificatePreferencesPortal /><RecordPreferencesPortal /><SignatureLibraryPortal /><ParentPortalLinkPortal /></>}</>}
+      children={<><AdminCardTemplateChooser />{ready && <><StudentImportPortal /><CertificatePreferencesPortal /><RecordPreferencesPortal /><SignatureLibraryPortal /><ParentPortalLinkPortal /><PerformanceIndicatorsPortal /></>}</>}
       onMount={async () => {
         await requireAuth();
         setReady(isSchoolAdmin());
@@ -31,6 +32,11 @@ export default function ManageUsersPage() {
       }}
     />
   );
+}
+
+function PerformanceIndicatorsPortal() {
+  const target = document.getElementById('adminPerformanceIndicatorsRoot');
+  return target ? createPortal(<PerformanceIndicatorsPanel />, target) : null;
 }
 
 function CertificatePreferencesPortal() {

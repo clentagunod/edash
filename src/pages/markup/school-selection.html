@@ -52,8 +52,9 @@
         <h2 id="schoolPickerTitle">Select your school</h2>
         <p class="sub">Only active schools in the E-Dash directory can continue.</p>
         <div class="field">
-          <label for="schoolSelect">School</label>
-          <select id="schoolSelect" name="school" autocomplete="organization" required disabled>
+          <label for="schoolSearch">School</label>
+          <div id="schoolSearchRoot"></div>
+          <select id="schoolSelect" name="school" aria-hidden="true" tabindex="-1" hidden disabled>
             <option value="">Loading registered schools…</option>
           </select>
         </div>

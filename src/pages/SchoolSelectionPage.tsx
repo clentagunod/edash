@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import '../styles/pages/login.css';
 import html from './markup/school-selection.html?raw';
 import { auth } from '../lib/firebase';
@@ -14,6 +15,7 @@ import {
 } from '../lib/school-registry';
 import TestModeStamp from '../components/TestModeStamp';
 import { schoolRegistrationApi } from '../lib/school-registration-api';
+import SchoolSearchSelect from '../components/SchoolSearchSelect';
 
 function safeMediaUrl(value: string): string | null {
   try {
@@ -29,6 +31,10 @@ function safeMediaUrl(value: string): string | null {
 
 export default function SchoolSelectionPage() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [pickerTarget, setPickerTarget] = useState<HTMLElement | null>(null);
+  const [picker, setPicker] = useState<{ schools: RegisteredSchool[]; selectedId: string; disabled: boolean }>({ schools: [], selectedId: '', disabled: true });
+
+  useLayoutEffect(() => { setPickerTarget(containerRef.current?.querySelector<HTMLElement>('#schoolSearchRoot') || null); }, []);
 
   useEffect(() => {
     forceLoginPageLightTheme();
@@ -90,6 +96,7 @@ export default function SchoolSelectionPage() {
       cleanupVideo = loadVideoWhenVisible(video, media, videoUrl);
     };
     const loadSchools = async () => {
+      setPicker(previous => ({ ...previous, disabled: true }));
       if (directoryLoading) {
         directoryLoading.hidden = false;
         directoryLoading.setAttribute('aria-busy', 'true');
@@ -123,6 +130,7 @@ export default function SchoolSelectionPage() {
           pickerSelect.disabled = schools.length === 0;
         }
         if (continueButton) continueButton.disabled = !pickerSelect?.value;
+        setPicker({ schools: [...schools], selectedId: pickerSelect?.value || '', disabled: schools.length === 0 });
         if (schools.length === 0) showError('No active schools are available. Please contact the E-Dash administrator.');
         else alert?.classList.remove('is-visible');
         if (directoryLoading) {
@@ -152,6 +160,7 @@ export default function SchoolSelectionPage() {
         continueButton.disabled = true;
         continueButton.textContent = 'Opening secure workspace…';
       }
+      setPicker(previous => ({ ...previous, disabled: true }));
       try {
         if (storedSchool && sameSchoolRegistration(storedSchool, selectedSchool)) {
           storeActiveSchool(selectedSchool);
@@ -169,6 +178,7 @@ export default function SchoolSelectionPage() {
           continueButton.disabled = !pickerSelect?.value;
           continueButton.textContent = 'Continue to sign in';
         }
+        if (!disposed) setPicker(previous => ({ ...previous, disabled: schools.length === 0 }));
       }
     };
     const onRetry = () => {
@@ -178,6 +188,7 @@ export default function SchoolSelectionPage() {
     const onSchoolChange = () => {
       const selectedSchool = schools.find((school) => school.id === pickerSelect?.value);
       if (continueButton) continueButton.disabled = !selectedSchool;
+      setPicker(previous => ({ ...previous, selectedId: selectedSchool?.id || '' }));
     };
     const closeRegistrationDialog = () => {
       registrationDialog?.close();
@@ -274,6 +285,10 @@ export default function SchoolSelectionPage() {
   return (
     <>
       <div ref={containerRef} dangerouslySetInnerHTML={{ __html: html }} />
+      {pickerTarget && createPortal(<SchoolSearchSelect id="schoolSearch" schools={picker.schools} value={picker.selectedId} disabled={picker.disabled} onChange={schoolId => {
+        const select = containerRef.current?.querySelector<HTMLSelectElement>('#schoolSelect');
+        if (select) { select.value = schoolId; select.dispatchEvent(new Event('change', { bubbles: true })); }
+      }} />, pickerTarget)}
       <TestModeStamp />
     </>
   );

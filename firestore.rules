@@ -267,6 +267,9 @@ service cloud.firestore {
       }
     }
     match /settings/{settingId} {
+      // Public, school-level performance counts and computational-guide labels.
+      // Permit a direct read of this document for visitor dashboards only.
+      allow get: if settingId == "performanceIndicators";
       // Backup exports list this entire collection. Authorize staff without
       // requiring the query to resolve a condition on each document ID.
       allow read: if isStaff() || (isSignedIn() && !(settingId in [

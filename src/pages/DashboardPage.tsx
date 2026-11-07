@@ -2,12 +2,15 @@ import LegacyPage from './LegacyPage';
 import html from './markup/dashboard.html?raw';
 import { requireAuth } from '../lib/auth';
 import { initDashboard, dashboardLearnerUnsubscribe, dashboardPublicStatsUnsubscribe, dashboardRecentLearnersUnsubscribe } from '../lib/dashboard';
+import DashboardModes from '../components/DashboardModes';
 
 export default function DashboardPage() {
   return (
     <LegacyPage
       html={html}
       title="Dashboard"
+      portalSelector="#dashboardModeRoot"
+      children={<DashboardModes />}
       onMount={async () => {
         await requireAuth();
     await initDashboard();
