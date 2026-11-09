@@ -19,7 +19,7 @@
   "sha256": {
     "school-registration.example.json": "9852a2078a1a1eac6015eb0918966908b57ab951202f5e73480a8cb46e58b510",
     "school-registry.rules": "35482168afca49969cc402226699325792c19bf1dca10d04396e4820f0f7344e",
-    "firestore.rules": "9ae6cde4b559b002868e5b1e5f451df4e285d62342e9eaaaa7097ddad68ac822",
+    "firestore.rules": "30e2a6dead70367a442351f9e802e94e9e7db68f67eeedc898b6da023a1a6f2d",
     "firebase.index.json": "e4c299a23f616afe61d73e95bea999afa2424b0328d64ce0a296f3549e1b4b54",
     "firebase.registry.json": "098210e158ad5f70aab3ff72f80afe0c631bf314c8e33f425dfc1daf37baccdc",
     "firebase.tenant.json": "1630fdf22e9fbd47ac8cd7f37bd502f500c3e9a1cc78ce001ee5a016a2c04efe",

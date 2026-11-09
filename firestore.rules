@@ -89,7 +89,9 @@ service cloud.firestore {
       let sourceExists = exists(sourcePath);
       let source = sourceExists ? get(sourcePath).data : {};
       let progressionType = learner.get("progressionType", "");
-      return !learner.keys().hasAny(["progressionSourceSchoolYear"])
+      // Ordinary enrollment stores both fields as empty strings; older records
+      // may omit them. Only an actual progression request needs the toggle.
+      return (sourceYearValue == "" && progressionType == "")
         || (teacherPromotionEnabled()
           && sourceYearValue is string
           && sourceYearValue.matches("^\\d{4}-\\d{4}$")

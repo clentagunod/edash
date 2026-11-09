@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:firestore-rules": "node --test scripts/firestore-rules.emulator.mjs",
     "firestore:provision": "node scripts/provision-firestore.mjs",
     "firestore:provision-test": "node scripts/provision-test.mjs",
     "firestore:bootstrap": "node scripts/provision-firestore-empty.mjs",

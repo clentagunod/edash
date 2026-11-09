@@ -25,7 +25,51 @@ vi.stubGlobal('firebase', {
 const { setAppUserProfile } = await import('./app-config');
 const { fsGetTrash, fsWriteAuditedSettings_, fsUpdateMyTeacherPrefs, fsGetCertificatePreferences, fsSetCertificatePreferences, fsSubscribeCertificatePreferences, fsGetRecordDocumentPreferences, fsSetRecordDocumentPreference, fsSaveSection, fsSectionAdviser_, fsCanonicalLearner_, fsUpdateArchiveRecord } = await import('./firestore-api');
 const { LPSApi } = await import('./sheets-api');
-const { fsMarkSf10RequestEmailed, fsUpdateLearner } = await import('./firestore-api');
+const { fsAddLearner, fsMarkSf10RequestEmailed, fsUpdateLearner } = await import('./firestore-api');
+
+describe('ordinary teacher learner creation', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mockAuth.currentUser = { uid: 'teacher-add-learner' } as never;
+    setAppUserProfile({ uid: 'teacher-add-learner', role: 'Teacher', status: 'Active' });
+    vi.spyOn(LPSApi, 'recordAuditEvent').mockResolvedValue({ recorded: true });
+    mockDb.collection.mockReset();
+  });
+
+  afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+    mockAuth.currentUser = null;
+    setAppUserProfile(null);
+    sessionStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it('sends empty progression metadata when a teacher adds a new learner', async () => {
+    const learnerId = '123456789012';
+    const set = vi.fn().mockResolvedValue(undefined);
+    const ref = (path: string): any => ({
+      id: path.split('/').pop(), path, set,
+      collection: (name: string) => ref(`${path}/${name}`),
+      doc: (id: string) => ref(`${path}/${id}`),
+    });
+    mockDb.collection.mockImplementation(ref);
+
+    await expect(fsAddLearner('2026-2027', {
+      learnerId, firstName: 'Avery', lastName: 'Learner', gradeLevel: 'Grade 1', section: 'A',
+    })).resolves.toEqual({ learnerId });
+
+    expect(mockDb.collection.mock.calls).toEqual([['schoolYears']]);
+    expect(set).toHaveBeenCalledOnce();
+    expect(set.mock.contexts[0].path).toBe(`schoolYears/2026-2027/learners/${learnerId}`);
+    // The rules must accept these canonical defaults without enabling promotion.
+    expect(set).toHaveBeenCalledWith(expect.objectContaining({
+      learnerId, schoolYear: '2026-2027', firstName: 'Avery', gradeLevel: 'Grade 1', section: 'A',
+      dateAdded: 'server-time', progressionSourceSchoolYear: '', progressionType: '',
+    }));
+    expect(LPSApi.recordAuditEvent).toHaveBeenCalledWith('LEARNER_ADD', expect.objectContaining({ recordId: learnerId }));
+  });
+});
 
 describe('confirmed SF10 request email tracking', () => {
   const receipt = { messageId: 'confirmed-gmail-id', sentAt: '2026-10-31T17:05:00.000Z', to: ['records@example.edu'], cc: ['registrar@example.edu'], bcc: [] };

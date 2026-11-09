@@ -313,6 +313,16 @@ npm run firestore:provision -- --project SCHOOL_FIREBASE_PROJECT_ID --school-yea
 
 That command uses Firebase CLI authentication for rules and Admin SDK credentials for Firestore writes. Do not deploy `school-registry.rules` to a tenant project or `firestore.rules` to the central registry project. Do not replace the production rules with permissive test rules.
 
+Active Teachers can add ordinary learners even when teacher promotion/retention is disabled. New learner records store `progressionSourceSchoolYear` and `progressionType` as empty strings; legacy records may omit them. The rules accept either form of ordinary enrollment. Actual promotion/retention still requires `settings/toggles.canPromoteStudents: true` and a valid source learner with the matching EOSY status. Deploy these rules to each affected tenant to fix Teacher Add learner permission errors; a frontend deployment alone does not update Firestore rules.
+
+Run the learner-creation rules regression checks locally with Java 21+ and Firebase CLI installed:
+
+```powershell
+npx --yes firebase-tools emulators:exec --only firestore --project demo-edash-rules "npm run test:firestore-rules"
+```
+
+The checks use synthetic data in a local emulator and cover ordinary Teacher enrollment, progression restrictions, Trash restoration, and role access. They also check that the standalone provisioner's rules and integrity hash match the root rules.
+
 To enable automatic Trash cleanup for a tenant, deploy its scheduled function after provisioning:
 
 ```powershell
@@ -623,6 +633,7 @@ Cloudinary's current references: [managing upload presets](https://cloudinary.co
 | Bootstrap or registration says default credentials are missing | Use `--service-account "C:\secure\...\key.json"` or configure ADC. A Firebase CLI login alone does not authenticate Admin SDK Firestore writes. |
 | Rule deployment is denied | Run Firebase CLI login with an account allowed to deploy rules to that exact project; choose the correct project ID and config file. |
 | Tenant reads/writes are denied | Confirm tenant rules deployed from `firestore.rules`, Auth UID matches `users/{uid}`, and its profile is active with the intended role. |
+| Teacher Add learner reports insufficient permissions | Deploy the latest tenant `firestore.rules`, which accepts the empty progression fields saved by ordinary enrollment. Confirm `users/{uid}` has `role: "Teacher"` and `status: "Active"`. Enabling teacher promotion is unnecessary for ordinary enrollment. |
 | Database backup Export JSON reports insufficient permissions | Use an account whose tenant `users/{uid}` profile has `role: "School Admin"` and `status: "Active"`. Publish the latest `firestore.rules` to the selected school's tenant project; updating local files or the central registry rules does not update tenant rules. The export error identifies the denied path and target project. From the repository root, deploy with `node scripts/deploy-tenant-firestore.mjs --project YOUR_TENANT_PROJECT_ID --rules`. |
 | Apps Script returns permission errors | Check Script Properties, spreadsheet sharing, script owner/execution settings, service-account IAM role, and that the project ID is the tenant project. |
 | Feedback/audit endpoint does not respond | Use the deployed HTTPS `/exec` URL for the matching service; confirm Web App deployment version/access; update the registry document and wait for the app's short school-directory cache to expire or reload. |
