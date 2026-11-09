@@ -343,6 +343,16 @@ body[data-theme="clentindustries-theme"] .archive-editor-modal .modal-footer .bt
 .document-status-fields [hidden] { display: none !important; }
 .document-status-email-summary { padding: 12px; border: 1px solid var(--line-200); border-radius: 8px; background: var(--bg-card); color: var(--ink-700); font-size: 12px; overflow-wrap: anywhere; }
 .document-status-email-summary p { margin: 6px 0 0; }
+.document-status-email-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.document-status-email-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.document-status-email-summary .document-status-email-action { display: inline-flex; align-items: center; justify-content: center; width: auto; min-height: 32px; padding: 6px 10px; border: 1px solid var(--line-200); border-radius: 8px; background: var(--bg-card); color: var(--ink-700); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.document-status-email-summary .document-status-email-action:hover { background: var(--bg-app); border-color: var(--blue-600); }
+.document-status-email-summary .document-status-email-action.danger { color: var(--danger-600, #dc2626); }
+.document-status-email-summary .document-status-email-action.danger:hover { background: var(--danger-100); border-color: var(--danger-600); }
+.document-status-email-action:focus-visible { outline: 2px solid var(--blue-600); outline-offset: 2px; }
+.document-status-email-editor { display: grid; gap: 12px; margin-top: 12px; }
+.document-status-email-editor > label.field { display: grid; gap: 6px; margin: 0; }
+.document-status-email-summary .document-status-email-error { color: var(--danger-600, #dc2626); }
 #learnerModalBackdrop [data-learner-section="learning"] .reading-input-group,
 #learnerModalBackdrop [data-learner-section="learning"] .math-input-group {
   grid-column: auto;

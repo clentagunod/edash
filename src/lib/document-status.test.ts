@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { collectDocumentStatusFields, DOCUMENT_STATUSES, documentStatusLabel, documentStatusRecord, renderDocumentStatusFields } from './document-status';
+import { formSnapshot } from './app-config';
 
 function form() {
   document.body.innerHTML = '<form><div class="field-grid"></div></form>';
@@ -17,7 +18,7 @@ describe('Document Status', () => {
     expect(documentStatusLabel({ transferNotes: 'Legacy note' })).toBe('Legacy note');
     expect(documentStatusLabel({ documentStatus: 'Custom', documentStatusCustom: 'Waiting' })).toBe('Waiting');
   });
-  it('shows the latest email recipients and send time as read-only information in learner editors', () => {
+  it('shows the latest email recipients and send time with edit and delete actions', () => {
     const host = form();
     renderDocumentStatusFields(host, { documentStatus: 'Emailed', sf10Email: {
       messageId: 'confirmed-id', sentAt: '2026-10-31T17:05:00.000Z', to: ['records@example.edu'], cc: [], bcc: [],
@@ -25,8 +26,11 @@ describe('Document Status', () => {
     const summary = host.querySelector('.document-status-email-summary')!;
     expect(summary.textContent).toContain('To: records@example.edu');
     expect(summary.textContent).toContain('1:05 AM (PHT)');
-    expect(summary.querySelector('input, textarea')).toBeNull();
+    expect(summary.querySelector('input:not([type="hidden"]), textarea')).toBeNull();
+    expect(summary.querySelector<HTMLButtonElement>('[data-sf10-email-edit]')!.type).toBe('button');
+    expect(summary.querySelector<HTMLButtonElement>('[data-sf10-email-delete]')!.type).toBe('button');
     expect(collectDocumentStatusFields(host).documentStatus).toBe('Emailed');
+    expect(collectDocumentStatusFields(host)).not.toHaveProperty('sf10Email');
     renderDocumentStatusFields(host, {}, 'test');
     expect(host.querySelector('.document-status-email-summary')).toBeNull();
   });
@@ -85,5 +89,144 @@ describe('Document Status', () => {
     expect(() => documentStatusRecord({ documentStatusDates: [] }, true)).toThrow('dates must');
     expect(() => documentStatusRecord({ documentStatus: 123 }, true)).toThrow('must be text');
     expect(documentStatusRecord({ documentStatusDates: { Transmitted: '2024-02-29' } }, true).documentStatusDates.Transmitted).toBe('2024-02-29');
+  });
+});
+
+describe('SF10 email history edits', () => {
+  const receipt = { messageId: 'confirmed-id', sentAt: '2026-10-31T17:05:00.123Z', to: ['records@example.edu'], cc: ['registrar@example.edu'], bcc: ['archive@example.edu'] };
+  const learner = { documentStatus: 'Emailed', documentStatusDates: { Emailed: '2026-10-31', Transmitted: '2026-10-30' }, sf10Email: receipt };
+  function open() {
+    const host = form();
+    renderDocumentStatusFields(host, learner, 'archive');
+    return host;
+  }
+  function action(host: HTMLElement, name: string) {
+    host.querySelector<HTMLButtonElement>(`[data-sf10-email-${name}]`)!.click();
+  }
+  function input(host: HTMLElement, name: string) {
+    return host.querySelector<HTMLInputElement>(`[data-sf10-email-${name}]`)!;
+  }
+  function enter(host: HTMLElement, name: string, value: string) {
+    const control = input(host, name);
+    control.value = value;
+    control.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  it('stages recipients and PHT sent time without changing the original receipt or document dates', () => {
+    const original = JSON.stringify(learner);
+    const host = open();
+    action(host, 'edit');
+    expect(document.activeElement).toBe(input(host, 'to'));
+    expect(input(host, 'sent').value).toBe('2026-11-01T01:05:00.123');
+    enter(host, 'to', ' updated@example.edu; second@example.edu, updated@example.edu ');
+    enter(host, 'cc', '');
+    enter(host, 'bcc', 'private@example.edu');
+    enter(host, 'sent', '2026-11-02T07:30');
+    action(host, 'apply');
+    expect(host.querySelector('.document-status-email-editor')).toBeNull();
+    expect(host.querySelector('.document-status-email-summary')!.textContent).toContain('To: updated@example.edu, second@example.edu');
+    expect(host.querySelector('.document-status-email-summary')!.textContent).toContain('7:30 AM (PHT)');
+    expect(collectDocumentStatusFields(host)).toEqual({
+      documentStatus: 'Emailed', documentStatusCustom: '', documentStatusDates: learner.documentStatusDates,
+      sf10Email: { ...receipt, to: ['updated@example.edu', 'second@example.edu'], cc: [], bcc: ['private@example.edu'], sentAt: '2026-11-01T23:30:00.000Z' },
+    });
+    expect(JSON.stringify(learner)).toBe(original);
+  });
+
+  it('collects in-progress edits when saving the enclosing form and preserves timestamp precision', () => {
+    const host = open();
+    action(host, 'edit');
+    expect(collectDocumentStatusFields(host)).not.toHaveProperty('sf10Email');
+    enter(host, 'cc', 'corrected@example.edu');
+    expect(collectDocumentStatusFields(host).sf10Email).toEqual({ ...receipt, cc: ['corrected@example.edu'] });
+    expect(receipt.cc).toEqual(['registrar@example.edu']);
+  });
+
+  it.each([
+    ['to', '', 'To: Enter valid email addresses'],
+    ['cc', 'invalid-address', 'CC: Enter valid email addresses'],
+    ['bcc', 'invalid-address', 'BCC: Enter valid email addresses'],
+    ['sent', '', 'Enter a valid sent date and time in PHT'],
+  ])('blocks invalid %s edits with an accessible inline error', (field, value, message) => {
+    const host = open();
+    action(host, 'edit');
+    enter(host, field, value);
+    action(host, 'apply');
+    expect(host.querySelector('.document-status-email-editor')).not.toBeNull();
+    const error = host.querySelector<HTMLElement>('.document-status-email-error')!;
+    expect(error.hidden).toBe(false);
+    expect(error.textContent).toContain(message);
+    expect(input(host, field).getAttribute('aria-invalid')).toBe('true');
+    expect(() => collectDocumentStatusFields(host)).toThrow(message);
+    action(host, 'cancel');
+    expect(collectDocumentStatusFields(host)).not.toHaveProperty('sf10Email');
+    expect(host.checkValidity()).toBe(true);
+  });
+
+  it('limits recipients across all fields and clears validation errors when corrected', () => {
+    const host = open();
+    action(host, 'edit');
+    enter(host, 'to', Array.from({ length: 49 }, (_, index) => `recipient${index}@example.edu`).join(', '));
+    expect(() => collectDocumentStatusFields(host)).toThrow('no more than 50 recipients');
+    enter(host, 'bcc', '');
+    expect(host.querySelector<HTMLElement>('.document-status-email-error')!.hidden).toBe(true);
+    expect(collectDocumentStatusFields(host).sf10Email!.to).toHaveLength(49);
+    expect(host.checkValidity()).toBe(true);
+  });
+
+  it('cancels a current edit and discards all pending changes when the enclosing form reopens', () => {
+    const host = open();
+    action(host, 'edit');
+    enter(host, 'to', 'discarded@example.edu');
+    action(host, 'cancel');
+    expect(collectDocumentStatusFields(host)).not.toHaveProperty('sf10Email');
+    action(host, 'edit');
+    enter(host, 'to', 'staged@example.edu');
+    action(host, 'apply');
+    expect(collectDocumentStatusFields(host).sf10Email!.to).toEqual(['staged@example.edu']);
+    renderDocumentStatusFields(host, learner, 'archive');
+    expect(collectDocumentStatusFields(host)).not.toHaveProperty('sf10Email');
+    action(host, 'delete');
+    renderDocumentStatusFields(host, learner, 'archive');
+    expect(collectDocumentStatusFields(host)).not.toHaveProperty('sf10Email');
+    expect(host.querySelector('.document-status-email-summary')!.textContent).toContain('To: records@example.edu');
+  });
+
+  it('stages deletion explicitly and Undo restores the last applied edit', () => {
+    const host = open();
+    action(host, 'delete');
+    expect(collectDocumentStatusFields(host).sf10Email).toBeNull();
+    expect(collectDocumentStatusFields(host).documentStatusDates).toEqual(learner.documentStatusDates);
+    expect(host.querySelector('[role="status"]')!.textContent).toContain('when you save changes');
+    expect(document.activeElement).toBe(host.querySelector('[data-sf10-email-undo]'));
+    action(host, 'undo');
+    expect(collectDocumentStatusFields(host)).not.toHaveProperty('sf10Email');
+    action(host, 'edit');
+    enter(host, 'to', 'edited@example.edu');
+    action(host, 'apply');
+    action(host, 'delete');
+    action(host, 'undo');
+    expect(collectDocumentStatusFields(host).sf10Email).toEqual({ ...receipt, to: ['edited@example.edu'] });
+    expect(learner.sf10Email).toEqual(receipt);
+    renderDocumentStatusFields(host, { ...learner, sf10Email: null }, 'archive');
+    expect(host.querySelector('.document-status-email-summary')).toBeNull();
+    expect(collectDocumentStatusFields(host)).not.toHaveProperty('sf10Email');
+  });
+
+  it('tracks staged edits and deletion for the enclosing form unsaved-change guard', () => {
+    const host = open();
+    const initial = formSnapshot(host);
+    action(host, 'delete');
+    expect(formSnapshot(host)).not.toBe(initial);
+    action(host, 'undo');
+    expect(formSnapshot(host)).toBe(initial);
+    action(host, 'edit');
+    enter(host, 'cc', 'changed@example.edu');
+    action(host, 'cancel');
+    expect(formSnapshot(host)).toBe(initial);
+    action(host, 'edit');
+    enter(host, 'cc', 'changed@example.edu');
+    action(host, 'apply');
+    expect(formSnapshot(host)).not.toBe(initial);
   });
 });

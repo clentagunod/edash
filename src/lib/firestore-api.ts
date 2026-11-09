@@ -62,8 +62,9 @@ let FS_DYNAMIC_CURRICULUM_SUBJECT_IDS = [];
 export function fsCanonicalLearner_(learner) {
   const result = {};
   FS_LEARNER_FIELD_ORDER.forEach((field) => { result[field] = learner[field] ?? (field === "extra" ? {} : ""); });
-  // Email tracking is optional system metadata; ordinary edits must not clear it.
+  // Omitted metadata stays untouched; an explicit null clears the saved receipt.
   if (!Object.prototype.hasOwnProperty.call(learner, 'sf10Email')) delete result.sf10Email;
+  else if (learner.sf10Email === null) result.sf10Email = null;
   FS_DYNAMIC_CURRICULUM_SUBJECT_IDS.forEach((field) => { result[field] = learner[field] ?? ""; });
   return { ...result, ...transferSchoolDetails(learner), ...learnerCardRecord(learner, true), ...documentStatusRecord(learner, true) };
 }

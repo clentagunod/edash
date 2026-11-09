@@ -25,7 +25,7 @@ vi.stubGlobal('firebase', {
 const { setAppUserProfile } = await import('./app-config');
 const { fsGetTrash, fsWriteAuditedSettings_, fsUpdateMyTeacherPrefs, fsGetCertificatePreferences, fsSetCertificatePreferences, fsSubscribeCertificatePreferences, fsGetRecordDocumentPreferences, fsSetRecordDocumentPreference, fsSaveSection, fsSectionAdviser_, fsCanonicalLearner_, fsUpdateArchiveRecord } = await import('./firestore-api');
 const { LPSApi } = await import('./sheets-api');
-const { fsMarkSf10RequestEmailed } = await import('./firestore-api');
+const { fsMarkSf10RequestEmailed, fsUpdateLearner } = await import('./firestore-api');
 
 describe('confirmed SF10 request email tracking', () => {
   const receipt = { messageId: 'confirmed-gmail-id', sentAt: '2026-10-31T17:05:00.000Z', to: ['records@example.edu'], cc: ['registrar@example.edu'], bcc: [] };
@@ -126,6 +126,53 @@ describe('transfer record persistence', () => {
     await fsUpdateArchiveRecord('transferredOut', '2026-2027', original.learnerId, { ...school, transferType: 'Transfer In', transferIn: true, transferOut: false, enrollmentStatus: 'ACTIVE' });
     expect(transaction.set).toHaveBeenCalledWith(targetRef, expect.objectContaining({ transferType: 'Transfer In', transferOut: false, transferSchoolZipCode: '0010' }));
     expect(transaction.delete).toHaveBeenCalledWith(sourceRef);
+  });
+});
+
+describe('SF10 email history edits', () => {
+  const receipt = { messageId: 'confirmed-gmail-id', sentAt: '2026-10-31T17:05:00.000Z', to: ['records@example.edu'], cc: ['registrar@example.edu'], bcc: [] };
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(LPSApi, 'recordAuditEvent').mockResolvedValue({ recorded: true });
+    mockDb.runTransaction.mockResolvedValue(undefined);
+  });
+  afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it.each(['active', 'archived'] as const)('preserves, edits, and explicitly clears the receipt on %s learners', async (location) => {
+    const learnerId = '123456789012';
+    const saved: Record<string, unknown> = {
+      learnerId, sf10Email: receipt, documentStatus: 'Emailed', documentStatusDates: { Emailed: '2026-11-01' },
+      ...(location === 'archived' ? {
+        transferType: 'Transfer Out', transferOut: true, transferSchoolId: '001234', transferSchool: 'Receiving School',
+        transferSchoolAddress: 'Receiving Town', transferSchoolZipCode: '0010',
+      } : {}),
+    };
+    const ref = {
+      get: vi.fn(async () => ({ exists: true, data: () => ({ ...saved }) })),
+      set: vi.fn(async (data) => { Object.assign(saved, data); }),
+    };
+    mockDb.collection.mockReturnValue({ doc: () => ({ collection: () => ({ doc: () => ref }) }) });
+    const update = (patch: Record<string, unknown>) => location === 'archived'
+      ? fsUpdateArchiveRecord('transferredOut', '2026-2027', learnerId, patch)
+      : fsUpdateLearner('2026-2027', learnerId, patch);
+
+    await update({ firstName: 'Updated' });
+    expect(saved.sf10Email).toEqual(receipt);
+    if (location === 'active') expect(ref.set.mock.calls[0][0]).not.toHaveProperty('sf10Email');
+
+    const edited = { ...receipt, to: ['corrected@example.edu'], cc: [], bcc: ['archive@example.edu'] };
+    await update({ sf10Email: edited });
+    expect(saved.sf10Email).toEqual(edited);
+
+    await update({ sf10Email: null });
+    expect(ref.set.mock.calls[2][0]).toMatchObject({ sf10Email: null });
+    expect(saved.sf10Email).toBeNull();
+    expect(saved.documentStatus).toBe('Emailed');
+    expect(saved.documentStatusDates).toEqual({ Emailed: '2026-11-01' });
   });
 });
 const { normalizeUserPreferences } = await import('./user-preferences');

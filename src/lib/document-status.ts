@@ -1,4 +1,4 @@
-import { sf10EmailDetails } from './sf10-email';
+import { renderSf10EmailHistory, type Sf10EmailHistoryPatch } from './sf10-email-history';
 
 export const DOCUMENT_STATUSES = ['Successfully Transmitted', 'Transmitted', 'Preparing Documents', 'Received Documents', 'Emailed', 'Custom'] as const;
 export const DOCUMENT_STATUS_FIELDS = ['documentStatus', 'documentStatusCustom', 'documentStatusDates'] as const;
@@ -52,7 +52,7 @@ export function documentStatusRecord(learner: Record<string, unknown> = {}, vali
   return { documentStatus: DOCUMENT_STATUSES.includes(status as typeof DOCUMENT_STATUSES[number]) ? status : '', documentStatusCustom: custom, documentStatusDates };
 }
 
-const drafts = new WeakMap<HTMLElement, DocumentStatusRecord>();
+const drafts = new WeakMap<HTMLElement, { status: DocumentStatusRecord; collectEmail: () => Sf10EmailHistoryPatch }>();
 
 /** Shared by the active, archived, and migration learner editors. */
 export function renderDocumentStatusFields(host: HTMLElement, learner: Record<string, unknown>, prefix: string): void {
@@ -64,7 +64,6 @@ export function renderDocumentStatusFields(host: HTMLElement, learner: Record<st
     (host.querySelector('.field-grid') || host).append(container);
   }
   const saved = documentStatusRecord(learner);
-  drafts.set(host, saved);
   container.replaceChildren();
   function field(title: string, suffix: string, control: HTMLInputElement | HTMLSelectElement) {
     const label = document.createElement('label');
@@ -111,31 +110,19 @@ export function renderDocumentStatusFields(host: HTMLElement, learner: Record<st
     showSelection();
   });
   showSelection();
-  const emailDetails = sf10EmailDetails(learner.sf10Email);
-  if (emailDetails.length) {
-    const summary = document.createElement('div');
-    summary.className = 'document-status-email-summary';
-    const heading = document.createElement('strong');
-    heading.textContent = 'Latest SF10 email';
-    summary.append(heading);
-    emailDetails.forEach((detail) => {
-      const row = document.createElement('p');
-      row.textContent = detail;
-      summary.append(row);
-    });
-    container.append(summary);
-  }
+  drafts.set(host, { status: saved, collectEmail: renderSf10EmailHistory(container, learner.sf10Email, prefix) });
 }
 
-export function collectDocumentStatusFields(host: HTMLElement): DocumentStatusRecord {
-  const saved = drafts.get(host);
-  if (!saved) throw new Error('Document Status fields could not be loaded. Reopen this form before saving.');
+export function collectDocumentStatusFields(host: HTMLElement): DocumentStatusRecord & Sf10EmailHistoryPatch {
+  const draft = drafts.get(host);
+  if (!draft) throw new Error('Document Status fields could not be loaded. Reopen this form before saving.');
   const status = host.querySelector<HTMLSelectElement>('[data-document-status]')!.value;
-  const dates = { ...saved.documentStatusDates };
+  const dates = { ...draft.status.documentStatusDates };
   if (status) dates[status] = host.querySelector<HTMLInputElement>('[data-document-status-date]')!.value;
-  return documentStatusRecord({
+  const record = documentStatusRecord({
     documentStatus: status,
     documentStatusCustom: host.querySelector<HTMLInputElement>('[data-document-status-custom]')!.value,
     documentStatusDates: dates,
   }, true);
+  return { ...record, ...draft.collectEmail() };
 }
