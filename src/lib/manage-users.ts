@@ -6,7 +6,7 @@ import { APP_CONFIG, confirmDiscardChanges, formSnapshot, isSchoolAdmin, normali
 import { requireAuth } from './auth';
 import { DEMO_USERS, isSheetsApiConfigured } from './demo-data';
 import { Icon } from './icons';
-import { fsGetTrashRetention, fsSetTrashRetention, fsGetUsers, fsSubscribeUsers } from './firestore-api';
+import { fsGetTrashRetention, fsSetTrashRetention, fsGetUsers, fsSubscribeUsers, isDirectoryUser } from './firestore-api';
 
 export let MU = { users: [], editingId: null, deletingId: null, deletingName: "", selectedIds: new Set() };
 export let usersLoadRequest = 0;
@@ -149,8 +149,7 @@ export async function getUsersWithTimeout() {
 
 export function filterUsers(query) {
   const q = query.trim().toLowerCase();
-  if (!q) return MU.users;
-  return MU.users.filter((u) => `${u.userId} ${u.name} ${u.email} ${u.role} ${u.status}`.toLowerCase().includes(q));
+  return MU.users.filter(isDirectoryUser).filter((u) => !q || `${u.userId} ${u.name} ${u.email} ${u.role} ${u.status}`.toLowerCase().includes(q));
 }
 
 export function statusBadgeClass(status) {
@@ -164,6 +163,7 @@ function currentAdminUid() {
 }
 
 export function renderUsersTable(users) {
+  users = (users || []).filter(isDirectoryUser);
   const tbody = document.getElementById("usersTableBody");
   if (!users || users.length === 0) {
     tbody.innerHTML = `<tr><td colspan="6" class="state-row">No users found.</td></tr>`;

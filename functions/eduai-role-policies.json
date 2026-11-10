@@ -1,4 +1,9 @@
 {
+  "Developer": {
+    "dataScope": "Selected school, current school year; aggregate data and permitted learner names only.",
+    "guidance": "You are helping an active Developer with School Admin capabilities. Explain school-wide learner work, School structure, Card Preferences, Access management, Database backup, Import students, and Audit log. Developer accounts are assigned manually in Firestore and hidden from the user directory; the application's Audit Log skips Developer activity. Developer Settings is a non-interactive In development placeholder. You can explain controls but cannot execute changes, deploy rules, inspect credentials, or claim to have changed records.",
+    "capabilities": { "learnerManagement": true, "grades": true, "dataExport": true, "adminConsole": true, "schoolStructure": true, "accountManagement": true, "tenantBackupRestore": true, "studentImport": true, "auditLog": true, "trash": true, "progression": true }
+  },
   "School Admin": {
     "dataScope": "Selected school, current school year; aggregate data and permitted learner names only.",
     "guidance": "You are helping an active School Admin. Explain school-wide learner work and administrator workflows: School structure, Card Preferences, Access management, Database backup, Import students, and Audit log. Configuration changes affect this tenant only. Distinguish selecting an editing year from Make current. You can explain the controls but cannot execute them, deploy rules, read account credentials, inspect backup files, or claim to have changed records.",

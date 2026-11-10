@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockOpenAccountSettingsModal, mockRenderProfileAvatar, mockRenderShell, mockStoredAppProfile, mockUpdateMyTeacherPrefs, mockShowToast, mockIsSchoolAdmin, mockAppPageHref } = vi.hoisted(() => ({
+const { mockOpenAccountSettingsModal, mockRenderProfileAvatar, mockRenderShell, mockStoredAppProfile, mockUpdateMyTeacherPrefs, mockShowToast, mockIsSchoolAdmin, mockIsDeveloper, mockAppPageHref } = vi.hoisted(() => ({
   mockOpenAccountSettingsModal: vi.fn(),
   mockRenderProfileAvatar: vi.fn((element: HTMLElement | null, photoURL: string, email: string) => {
     if (element) element.textContent = photoURL ? 'photo' : (email ? email.slice(0, 1).toUpperCase() : '?');
@@ -10,6 +10,7 @@ const { mockOpenAccountSettingsModal, mockRenderProfileAvatar, mockRenderShell, 
   mockUpdateMyTeacherPrefs: vi.fn(),
   mockShowToast: vi.fn(),
   mockIsSchoolAdmin: vi.fn(),
+  mockIsDeveloper: vi.fn(),
   mockAppPageHref: vi.fn((path: string) => `pages/${path}`),
 }));
 
@@ -17,6 +18,7 @@ vi.mock('./app-config', () => ({
   APP_USER_PROFILE: null,
   APP_CONFIG: { schoolId: "test-school" },
   isSchoolAdmin: mockIsSchoolAdmin,
+  isDeveloper: mockIsDeveloper,
   storedAppProfile: mockStoredAppProfile,
 }));
 vi.mock('./auth', () => ({
@@ -39,6 +41,7 @@ vi.mock('./firestore-api', () => ({
 
 import { normalizeUserPreferences } from './user-preferences';
 import preferencesMarkup from '../pages/markup/preferences.html?raw';
+import settingsMarkup from '../pages/markup/settings.html?raw';
 import { clearProfilePhotoCache, cachedProfilePhotoSource, profilePhotoCacheStats } from './profile-photo-cache';
 import { initPreferencesPage, initSettingsPage } from './settings';
 
@@ -74,6 +77,22 @@ describe('settings page', () => {
       email: 'admin@school.test',
     });
     mockIsSchoolAdmin.mockReturnValue(false);
+    mockIsDeveloper.mockReturnValue(false);
+  });
+
+  it.each([false, true])('shows the disabled Developer settings option only to Developers (%s)', (developer) => {
+    document.body.innerHTML = settingsMarkup;
+    mockIsSchoolAdmin.mockReturnValue(true);
+    mockIsDeveloper.mockReturnValue(developer);
+    const cleanup = initSettingsPage();
+    const option = document.getElementById('developerSettingsOption')!;
+    expect(option.hidden).toBe(!developer);
+    expect(option.previousElementSibling?.id).toBe('adminConsoleOption');
+    expect(option.textContent).toContain('In development');
+    expect(option.getAttribute('aria-disabled')).toBe('true');
+    expect(option.matches('a, button, [tabindex]')).toBe(false);
+    expect(option.querySelector('a, button')).toBeNull();
+    cleanup();
   });
 
   it('renders the account identity and opens account settings', () => {

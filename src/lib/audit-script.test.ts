@@ -9,6 +9,57 @@ function service() {
 }
 
 describe('tenant audit script', () => {
+  it('skips every Developer audit event using the verified role, including direct append calls', () => {
+    const context = service();
+    const developer = { uid: 'developer', role: 'Developer', email: 'dev@example.test' };
+    context.authorizeAudit_ = () => developer;
+    context.jsonAudit_ = (value: unknown) => value;
+    const sheet = vi.fn();
+    context.auditSheetObject_ = sheet;
+    for (const auditAction of runInContext('AUDIT_ACTIONS', context)) {
+      expect(context.doPost({ postData: { contents: JSON.stringify({ action: 'recordAuditEvent', auditAction }) } }))
+        .toEqual({ ok: true, data: { recorded: false } });
+      context.appendAuditLog_(developer, auditAction, {});
+    }
+    expect(sheet).not.toHaveBeenCalled();
+  });
+
+  it('does not let a caller-supplied Developer role suppress another account audit', () => {
+    const context = service();
+    context.authorizeAudit_ = () => ({ uid: 'teacher', role: 'Teacher' });
+    context.jsonAudit_ = (value: unknown) => value;
+    const append = vi.fn();
+    context.appendAuditLog_ = append;
+    expect(context.doPost({ postData: { contents: JSON.stringify({ action: 'recordAuditEvent', auditAction: 'LOGIN', role: 'Developer' }) } }).data.recorded).toBe(true);
+    expect(append).toHaveBeenCalledOnce();
+  });
+
+  it('allows Developer audit reads and ordinary account deletions without recording activity', () => {
+    const context = service();
+    const developer = { uid: 'developer', role: 'Developer' };
+    context.authorizeAudit_ = () => developer;
+    context.jsonAudit_ = (value: unknown) => value;
+    context.readAuditLogs_ = () => ({ records: [] });
+    expect(context.doGet({ parameter: { action: 'getAuditLogs' } }).ok).toBe(true);
+    context.assertManageableAuditUser_ = vi.fn();
+    context.deleteFirebaseAuthUser_ = vi.fn();
+    expect(context.deleteAuthUsersResponse_(developer, ['teacher'], 'verified-token').ok).toBe(true);
+    expect(context.assertManageableAuditUser_).toHaveBeenCalledWith('teacher', 'verified-token');
+    expect(context.deleteFirebaseAuthUser_.mock.calls[0][0]).toBe('teacher');
+  });
+
+  it('checks every deletion target before removing any accounts and protects Developers', () => {
+    const context = service();
+    context.auditProperty_ = () => 'test-tenant';
+    context.UrlFetchApp = { fetch: vi.fn((url: string) => ({
+      getResponseCode: () => 200,
+      getContentText: () => JSON.stringify({ fields: { role: { stringValue: url.endsWith('/developer') ? 'Developer' : 'Teacher' } } }),
+    })) };
+    context.deleteFirebaseAuthUser_ = vi.fn();
+    expect(() => context.deleteAuthUsersResponse_({ uid: 'admin', role: 'School Admin' }, ['teacher', 'developer'], 'verified-token')).toThrow(/managed directly/);
+    expect(context.deleteFirebaseAuthUser_).not.toHaveBeenCalled();
+  });
+
   it('preserves nested admin settings, false, zero and assignment changes without secrets', () => {
     const context = service();
     const input = {

@@ -15,6 +15,31 @@ const { buildEduAiApplicationAccess, buildEduAiContext, loadTrustedEduAiContext 
 
 const encryptionKey = Buffer.alloc(32, 7).toString("base64");
 
+test('Developer receives verified administrator capabilities and product guidance', async () => {
+  const admin = buildEduAiApplicationAccess('School Admin', {}, '2026-2027', {});
+  const developer = buildEduAiApplicationAccess('Developer', {}, '2026-2027', {});
+  assert.deepEqual(developer.capabilities, admin.capabilities);
+  const { selectEduAiGuideEntries } = await import('./eduai-guide.mjs');
+  const question = 'How do I restore a database backup and import students?';
+  assert.deepEqual(selectEduAiGuideEntries(question, 'Developer'), selectEduAiGuideEntries(question, 'School Admin'));
+
+  const originalFetch = global.fetch;
+  global.fetch = async (url) => {
+    const path = new URL(url).pathname.split('/documents/')[1];
+    const fields = path === 'users/developer'
+      ? { role: { stringValue: 'Developer' }, status: { stringValue: 'Active' } }
+      : path === 'settings/currentSchoolYear' ? { value: { stringValue: '2026-2027' } } : {};
+    const payload = path === 'schoolYears/2026-2027/learners' ? { documents: [] } : { fields };
+    return new Response(JSON.stringify(payload), { status: 200 });
+  };
+  try {
+    const { buildTrustedContext } = await import('../worker/index.mjs');
+    const { context } = await buildTrustedContext({ uid: 'developer', token: 'trusted-token', projectId: 'test-school', tenantConfig: { apiKey: 'public-test-key' } });
+    assert.equal(context.role, 'Developer');
+    assert.equal(context.applicationAccess.capabilities.adminConsole, true);
+  } finally { global.fetch = originalFetch; }
+});
+
 test("reads schoolId from POST query strings as sent by the frontend", async () => {
   const { getSchoolId } = await import("../worker/index.mjs");
   const request = new Request("https://gateway.example/settings?schoolId=sample-school", {

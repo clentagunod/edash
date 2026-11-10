@@ -26,13 +26,14 @@ vi.mock('./app-config', () => ({
 vi.mock('./auth', () => ({ requireAuth: vi.fn() }));
 vi.mock('./demo-data', () => ({ DEMO_USERS: [], isSheetsApiConfigured: vi.fn() }));
 vi.mock('./icons', () => ({ Icon: vi.fn() }));
-vi.mock('./firestore-api', () => ({ fsGetUsers: vi.fn(), fsSubscribeUsers: vi.fn() }));
+vi.mock('./firestore-api', () => ({ fsGetUsers: vi.fn(), fsSubscribeUsers: vi.fn(), isDirectoryUser: (profile) => profile.role !== 'Developer' }));
 
 import {
   filterTeacherAssignmentSections,
   initAdminSectionTabs,
   loadTeacherAssignmentSections,
   updateTeacherAssignmentSummary,
+  MU, filterUsers, renderUsersTable,
 } from './manage-users';
 
 describe('Manage Users account roles', () => {
@@ -43,6 +44,23 @@ describe('Manage Users account roles', () => {
 
     expect(roles).toEqual(['School Admin', 'Registrar', 'Teacher']);
     expect(roles).not.toContain('Visitor');
+    expect(roles).not.toContain('Developer');
+  });
+
+  it('excludes Developer accounts from directory rows, search, and bulk selection', () => {
+    document.body.innerHTML = '<table><tbody id="usersTableBody"></tbody></table>';
+    const users = [
+      { userId: 'dev', name: 'Hidden Developer', email: 'dev@example.test', role: 'Developer', status: 'Active' },
+      { userId: 'admin', name: 'Visible Admin', email: 'admin@example.test', role: 'School Admin', status: 'Active' },
+    ];
+    MU.users = users;
+    expect(filterUsers('')).toEqual([users[1]]);
+    expect(filterUsers('Hidden')).toEqual([]);
+    renderUsersTable(users);
+    expect(document.getElementById('usersTableBody')?.textContent).not.toContain('Hidden');
+    expect(document.querySelector('[data-edit="dev"], [data-delete="dev"], input[value="dev"]')).toBeNull();
+    expect(document.querySelector('[data-edit="admin"]')).not.toBeNull();
+    MU.users = [];
   });
 });
 

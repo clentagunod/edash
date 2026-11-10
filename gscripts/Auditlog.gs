@@ -93,7 +93,7 @@ function doGet(event) {
   try {
     const params = event.parameter || {};
     const auth = authorizeAudit_(params.token);
-    if (auth.role !== "School Admin")
+    if (!["Developer", "School Admin"].includes(auth.role))
       throw new Error("Only a School Admin can view administrator data.");
     if (params.action === "getAuditLogs")
       return jsonAudit_({ ok: true, data: readAuditLogs_(params.page) });
@@ -113,7 +113,7 @@ function doPost(event) {
     const body = JSON.parse(event.postData.contents || "{}");
     const auth = authorizeAudit_(body.token);
     if (body.action === "deleteAuthUsers")
-      return deleteAuthUsersResponse_(auth, body.userIds);
+      return deleteAuthUsersResponse_(auth, body.userIds, body.token);
     if (body.action !== "recordAuditEvent")
       throw new Error("Unknown audit action.");
     const action = String(body.auditAction || "")
@@ -121,6 +121,10 @@ function doPost(event) {
       .toUpperCase();
     if (!AUDIT_ACTIONS.includes(action))
       throw new Error("That audit event is not allowed.");
+    // The role comes from the authenticated Firestore profile, never the body.
+    // Return before opening the spreadsheet, including for LOGIN and LOGOUT.
+    if (auth.role === "Developer")
+      return jsonAudit_({ ok: true, data: { recorded: false } });
     if (AUDIT_ADMIN_ACTIONS.includes(action) && auth.role !== "School Admin")
       throw new Error("Only a School Admin can record this event.");
     if (
@@ -138,8 +142,8 @@ function doPost(event) {
   }
 }
 
-function deleteAuthUsersResponse_(auth, userIds) {
-  if (auth.role !== "School Admin")
+function deleteAuthUsersResponse_(auth, userIds, idToken) {
+  if (!["Developer", "School Admin"].includes(auth.role))
     throw new Error("Only a School Admin can delete Firebase accounts.");
   if (!Array.isArray(userIds) || !userIds.length || userIds.length > 100)
     throw new Error("Provide between 1 and 100 Firebase user IDs.");
@@ -148,11 +152,27 @@ function deleteAuthUsersResponse_(auth, userIds) {
     throw new Error("One or more Firebase user IDs are invalid.");
   if (ids.includes(auth.uid))
     throw new Error("You cannot delete the account you are currently using.");
+  // Check all profiles before deleting any Auth account. Firestore rules cannot
+  // protect against this service's privileged Firebase Authentication deletes.
+  ids.forEach((uid) => assertManageableAuditUser_(uid, idToken));
   ids.forEach(deleteFirebaseAuthUser_);
   return jsonAudit_({
     ok: true,
     data: { deleted: ids.length, deletedUserIds: ids },
   });
+}
+
+function assertManageableAuditUser_(uid, idToken) {
+  const response = UrlFetchApp.fetch(
+    `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(auditProperty_("FIRESTORE_PROJECT_ID"))}/databases/(default)/documents/users/${encodeURIComponent(uid)}`,
+    { headers: { Authorization: `Bearer ${idToken}` }, muteHttpExceptions: true },
+  );
+  if (response.getResponseCode() === 404) return;
+  if (response.getResponseCode() !== 200)
+    throw new Error("Could not verify the target account's Firestore profile. No accounts were deleted.");
+  const profile = JSON.parse(response.getContentText() || "{}");
+  if (firestoreString_(profile.fields && profile.fields.role) === "Developer")
+    throw new Error("Developer accounts can only be managed directly in Firestore and Firebase Authentication.");
 }
 
 function deleteFirebaseAuthUser_(uid) {
@@ -497,6 +517,7 @@ function auditSheetObject_() {
 }
 
 function appendAuditLog_(auth, action, event) {
+  if (auth.role === "Developer") return;
   const sheet = auditSheetObject_();
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(30000))

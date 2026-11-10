@@ -31,10 +31,10 @@ service cloud.firestore {
         ? myProfile().data.role
         : "";
     }
-    function isAdmin() { return myRole() == "School Admin"; }
+    function isAdmin() { return myRole() in ["School Admin", "Developer"]; }
     function isRegistrar() { return myRole() == "Registrar"; }
     function isTeacher() { return myRole() == "Teacher"; }
-    function isStaff() { return myRole() in ["School Admin", "Registrar", "Teacher"]; }
+    function isStaff() { return myRole() in ["Developer", "School Admin", "Registrar", "Teacher"]; }
     function validEduAiPreferences(data) {
       return data.keys().hasAll([
           "role", "model", "maxOutputTokens", "timeoutSeconds",
@@ -165,9 +165,13 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isSignedIn();
       allow list: if isStaff();
-      allow create: if isAdmin();
-      allow delete: if isAdmin() && userId != request.auth.uid;
-      allow update: if isAdmin();
+      // Developer assignment and account administration require Console/Admin
+      // credentials. No browser client may grant, demote, or remove this role.
+      allow create: if isAdmin() && request.resource.data.get("role", "") != "Developer";
+      allow delete: if isAdmin() && userId != request.auth.uid && resource.data.get("role", "") != "Developer";
+      allow update: if isAdmin()
+        && resource.data.get("role", "") != "Developer"
+        && request.resource.data.get("role", "") != "Developer";
       allow update: if isUpdatingOwnAccountSettings(userId);
       match /assignmentHistory/{schoolYear} {
         allow read: if isAdmin() || (isSignedIn() && userId == request.auth.uid);

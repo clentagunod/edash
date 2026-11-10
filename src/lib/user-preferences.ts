@@ -51,6 +51,6 @@ export function validUserPreferences(value: unknown): boolean {
 export function landingPageForProfile(profile: { role?: string; teacherPrefs?: unknown } | null) {
   const requested = normalizeUserPreferences(profile?.teacherPrefs).landingPage;
   // Unknown/visitor accounts can only use the public dashboard views.
-  const staff = ['School Admin', 'Registrar', 'Teacher'].includes(profile?.role || '');
+  const staff = ['Developer', 'School Admin', 'Registrar', 'Teacher'].includes(profile?.role || '');
   return staff || ['dashboard.html', 'enrollment-data.html'].includes(requested) ? requested : 'dashboard.html';
 }

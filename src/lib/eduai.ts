@@ -146,7 +146,7 @@ export async function loadEduAiContext(): Promise<EduAiContext> {
     throw new Error('Your school account is not active. Contact your school administrator.');
   }
   const role = normalizedAppRole(profile.role);
-  if (!['School Admin', 'Registrar', 'Teacher'].includes(role)) {
+  if (!['Developer', 'School Admin', 'Registrar', 'Teacher'].includes(role)) {
     throw new Error('Your account role is not allowed to use EduAI.');
   }
 

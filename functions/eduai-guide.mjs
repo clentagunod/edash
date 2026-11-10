@@ -19,13 +19,14 @@ const overlap = (text, query) => [...new Set(tokens(text))].filter(token => quer
 /** Retrieve only curated, role-allowed documentation; history never changes authorization. */
 export function selectEduAiGuideEntries(question, role, history = []) {
   if (!Object.hasOwn(rolePolicies, role)) return [];
+  const guideRole = role === 'Developer' ? 'School Admin' : role;
   const current = String(question || '').slice(0, 2000);
   const query = new Set(tokens(current));
   const followUp = /\b(that|those|this|it|same|more|continue|ito|iyon|yun)\b/i.test(current) && query.size <= 5;
   const previousQuestions = Array.isArray(history) ? history.filter(message => message?.role === 'user' && typeof message.content === 'string').slice(-2) : [];
   const previous = followUp ? new Set(tokens(previousQuestions.map(message => message.content.slice(0, 2000)).join(' '))) : new Set();
   const broad = /\b(all|every|whole|complete|overview|sidebar|navigation|directory|lahat)\b/i.test(current);
-  const ranked = guideEntries.filter(entry => !entry.roles || entry.roles.includes(role)).map(entry => {
+  const ranked = guideEntries.filter(entry => !entry.roles || entry.roles.includes(guideRole)).map(entry => {
     const keyText = entry.keywords.join(' ');
     const currentScore = overlap(entry.title, query) * 5 + overlap(keyText, query) * 3;
     const bodyMatches = overlap(entry.guidance, query);

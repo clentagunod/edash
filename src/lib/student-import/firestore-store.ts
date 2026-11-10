@@ -8,7 +8,7 @@ export const studentImportStore: StudentImportStore = {
     const uid = auth.currentUser?.uid;
     if (!uid) throw new Error('Sign in with an active School Admin account.');
     const profile = await db.collection('users').doc(uid).get({ source: 'server' });
-    if (profile.data()?.role !== 'School Admin' || profile.data()?.status !== 'Active') {
+    if (!['Developer', 'School Admin'].includes(profile.data()?.role) || profile.data()?.status !== 'Active') {
       throw new Error('An active School Admin account is required to import students.');
     }
   },

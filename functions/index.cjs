@@ -27,7 +27,7 @@ exports.deleteAuthUsers = onCall({ region: "us-central1" }, async (request) => {
   const callerId = request.auth.uid;
   const callerSnapshot = await getFirestore().collection("users").doc(callerId).get();
   const caller = callerSnapshot.data();
-  if (!callerSnapshot.exists || caller?.role !== "School Admin" || caller?.status !== "Active") {
+  if (!callerSnapshot.exists || !["Developer", "School Admin"].includes(caller?.role) || caller?.status !== "Active") {
     throw new HttpsError("permission-denied", "Only an active School Admin can remove user accounts.");
   }
 
@@ -45,6 +45,10 @@ exports.deleteAuthUsers = onCall({ region: "us-central1" }, async (request) => {
   }
 
   try {
+    const profiles = await getFirestore().getAll(...userIds.map((uid) => getFirestore().collection("users").doc(uid)));
+    if (profiles.some((profile) => profile.data()?.role === "Developer")) {
+      throw new HttpsError("permission-denied", "Developer accounts must be managed manually in Firebase Console.");
+    }
     const result = await getAuth().deleteUsers(userIds);
     const failures = result.errors.filter((entry) => entry.error.code !== "auth/user-not-found");
 

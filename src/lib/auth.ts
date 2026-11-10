@@ -130,7 +130,6 @@ export function initLoginPage() {
       await authPersistenceReady;
       const credential = await auth.signInWithEmailAndPassword(email, password);
       clearVisitorSession();
-      void LPSApi.recordAuditEvent("LOGIN", { ipSession: appSessionId() }).catch(() => {});
       // Cache a small display profile so pages can render a name and role
       // instantly without waiting on a Firestore lookup after the redirect.
       // Never store passwords here. Resolve the role with the fresh sign-in so
@@ -160,6 +159,10 @@ export function initLoginPage() {
         // sign-in. The auth guard on the next page retries automatically.
       }
       sessionStorage.setItem(LPS_SESSION_KEY, JSON.stringify(sessionProfile));
+      // Resolve the new account before auditing; the previous session may have
+      // belonged to a different role. The audit service also checks Firestore.
+      setAppUserProfile(sessionProfile);
+      void LPSApi.recordAuditEvent("LOGIN", { ipSession: appSessionId() }).catch(() => {});
       sessionStorage.setItem(LPS_POST_LOGIN_NOTICE_KEY, "1");
       window.location.href = `${APP_PAGE_PREFIX}${landingPageForProfile(sessionProfile)}`;
     } catch (err) {

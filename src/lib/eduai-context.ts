@@ -1,6 +1,6 @@
 import { buildEduAiGraphs, type EduAiGraph } from './eduai-graphs';
 
-export type EduAiRole = 'School Admin' | 'Registrar' | 'Teacher';
+export type EduAiRole = 'Developer' | 'School Admin' | 'Registrar' | 'Teacher';
 export type EduAiMessageRole = 'user' | 'assistant';
 
 export interface EduAiMessage {
@@ -44,7 +44,7 @@ export function buildEduAiContext(
   learners: Array<Record<string, unknown>>,
 ): EduAiContext {
   const role = String(roleValue || '').trim();
-  if (!['School Admin', 'Registrar', 'Teacher'].includes(role)) {
+  if (!['Developer', 'School Admin', 'Registrar', 'Teacher'].includes(role)) {
     throw new Error('Your account role is not allowed to use EduAI.');
   }
 

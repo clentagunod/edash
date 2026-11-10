@@ -30,6 +30,7 @@ describe('EduAI preferences', () => {
   });
 
   it('provides distinct safe defaults for each supported account role', () => {
+    expect(defaultEduAiSettingsForRole('Developer')).toEqual(defaultEduAiSettingsForRole('School Admin'));
     expect(Object.keys(EDUAI_ROLE_DEFAULTS)).toEqual(['School Admin', 'Registrar', 'Teacher']);
     expect(defaultEduAiSettingsForRole('Teacher').learnerNameLimit).toBe(0);
     expect(defaultEduAiSettingsForRole('Registrar').learnerNameLimit).toBe(50);

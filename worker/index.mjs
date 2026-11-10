@@ -15,7 +15,7 @@ const {
   validateProviderConfiguration,
 } = providerHelpers;
 const FIREBASE_CERT_URL = "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com";
-const ALLOWED_ROLES = new Set(["School Admin", "Registrar", "Teacher"]);
+const ALLOWED_ROLES = new Set(["Developer", "School Admin", "Registrar", "Teacher"]);
 const ALLOWED_MODELS = new Set(["gemini-3.5-flash-lite"]);
 const OUTPUT_OPTIONS = new Set([256, 512, 768, 1024, 1536, 2048]);
 const TIMEOUT_OPTIONS = new Set([30, 45, 60, 90, 120]);

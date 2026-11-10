@@ -214,6 +214,7 @@ export function appSessionId() {
 export function normalizedAppRole(role) {
   const value = String(role || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
   if (value === "schooladmin" || value === "admin" || value === "schooladministrator") return "School Admin";
+  if (value === "developer") return "Developer";
   if (value === "registrar") return "Registrar";
   if (value === "teacher") return "Teacher";
   if (value === "visitor") return "Visitor";
@@ -382,13 +383,15 @@ export function isVisitorSession() {
     return false;
   }
 }
-export function canManageLearners() { return ["School Admin", "Registrar", "Teacher"].includes(appRole()); }
-export function isSchoolAdmin() { return appRole() === "School Admin"; }
+export function canManageLearners() { return ["Developer", "School Admin", "Registrar", "Teacher"].includes(appRole()); }
+/** Administrator capabilities include the manually assigned Developer role. */
+export function isSchoolAdmin() { return ["Developer", "School Admin"].includes(appRole()); }
+export function isDeveloper() { return appRole() === "Developer"; }
 export function isRegistrar() { return appRole() === "Registrar"; }
 export function isTeacher() { return appRole() === "Teacher"; }
 export function canViewGradesProfile() {
   const role = appRole();
-  return !role || ["School Admin", "Registrar", "Teacher"].includes(role);
+  return !role || ["Developer", "School Admin", "Registrar", "Teacher"].includes(role);
 }
 
 export function paginationPageNumbers(page, pageCount) {

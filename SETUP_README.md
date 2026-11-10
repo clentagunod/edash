@@ -50,6 +50,45 @@ For each school:
 
 Do not use a service-account key as the browser Firebase config. Keep privileged keys outside the project folder, for example `C:\secure\firebase-admin\school-admin.json`.
 
+### 3.1. Manually assign the Developer role
+
+Developer has the same application access as School Admin, is omitted from the
+user directory (including its search and adviser lists), and does not create
+entries in the application's Audit Log. Only Developers see the non-clickable
+**Developer Settings — In development** option beside Admin Console in Settings.
+The role is never offered in account creation or editing.
+
+For each school where you need this account:
+
+1. Create the account in that school's **Firebase Authentication**, or use an
+   existing account, and copy its UID.
+2. In that school's Firestore database, create or edit `users/{AUTH_UID}`. Set
+   `role` to the exact string `Developer` and `status` to `Active`. Include `name`
+   and `email` strings for the account's display profile. Do not store passwords.
+3. Publish the updated root `firestore.rules` to the tenant project. The bundled
+   copy in `src/edash_provision/assets/firestore.rules` is kept identical. These
+   rules grant Developer admin access and prevent browser clients, including
+   admins and Developers, from assigning, demoting, or deleting Developer profiles.
+   Developers can still update their own name, preferences, and profile photo.
+4. Update the tenant's Apps Script project with `gscripts/Auditlog.gs` and deploy
+   a new version of its existing Web App deployment. Server-side audit suppression
+   uses the authenticated account's Firestore role, including for login/logout.
+   The script also allows Developer to view admin data and delete ordinary users,
+   while protecting Developer accounts from its Auth deletion endpoint.
+5. Deploy the updated website. If you use EduAI, redeploy `worker/index.mjs` with
+   its shared `functions/` modules. If the legacy `deleteAuthUsers` Cloud Function
+   is deployed, redeploy that function as well so its privileged endpoint protects
+   Developer accounts and accepts Developer callers.
+6. Sign out and back in to refresh the account profile.
+
+Change or remove the Developer role manually in Firestore. Remove its Auth account
+manually in Firebase Authentication if required. Database restores preserve existing
+Developer profiles and their subcollections, and skip Developer profiles supplied
+by a backup; a backup cannot assign this role. Full database backups can contain
+Developer profiles; hiding the directory entry does not hide database contents
+from an administrator with backup access. Existing Audit Log rows and platform
+provider logs are unchanged.
+
 ## 4. Generate the tenant Firestore structure
 
 For a desktop alternative, run `conda activate provisionenv` and `python main.py` from the root to open **Edash Provision**. Its Tenant provision mode includes the documented defaults, custom JSON structure support, optional service-key authentication, rule/index checkboxes, offline dry run, command preview, and logs. Registration mode handles central school entries separately. The app is self-contained in `main.py` plus `src/edash_provision/`; see the [desktop guide](./src/edash_provision/README.md) for dependencies and how to copy it into another project. Its optional initial administrator profile requires an existing Firebase Authentication UID.

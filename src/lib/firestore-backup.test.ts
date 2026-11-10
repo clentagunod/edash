@@ -170,6 +170,30 @@ describe("tenant database JSON backup", () => {
     expect(decoded.point.latitude).toBe(14.6);
   });
 
+  it.each(Object.values(FIRESTORE_BACKUP_MODES))('preserves manual Developer assignments during %s restore', async (mode) => {
+    const current = { role: 'Developer', status: 'Active', name: 'Developer' };
+    mockFirestore.state.documents.set('users/admin-1', { role: 'School Admin', status: 'Active' });
+    mockFirestore.state.documents.set('users/dev', current);
+    mockFirestore.state.documents.set('users/dev/assignmentHistory/2026-2027', { manual: true });
+    const backup = makeBackup([
+      { path: 'users/admin-1', data: { role: 'School Admin', status: 'Active' } },
+      { path: 'users/dev', data: { role: 'Teacher', status: 'Inactive' } },
+      { path: 'users/new-dev', data: { role: 'Developer', status: 'Active' } },
+    ]);
+    await restoreFirestoreBackup(backup, mode);
+    expect(mockFirestore.state.documents.get('users/dev')).toEqual(current);
+    expect(mockFirestore.state.documents.get('users/dev/assignmentHistory/2026-2027')).toEqual({ manual: true });
+    expect(mockFirestore.state.documents.has('users/new-dev')).toBe(false);
+  });
+
+  it('allows a Developer to restore a backup containing their active account', async () => {
+    const backup = makeBackup([{ path: 'users/admin-1', data: { role: 'Developer', status: 'Active' } }]);
+    mockFirestore.state.documents.set('users/admin-1', backup.documents[0].data);
+    expect(validateFirestoreBackup(backup)).toBe(backup);
+    await restoreFirestoreBackup(backup);
+    expect(mockFirestore.state.documents.get('users/admin-1')?.role).toBe('Developer');
+  });
+
   it("allows only supported app-managed document paths", () => {
     expect(isSupportedFirestoreBackupPath("users/admin-1")).toBe(true);
     expect(isSupportedFirestoreBackupPath("schoolYears/2025-2026/grades/Grade-1/sections/A/teachers/user-1")).toBe(true);

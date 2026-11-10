@@ -160,7 +160,7 @@ function validateBackupDocuments(value) {
 
 function validateBackupActiveAdmin(value, activeAdminUid) {
   const activeAdmin = value.documents.find(({ path }) => path === `${FS_USERS}/${activeAdminUid}`)?.data;
-  if (!activeAdmin || activeAdmin.role !== "School Admin" || activeAdmin.status !== "Active") {
+  if (!activeAdmin || !["Developer", "School Admin"].includes(activeAdmin.role) || activeAdmin.status !== "Active") {
     throw new Error("The backup must include your active School Admin account so this school remains manageable after restore.");
   }
 }
@@ -371,19 +371,25 @@ export async function restoreFirestoreBackup(value, mode = FIRESTORE_BACKUP_MODE
   const safetyBackup = await collectFirestoreBackup();
   if (safetyBackup.documents.length) downloadFirestoreBackupFile(safetyBackup, "edash-pre-restore");
 
-  let documentsToWrite = preparedDocuments;
-  let skipped = 0;
+  // Developer roles are managed manually. Restore must neither grant this role
+  // from a file nor overwrite/delete an existing Developer profile or its data.
+  const developerPaths = new Set([...safetyBackup.documents, ...backup.documents]
+    .filter(({ path, data }) => path.split("/").length === 2 && path.startsWith(`${FS_USERS}/`) && data.role === "Developer")
+    .map(({ path }) => path));
+  const isDeveloperPath = (path) => [...developerPaths].some((root) => path === root || path.startsWith(`${root}/`));
+  let documentsToWrite = preparedDocuments.filter(({ path }) => !isDeveloperPath(path));
+  let skipped = preparedDocuments.length - documentsToWrite.length;
   if (mode === FIRESTORE_BACKUP_MODES.EXTEND) {
     const existingDocuments = [];
-    for (let start = 0; start < preparedDocuments.length; start += FIRESTORE_BATCH_SIZE) {
-      const documentChunk = preparedDocuments.slice(start, start + FIRESTORE_BATCH_SIZE);
+    for (let start = 0; start < documentsToWrite.length; start += FIRESTORE_BATCH_SIZE) {
+      const documentChunk = documentsToWrite.slice(start, start + FIRESTORE_BATCH_SIZE);
       existingDocuments.push(...await Promise.all(documentChunk.map(async (entry) => ({
         ...entry,
         exists: (await entry.ref.get()).exists,
       }))));
     }
     documentsToWrite = existingDocuments.filter(({ exists }) => !exists);
-    skipped = existingDocuments.length - documentsToWrite.length;
+    skipped += existingDocuments.length - documentsToWrite.length;
   }
 
   if (status) status.textContent = `${mode === FIRESTORE_BACKUP_MODES.REPLACE ? "Replacing" : mode === FIRESTORE_BACKUP_MODES.MERGE ? "Merging" : "Extending"} ${documentsToWrite.length.toLocaleString()} documents…`;
@@ -399,7 +405,7 @@ export async function restoreFirestoreBackup(value, mode = FIRESTORE_BACKUP_MODE
   }
 
   const staleDocuments = mode === FIRESTORE_BACKUP_MODES.REPLACE ? safetyBackup.documents
-    .filter(({ path }) => !incomingPaths.has(path) && path !== activeAdminPath)
+    .filter(({ path }) => !incomingPaths.has(path) && path !== activeAdminPath && !isDeveloperPath(path))
     .map(({ path }) => ({ path, ref: db.doc(path) })) : [];
   for (let start = 0; start < staleDocuments.length; start += FIRESTORE_BATCH_SIZE) {
     const batch = db.batch();

@@ -492,12 +492,12 @@ export default function EduAiAssistant() {
                 <button type="button" onClick={() => setQuestion('How do I use the Masterlist to find a learner?')}>How do I use the Masterlist?</button>
                 <button type="button" onClick={() => setQuestion('Summarize the learner counts by grade level.')}>Summarize learner counts</button>
                 <button type="button" onClick={() => setQuestion('Interpret the school graphs. Explain the key categories and compare relevant periods using the aggregate counts and percentages.')}>Read school graphs</button>
-                <button type="button" onClick={() => setQuestion(context?.role === 'School Admin'
+                <button type="button" onClick={() => setQuestion(['Developer', 'School Admin'].includes(context?.role || '')
                   ? 'How do I import students, and how is that different from restoring a tenant database backup?'
                   : context?.role === 'Registrar'
                     ? 'What can I manage as a Registrar, and how do I record transfers or dropouts?'
                     : 'What can I do with my assigned classes, and when can I use promotion or retention?')}>
-                  {context?.role === 'School Admin' ? 'Import students & backups' : context?.role === 'Registrar' ? 'Registrar workflows' : 'My teaching permissions'}
+                  {['Developer', 'School Admin'].includes(context?.role || '') ? 'Import students & backups' : context?.role === 'Registrar' ? 'Registrar workflows' : 'My teaching permissions'}
                 </button>
               </div>
             </div>

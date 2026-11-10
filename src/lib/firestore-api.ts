@@ -4,7 +4,7 @@ import { LPSApi } from './sheets-api';
 import { displayNameFromEmail } from './auth';
 import { PROGRAM_FIELD_MAP } from './learner-list';
 import { auth, db, getUserCreationAuth, parentDb, userCreationAuth } from './firebase';
-import { APP_CONFIG, appRole, appSessionId, isTeacher, isVisitorSession, normalizeTeacherAssignmentsForStorage, setAppUserProfile, storedAppProfile, teacherAssignmentSecurityKeys } from './app-config';
+import { APP_CONFIG, appRole, appSessionId, isDeveloper, isSchoolAdmin, isTeacher, isVisitorSession, normalizedAppRole, normalizeTeacherAssignmentsForStorage, setAppUserProfile, storedAppProfile, teacherAssignmentSecurityKeys } from './app-config';
 import { LPSCache, PUBLIC_STATS_CACHE_TTL_MS } from './cache';
 import { CURRICULUM_GRADE_LEVELS, CURRICULUM_SUBJECTS, curriculumSubjectIdFromLabel, isCustomCurriculumSubjectId, normalizeCurriculumGrade, normalizeCurriculumSubjectIds, normalizeCurriculumSubjectPool } from './curriculum-subjects';
 import { isAppTheme } from './themes';
@@ -154,7 +154,7 @@ export async function fsGetTrash(schoolYear) {
     );
   }
 
-  if (appRole() === "School Admin") await fsEnsureTeacherTrashAccessKeys_();
+  if (isSchoolAdmin()) await fsEnsureTeacherTrashAccessKeys_();
   const snapshot = await collection.orderBy("deletedAt", "desc").get();
   const items = snapshot.docs.map((doc) => ({ trashId: doc.id, ...doc.data() }));
   const updates = items.flatMap((item, index) => {
@@ -298,6 +298,7 @@ export async function fsWriteAuditedSettings_(ref, value) {
 
 /** Best-effort audit log write to the existing Sheets-backed AuditLog. Never blocks the caller. */
 export function fsAudit_(action, details) {
+  if (isDeveloper()) return;
   if (typeof LPSApi !== "undefined" && LPSApi.recordAuditEvent) {
     LPSApi.recordAuditEvent(action, { ipSession: typeof appSessionId === "function" ? appSessionId() : "", ...details }).catch(() => {});
   }
@@ -529,12 +530,22 @@ export async function fsGetMyProfile(user = null) {
 export async function fsGetUsers() {
   // A live snapshot already in memory is fresher than any cache entry — use it.
   const live = fsLiveData_("users", "");
-  if (Array.isArray(live)) return live;
+  if (Array.isArray(live)) return live.filter(isDirectoryUser);
   const load = async () => {
     const snapshot = await db.collection(FS_USERS).orderBy("name").get();
-    return snapshot.docs.map((doc) => ({ userId: doc.id, ...doc.data() }));
+    return snapshot.docs.map((doc) => ({ userId: doc.id, ...doc.data() })).filter(isDirectoryUser);
   };
-  return typeof LPSCache === "undefined" ? load() : LPSCache.getOrLoad("firestore_users", load, 30000, 120000);
+  const users = await (typeof LPSCache === "undefined" ? load() : LPSCache.getOrLoad("firestore_users", load, 30000, 120000));
+  return users.filter(isDirectoryUser);
+}
+
+/** Filter snapshots and cached rows, including a cache created before this role existed. */
+export function isDirectoryUser(profile) {
+  return normalizedAppRole(profile?.role) !== "Developer";
+}
+
+function assertDirectoryUser(profile) {
+  if (!isDirectoryUser(profile)) throw new Error("Developer accounts can only be managed directly in Firestore.");
 }
 
 function fsTeacherAssignmentsFromProfile_(profile = {}) {
@@ -700,6 +711,7 @@ async function fsCopyTeacherAssignmentsForYear_(sourceYear, targetYear, targetSe
 }
 
 export async function fsAddUser(record) {
+  assertDirectoryUser(record);
   let createdUser = null;
   let creationAuth = null;
   try {
@@ -754,10 +766,12 @@ export async function fsAddUser(record) {
 }
 
 export async function fsUpdateUser(userId, record) {
+  assertDirectoryUser(record);
   try {
     const ref = db.collection(FS_USERS).doc(userId);
     const before = await ref.get();
     const existingProfile = before.exists ? before.data() || {} : {};
+    assertDirectoryUser(existingProfile);
     const existingAssignments = fsTeacherAssignmentsFromProfile_(existingProfile);
     const requestedAssignments = normalizeTeacherAssignmentsForStorage(record.teacherAssignments || (record.teacherAssignment ? [record.teacherAssignment] : []));
     let teacherAssignments = [];
@@ -884,6 +898,7 @@ export async function fsDeleteUser(userId) {
   try {
     const ref = db.collection(FS_USERS).doc(userId);
     const profile = await ref.get();
+    assertDirectoryUser(profile.data());
     if (profile.exists && profile.data()?.role === "Teacher") {
       await fsSyncTeacherSectionLinks_(userId, { teacherAssignments: [] }, fsTeacherAssignmentsFromProfile_(profile.data()));
     }
@@ -904,6 +919,7 @@ export async function fsDeleteUsers(userIds) {
   }
   try {
     const profiles = await Promise.all(userIds.map((id) => db.collection(FS_USERS).doc(id).get()));
+    profiles.forEach((profile) => assertDirectoryUser(profile.data()));
     await Promise.all(profiles.map((profile, index) => profile.exists && profile.data()?.role === "Teacher"
       ? fsSyncTeacherSectionLinks_(userIds[index], { teacherAssignments: [] }, fsTeacherAssignmentsFromProfile_(profile.data()))
       : Promise.resolve()));
@@ -925,7 +941,7 @@ export function fsSubscribeUsers(onChange, onError) {
   const key = fsLiveKey_("users", "");
   return fsSubscribeLive_(key, () =>
     db.collection(FS_USERS).orderBy("name").onSnapshot(
-      (snapshot) => fsLiveSet_(key, snapshot.docs.map((doc) => ({ userId: doc.id, ...doc.data() })), "firestore_users"),
+      (snapshot) => fsLiveSet_(key, snapshot.docs.map((doc) => ({ userId: doc.id, ...doc.data() })).filter(isDirectoryUser), "firestore_users"),
       (error) => fsLiveError_(key, fsError_("Live user updates", error))
     ), onChange, onError);
 }
@@ -2025,7 +2041,7 @@ export function fsSubscribeRecordDocumentPreferences(next: (value: RecordDocumen
 }
 
 export async function fsSetRecordDocumentPreference(kind: RecordDocumentKind, input: unknown): Promise<RecordDocumentPreference> {
-  if (appRole() !== 'School Admin') throw new Error('Only a School Admin can configure printable preferences.');
+  if (!isSchoolAdmin()) throw new Error('Only a School Admin can configure printable preferences.');
   const value = validateRecordDocumentPreference(kind, input);
   const ref = db.collection(FS_SETTINGS).doc('toggles');
   await ref.set({ printables: { [kind]: value } }, { mergeFields: [`printables.${kind}`] });
@@ -2653,7 +2669,7 @@ export async function fsMarkSf10RequestEmailed(schoolYear: string, learnerIds: s
   const year = fsNormalizeSchoolYear_(schoolYear);
   const match = /^(\d{4})-(\d{4})$/.exec(year);
   if (!match || Number(match[2]) !== Number(match[1]) + 1) throw new Error('A valid school year is required to track SF10 requests.');
-  if (!staffUid || auth.currentUser?.uid !== staffUid || !['School Admin', 'Registrar'].includes(appRole())) {
+  if (!staffUid || auth.currentUser?.uid !== staffUid || !['Developer', 'School Admin', 'Registrar'].includes(appRole())) {
     throw new Error('Sign in with the same authorized school account to update document statuses.');
   }
   const emailRecord = sf10EmailRecord(receipt);

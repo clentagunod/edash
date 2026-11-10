@@ -1,6 +1,6 @@
 
 import preferenceDefaults from '../../shared/user-preferences.json';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockAuth = {
   currentUser: null,
@@ -40,6 +40,101 @@ const { loadDashboardData, renderRecentTable } = await import('./dashboard');
 const { sentenceCaseName } = await import('./learner-list');
 const firestoreApi = await import('./firestore-api');
 const demoData = await import('./demo-data');
+
+describe('manually assigned Developer role', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    sessionStorage.clear();
+    setAppUserProfile({ uid: 'developer', role: 'Developer', status: 'Active' });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    setAppUserProfile(null);
+    sessionStorage.clear();
+  });
+
+  it('grants admin, learner, grades, printable, and preferred landing-page access', async () => {
+    const config = await import('./app-config');
+    const { canAccessPrintable } = await import('./printable-access');
+    const { landingPageForProfile } = await import('./user-preferences');
+    expect(config.normalizedAppRole('developer')).toBe('Developer');
+    expect(config.isDeveloper()).toBe(true);
+    expect(config.isSchoolAdmin()).toBe(true);
+    expect(config.canManageLearners()).toBe(true);
+    expect(config.canViewGradesProfile()).toBe(true);
+    expect(config.isTeacher()).toBe(false);
+    for (const kind of ['student-card', 'enrollment', 'sf10-request'] as const) expect(canAccessPrintable(kind)).toBe(true);
+    expect(landingPageForProfile({ role: 'Developer', teacherPrefs: { landingPage: 'masterlist.html' } })).toBe('masterlist.html');
+  });
+
+  it('does not send Developer events to the audit service', async () => {
+    const fetch = vi.spyOn(globalThis, 'fetch');
+    for (const action of ['LOGIN', 'LOGOUT', 'SETTINGS_UPDATE', 'LEARNER_UPDATE']) {
+      await expect(LPSApi.recordAuditEvent(action)).resolves.toEqual({ recorded: false });
+    }
+    expect(fetch).not.toHaveBeenCalled();
+    const audit = vi.spyOn(LPSApi, 'recordAuditEvent');
+    firestoreApi.fsAudit_('USER_DELETE', {});
+    expect(audit).not.toHaveBeenCalled();
+  });
+
+  it('filters fresh, cached, and live Developer profiles from the directory', async () => {
+    const { LPSCache } = await import('./cache');
+    LPSCache.clear();
+    const rows = [{ userId: 'dev', role: 'Developer' }, { userId: 'teacher', role: 'Teacher' }];
+    const snapshot = { docs: rows.map(({ userId, ...data }) => ({ id: userId, data: () => data })) };
+    let nextSnapshot: (value: typeof snapshot) => void;
+    vi.spyOn(mockDb, 'collection').mockReturnValue({ orderBy: () => ({
+      get: async () => snapshot,
+      onSnapshot: (next) => { nextSnapshot = next; return () => {}; },
+    }) } as never);
+    expect(await firestoreApi.fsGetUsers()).toEqual([rows[1]]);
+    LPSCache.write('firestore_users', rows, 30000);
+    expect(await firestoreApi.fsGetUsers()).toEqual([rows[1]]);
+    const onChange = vi.fn();
+    const unsubscribe = firestoreApi.fsSubscribeUsers(onChange);
+    try {
+      nextSnapshot!(snapshot);
+      expect(onChange).toHaveBeenLastCalledWith([rows[1]]);
+      expect(await firestoreApi.fsGetUsers()).toEqual([rows[1]]);
+    } finally {
+      unsubscribe();
+      LPSCache.clear();
+    }
+  });
+
+  it('blocks Developer assignment and account modification through the client API', async () => {
+    await expect(firestoreApi.fsAddUser({ role: 'Developer' })).rejects.toThrow(/directly in Firestore/);
+    await expect(firestoreApi.fsUpdateUser('teacher', { role: 'Developer' })).rejects.toThrow(/directly in Firestore/);
+    const batch = vi.spyOn(mockDb, 'batch');
+    vi.spyOn(mockDb, 'collection').mockReturnValue({ doc: () => ({
+      get: async () => ({ exists: true, data: () => ({ role: 'Developer' }) }),
+    }) } as never);
+    const removeAuth = vi.spyOn(LPSApi, 'deleteAuthUsers');
+    await expect(firestoreApi.fsUpdateUser('dev', { role: 'Teacher' })).rejects.toThrow(/directly in Firestore/);
+    await expect(firestoreApi.fsDeleteUser('dev')).rejects.toThrow(/directly in Firestore/);
+    await expect(firestoreApi.fsDeleteUsers(['dev'])).rejects.toThrow(/directly in Firestore/);
+    expect(batch).not.toHaveBeenCalled();
+    expect(removeAuth).not.toHaveBeenCalled();
+  });
+
+  it('authorizes student import from the server-owned active Developer profile', async () => {
+    const { studentImportStore } = await import('./student-import/firestore-store');
+    mockAuth.currentUser = { uid: 'developer' } as never;
+    let status = 'Active';
+    const get = vi.fn(async () => ({ data: () => ({ role: 'Developer', status }) }));
+    vi.spyOn(mockDb, 'collection').mockReturnValue({ doc: () => ({ get }) } as never);
+    try {
+      await expect(studentImportStore.authorize()).resolves.toBeUndefined();
+      expect(get).toHaveBeenCalledWith({ source: 'server' });
+      status = 'Inactive';
+      await expect(studentImportStore.authorize()).rejects.toThrow(/active School Admin/);
+    } finally {
+      mockAuth.currentUser = null;
+    }
+  });
+});
 
 describe('shared application configuration', () => {
   it('centralizes school identity, browser branding, and Firestore schema names', () => {

@@ -108,6 +108,8 @@ describe("tenant learner creation rules", { timeout: 30000 }, () => {
       inactiveTeacher: { role: "Teacher", status: "Inactive" },
       visitor: { role: "Visitor", status: "Active" },
       admin: { role: "School Admin", status: "Active" },
+      developer: { role: "Developer", status: "Active" },
+      inactiveDeveloper: { role: "Developer", status: "Inactive" },
       registrar: { role: "Registrar", status: "Active" },
     };
     await Promise.all(Object.entries(profiles).map(([uid, profile]) => seed(`users/${uid}`, profile)));
@@ -202,12 +204,43 @@ describe("tenant learner creation rules", { timeout: 30000 }, () => {
     denied(await create(learner, null));
   });
 
-  for (const uid of ["admin", "registrar"]) {
+  for (const uid of ["admin", "registrar", "developer"]) {
     it(`preserves ${uid} learner creation even when Teacher promotion is disabled`, async () => {
       await seed("settings/toggles", { canPromoteStudents: false });
       allowed(await create({ ...learner, ...progression }, token(uid)));
     });
   }
+
+  it("grants active Developer administrator access but denies inactive Developer", async () => {
+    allowed(await request(`${documents}/schoolYears/${year}`, {
+      method: "PATCH", auth: token("developer"), body: { fields: fields({ schoolYear: year, isCurrent: true }) },
+    }));
+    denied(await create(learner, token("inactiveDeveloper")));
+    allowed(await request(`${documents}/users/new-teacher`, {
+      method: "PATCH", auth: token("developer"), body: { fields: fields({ role: "Teacher", status: "Active" }) },
+    }));
+  });
+
+  for (const caller of ["admin", "developer", "teacher"]) {
+    it(`blocks ${caller} from assigning, demoting, or deleting Developer profiles`, async () => {
+      for (const uid of ["new-developer", "teacher"]) {
+        denied(await request(`${documents}/users/${uid}`, {
+          method: "PATCH", auth: token(caller), body: { fields: fields({ role: "Developer", status: "Active" }) },
+        }));
+      }
+      denied(await request(`${documents}/users/developer`, {
+        method: "PATCH", auth: token(caller), body: { fields: fields({ role: "School Admin", status: "Active" }) },
+      }));
+      denied(await request(`${documents}/users/developer`, { method: "DELETE", auth: token(caller) }));
+    });
+  }
+
+  it("allows Developer to update their own name while preserving the manual role", async () => {
+    allowed(await request(`${documents}/users/developer`, {
+      method: "PATCH", auth: token("developer"),
+      body: { fields: fields({ role: "Developer", status: "Active", name: "Updated name" }) },
+    }));
+  });
 
   async function restore({ uid = "teacher", change = {}, includeTrash = true } = {}) {
     const trashId = "fixture-trash";

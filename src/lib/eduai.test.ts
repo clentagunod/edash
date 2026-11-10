@@ -2,6 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { buildEduAiContext } from './eduai-context';
 
 describe('EduAI context', () => {
+  it('gives Developer the same school-wide context as School Admin', () => {
+    const learners = [{ firstName: 'Sample', gradeLevel: 'Grade 6', section: 'A' }];
+    const developer = buildEduAiContext('Developer', '2026-2027', learners);
+    const admin = buildEduAiContext('School Admin', '2026-2027', learners);
+    expect(developer).toEqual({ ...admin, role: 'Developer' });
+  });
   it('includes aggregate summaries and student names without sending student records or marks', () => {
     const context = buildEduAiContext('School Admin', '2026-2027', [{
       firstName: 'Ari',

@@ -1,5 +1,5 @@
 // @ts-nocheck -- ported from the original site; behavior preserved, not yet fully typed.
-import { APP_CONFIG, isVisitorSession } from './app-config';
+import { APP_CONFIG, isDeveloper, isVisitorSession } from './app-config';
 import { LPSCache } from './cache';
 import { beginNetworkLoading, endNetworkLoading } from './shell';
 import { SHEETS_API_URL, auth, authPersistenceReady } from './firebase';
@@ -296,6 +296,7 @@ export const LPSApi = (() => {
       return parseResponse(await fetchWithTimeout(url.toString(), { method: "GET", redirect: "follow" }));
     },
     recordAuditEvent: async (auditAction, details = {}) => {
+      if (isDeveloper()) return { recorded: false };
       return postAudit("recordAuditEvent", { auditAction, ...details });
     },
     addUser: (userRecord) => post("addUser", { userRecord }),

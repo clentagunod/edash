@@ -1,7 +1,7 @@
 import { normalizeUserPreferences, LANDING_PAGES, type UserPreferences } from './user-preferences';
 import { applyUserPreferences, clearRememberedViews } from './preference-runtime';
 import { clearProfilePhotoCache, profilePhotoCacheStats } from './profile-photo-cache';
-import { APP_USER_PROFILE, isSchoolAdmin, storedAppProfile } from './app-config';
+import { APP_USER_PROFILE, isDeveloper, isSchoolAdmin, storedAppProfile } from './app-config';
 import { displayNameFromEmail, initials } from './auth';
 import { auth } from './firebase';
 import { fsUpdateMyPhotoURL, fsUpdateMyTeacherPrefs } from './firestore-api';
@@ -34,6 +34,8 @@ export function initSettingsPage() {
     adminConsoleOption.hidden = !isSchoolAdmin();
     adminConsoleOption.href = appPageHref('manage-users.html');
   }
+  const developerSettingsOption = document.getElementById('developerSettingsOption');
+  if (developerSettingsOption) developerSettingsOption.hidden = !isDeveloper();
   let photoURL = String(profile.photoURL || '');
   let sourceImage: HTMLImageElement | null = null;
   let imageObjectUrl = '';
@@ -285,7 +287,7 @@ export function initPreferencesPage() {
   const dialog = document.getElementById('resetPreferencesDialog') as HTMLDialogElement | null;
   const landingSelect = document.getElementById('landingPagePreference') as HTMLSelectElement | null;
   if (landingSelect) {
-    const staff = ['School Admin', 'Registrar', 'Teacher'].includes(profile.role);
+    const staff = ['Developer', 'School Admin', 'Registrar', 'Teacher'].includes(profile.role);
     landingSelect.replaceChildren(...Object.entries(LANDING_PAGES)
       .filter(([page]) => staff || ['dashboard.html', 'enrollment-data.html'].includes(page))
       .map(([page, label]) => new Option(label, page)));

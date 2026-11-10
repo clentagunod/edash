@@ -58,7 +58,8 @@ export function normalizeEduAiSettings(value: unknown): EduAiSettings {
 }
 
 export function defaultEduAiSettingsForRole(role: string): EduAiSettings {
-  const roleSettings = EDUAI_ROLE_DEFAULTS[role as keyof typeof EDUAI_ROLE_DEFAULTS];
+  const defaultsRole = role === 'Developer' ? 'School Admin' : role;
+  const roleSettings = EDUAI_ROLE_DEFAULTS[defaultsRole as keyof typeof EDUAI_ROLE_DEFAULTS];
   return normalizeEduAiSettings(roleSettings || DEFAULT_EDUAI_SETTINGS);
 }
 
@@ -74,7 +75,7 @@ export function resolveEduAiUserSettings(
     ? userSettings as { role?: string } & Partial<EduAiSettings>
     : {};
   const roleDefaults = normalizeEduAiSettings(
-    tenant.roleDefaults?.[role] || defaultEduAiSettingsForRole(role),
+    tenant.roleDefaults?.[role] || (role === 'Developer' ? tenant.roleDefaults?.['School Admin'] : undefined) || defaultEduAiSettingsForRole(role),
   );
   return {
     settings: saved.role === role
