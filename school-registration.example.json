@@ -1,5 +1,6 @@
 {
   "id": "sample-elementary",
+  "enabled": true,
   "name": "Sample Elementary School",
   "nickname": "Sample ES",
   "projectName": "Sample Learning Hub",
@@ -9,10 +10,15 @@
   "videoUrl": "",
   "canUseEduAI": false,
   "schoolInfo": {
+    "id": "001234",
     "region": "IX",
     "divisionOffice": "Schools Division Office of Davao de Oro",
     "district": "New Bataan",
-    "zipCode": ""
+    "schoolAddr": "",
+    "zipCode": "",
+    "contactNumber": "",
+    "email": "",
+    "fbPage": ""
   },
   "schoolHead": {
     "name": "",
