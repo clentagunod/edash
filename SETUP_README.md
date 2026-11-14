@@ -425,7 +425,7 @@ Requirements:
 - `id` is a stable lowercase slug, 2–63 characters, using letters, numbers, and hyphens; it becomes the Firestore document ID `schools/{id}`. Avoid changing it after publishing links to a school.
 - `name` is required (up to 120 characters); `nickname` is required (up to 64).
 - `colorGradientTag` is optional; when supplied, it must be a six-digit hexadecimal color (for example, `#50A61E`). It is copied to `schools/{id}.colorGradientTag` and used as the school's login-page accent.
-- `logoUrl` must be a same-site asset path or an HTTPS URL. `videoUrl` is empty or a same-site/HTTPS direct asset URL.
+- `logoUrl` accepts a website image path or an HTTPS image URL. `public/assets/school/logo.png`, `assets/school/logo.png`, and `/assets/school/logo.png` all resolve to `/assets/school/logo.png`, including from nested parent-portal routes. Place the image in the website's `public` folder and deploy it with the app; the registration tools store its reference without uploading it. Hosted HTTPS image URLs keep their remote host. The same path resolution applies to division/district logos and printed documents. `videoUrl` is empty or a same-site/HTTPS direct asset URL.
 - `schoolInfo` is optional and, when supplied, contains the printable school location map: `region`, `divisionOffice`, and `district` (each a string up to 160 characters). These are written on `schools/{id}.schoolInfo` and prefill the Student Card letterhead.
 - All six `firebaseConfig` values must be copied from that school's Firebase Web App settings.
 - `schoolHead`, `auditLogApiUrl`, and `feedbackApiUrl` are optional. When provided, school-head fields must be strings and each service URL must be empty or HTTPS.
@@ -543,7 +543,15 @@ npm test
 npm run build
 ```
 
-For Vercel, configure the same six `VITE_REGISTRY_FIREBASE_*` values in the deployment's environment settings, then redeploy. The app reads maintenance and test mode live from the central registry Firestore document `settings/modes` (`isMaintenanceMode` and `isTestMode` boolean fields); changing these values does not require a deployment. The central registry's Firestore rules must allow public reads of this document, as in `school-registry.rules`. Do not put secrets in any `VITE_*` variable because Vite embeds them in the browser bundle. The provided `vercel.json` rewrites app paths to `index.html`; Firebase Hosting settings are in `firebase.json`.
+For Vercel, configure the same six `VITE_REGISTRY_FIREBASE_*` values in the deployment's environment settings, then redeploy. The app reads maintenance and test mode live from the central registry Firestore document `settings/modes` (`isMaintenanceMode` and `isTestMode` boolean fields); changing these values does not require a deployment. The central registry's Firestore rules must allow public reads of this document, as in `school-registry.rules`. Do not put secrets in any `VITE_*` variable because Vite embeds them in the browser bundle. The provided `vercel.json` serves recognized app routes through the root application; Firebase Hosting settings are in `firebase.json`.
+
+### Clean page URLs on Vercel
+
+Use the Vite framework preset, build command `npm run build`, and output directory `dist`. Deploy the repository root so Vercel reads the committed `vercel.json` and the `api` directory. Page addresses use `/pages/dashboard`, `/pages/settings`, and other extensionless paths. Old `/pages/dashboard.html` links redirect permanently to the corresponding clean address; `/index.html` redirects to `/`, and `/pages` opens `/pages/dashboard`. Query parameters remain attached to redirects. Trailing slashes are removed consistently.
+
+Known page URLs, login, registration, and school-specific `/parent/{schoolId}` links serve the SPA on direct entry and refresh. API requests and static files keep their own routing: a missing JavaScript bundle, logo, or video returns a real 404 instead of application HTML. Unknown page names and directories also return 404. When adding a React route, update the corresponding rewrite allowlist in `vercel.json`; `scripts/vercel-routing.test.mjs` checks that every declared page remains reachable.
+
+The rewrite destination is `/` because `cleanUrls: true` requires extensionless rewrite targets. See [Vercel cleanUrls and rewrites](https://vercel.com/docs/project-configuration/vercel-json#rewrites). Local Vite testing does not emulate Vercel redirects. After deploying, verify one old `.html` link, a clean page refresh, a parent portal link, the registration API, an existing asset, and a missing asset in the deployed environment.
 
 After deployment, visit the site, select the new school, sign in with the administrator Auth account, and verify Firestore reads/writes. Verify audit log and feedback separately if configured. Confirm that the school appears only when its central registry document has `enabled: true`.
 

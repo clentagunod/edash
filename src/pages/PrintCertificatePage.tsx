@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import CertificateTemplate from '../components/CertificateTemplate';
 import RecordDocumentTemplate from '../components/RecordDocumentTemplate';
 import { APP_CONFIG, appDocumentTitle, isSchoolAdmin } from '../lib/app-config';
+import { appPagePath } from '../lib/page-paths';
 import { loginPageUrl, requireAuth } from '../lib/auth';
 import { auth } from '../lib/firebase';
 import { fsGetLearners, fsGetArchiveRecords, fsGetSchoolYears, fsSubscribeCertificatePreferences, fsSubscribeRecordDocumentPreferences, fsMarkSf10RequestEmailed } from '../lib/firestore-api';
@@ -29,7 +30,7 @@ const SCHOOL_FIELDS: Array<[keyof CertificateFields, string]> = [
   ['division', 'Schools division'], ['district', 'District'], ['schoolHead', 'School head'],
   ['schoolHeadPosition', 'School head position'], ['zipCode', 'School ZIP code'], ['fbPage', 'School Facebook page'],
   ['email', 'Email address'], ['contactNumber', 'Contact number'], ['motto', 'School motto / tagline'],
-  ['divisionLogo', 'Division logo URL'], ['districtLogo', 'District logo URL'], ['schoolLogo', 'School logo URL'],
+  ['divisionLogo', 'Division logo path or URL'], ['districtLogo', 'District logo path or URL'], ['schoolLogo', 'School logo path or URL'],
 ];
 const MM_TO_PX = 96 / 25.4;
 
@@ -339,7 +340,7 @@ export default function PrintCertificatePage({ kind }: { kind: PrintableDocument
       <div><span className="certificate-eyebrow">Printables</span><h1>{printable.title} print studio</h1><p>Choose students, review the information, and prepare your documents.</p></div>
       <div className="certificate-actions">
         {kind === 'sf10-request' && <button type="button" className="btn btn-secondary" disabled={!canOutput} onClick={() => setEmailOpen(true)}>Send with Gmail</button>}
-        <a className="btn btn-secondary" href={`/pages/${printable.page}`}>Back to {printable.title}</a>
+        <a className="btn btn-secondary" href={appPagePath(printable.page)}>Back to {printable.title}</a>
         <details className="certificate-export-menu"><summary className="btn btn-secondary">{busy ? 'Preparing…' : 'Export'}</summary><div>
           <button type="button" disabled={!canOutput} onClick={() => void output('pdf')}>Download PDF ({batch.length})</button>
           <button type="button" disabled={!canOutput} onClick={() => void output('docx')}>Download Word ({batch.length})</button>

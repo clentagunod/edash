@@ -3,6 +3,7 @@ import { getActiveSchool, getStoredSchool } from "./school-registry";
 import { DEFAULT_GRADE_TERMS_SETTINGS } from "./grading-config";
 import { normalizeRecordDocumentPreferences } from './record-document-preferences';
 import { normalizeSignatureLibrary } from './printable-signatures';
+import { normalizeAssetReference } from '../../shared/asset-reference.mjs';
 
 import userPreferenceDefaults from "../../shared/user-preferences.json";
 
@@ -119,15 +120,7 @@ export function appSchoolFilePrefix() {
 }
 
 export function appBrandAssetUrl(fileName) {
-  const input = String(fileName || "").trim();
-  try {
-    const url = new URL(input, window.location.origin);
-    if (url.protocol === "https:") return url.href;
-    if (url.origin === window.location.origin && url.protocol === window.location.protocol) return `${url.pathname}${url.search}${url.hash}`;
-  } catch (error) {
-    return "/assets/edash/edash.png";
-  }
-  return "/assets/edash/edash.png";
+  return normalizeAssetReference(fileName) || "/assets/edash/edash.png";
 }
 
 export function preloadSchoolLogo(logoUrl = getStoredSchool()?.logoUrl) {
@@ -150,8 +143,8 @@ export function updateSchoolFavicon(logoUrl = getStoredSchool()?.logoUrl) {
 }
 
 export const APP_IS_PAGES_ROUTE = /[\\/]pages[\\/]/i.test(window.location.pathname);
-export const APP_PAGE_PREFIX = APP_IS_PAGES_ROUTE ? "" : "pages/";
-export const APP_ASSET_PREFIX = APP_IS_PAGES_ROUTE ? "../assets/" : "assets/";
+export const APP_PAGE_PREFIX = "/pages/";
+export const APP_ASSET_PREFIX = "/assets/";
 export const APP_LOGIN_PATH = "/login";
 export let APP_USER_PROFILE = null;
 export function setAppUserProfile(profile) { APP_USER_PROFILE = profile; }

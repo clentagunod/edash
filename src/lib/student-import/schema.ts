@@ -28,7 +28,7 @@ const ALIASES: Record<string, string[]> = {
   schoolYear: ['school year', 'academic year', 'sy'],
   guardian: ['guardian', 'guardian name', 'parent guardian', 'parent guardian name', 'parent name', 'guardian if not parent name'],
   contact: ['contact', 'contact number', 'phone', 'phone number', 'mobile number', 'contact number of parent or guardian'],
-  is4Ps: ['4ps', '4ps beneficiary', 'is 4ps'],
+  is4Ps: ['4ps', '4ps beneficiary', 'is 4ps', 'cpp'],
   isIP: ['ip', 'ip ethnic group', 'indigenous peoples', 'ip learner'],
   isSNED: ['sned', 'sned learner', 'sped'],
   isARAL: ['aral', 'aral tagged'],

@@ -86,7 +86,7 @@ function headerBounds(table: Table, depth: number): [number, number] {
   throw new Error('The header must include LRN and learner name labels. Check the selected header depth or use Export template.');
 }
 
-function normalizeCell(field: string, value: Cell, options: ImportOptions, date1904: boolean): string | number | boolean {
+function normalizeCell(field: string, value: Cell, options: ImportOptions, date1904: boolean, sourceLabel = ''): string | number | boolean {
   if (typeof value === 'object' && value !== null) throw new Error('Expected a scalar value, not an object or array.');
   const text = field === 'anecdotalRecords'
     ? String(value ?? '').normalize('NFKC').replace(/\r\n?/g, '\n').trim()
@@ -111,6 +111,10 @@ function normalizeCell(field: string, value: Cell, options: ImportOptions, date1
     return year;
   }
   if (BOOLEAN_FIELDS.has(field)) {
+    // CPP records membership by the presence of a value (often a household ID).
+    // Other program columns retain their explicit yes/no interpretation.
+    const sourceKey = headerKey(sourceLabel.replace(/\([^)]*\)|\[[^\]]*\]/g, ' '));
+    if (field === 'is4Ps' && sourceKey === 'cpp') return true;
     const key = headerKey(text);
     if (['true', 'yes', 'y', '1', 'checked', 'x'].includes(key)) return true;
     if (['false', 'no', 'n', '0', 'none', 'na', 'notapplicable'].includes(key)) return false;
@@ -188,7 +192,7 @@ export function scanStudentTable(table: Table, options: ImportOptions): ScanResu
       const error = cellErrors.get(`${rowNumber}:${mapping.column}`);
       if (error) { result.errors.push({ row: rowNumber, message: `${mapping.label}: ${error.message}` }); continue; }
       if (value == null || cleanText(value) === '') continue; // Missing optional values are omitted; contact defaults are applied below.
-      try { record[mapping.field] = normalizeCell(mapping.field, value, options, table.date1904); }
+      try { record[mapping.field] = normalizeCell(mapping.field, value, options, table.date1904, mapping.label); }
       catch (error) { result.errors.push({ row: rowNumber, message: `${mapping.label}: ${(error as Error).message}` }); }
     }
     try {

@@ -1,3 +1,5 @@
+import { normalizeAssetReference } from '../../shared/asset-reference.mjs';
+
 declare const firebase: any;
 
 export interface FirebaseWebConfig {
@@ -84,15 +86,6 @@ function configIsUsable(config: Partial<FirebaseWebConfig> | undefined): config 
   );
 }
 
-function isSafeAssetReference(value: string): boolean {
-  try {
-    const url = new URL(value, window.location.origin);
-    return url.protocol === "https:" || (url.origin === window.location.origin && url.protocol === window.location.protocol);
-  } catch {
-    return false;
-  }
-}
-
 function isHttpsOrEmpty(value: string): boolean {
   if (!value) return true;
   try {
@@ -142,9 +135,9 @@ export function isRegisteredSchool(value: unknown): value is RegisteredSchool {
     (school.colorGradientTag === undefined ||
       (typeof school.colorGradientTag === "string" && /^#[0-9a-fA-F]{6}$/.test(school.colorGradientTag))) &&
     typeof school.logoUrl === "string" &&
-    isSafeAssetReference(school.logoUrl) &&
+    normalizeAssetReference(school.logoUrl) !== null &&
     typeof school.videoUrl === "string" &&
-    (!school.videoUrl || isSafeAssetReference(school.videoUrl)) &&
+    (!school.videoUrl.trim() || normalizeAssetReference(school.videoUrl) !== null) &&
     (school.canUseEduAI === undefined || typeof school.canUseEduAI === "boolean") &&
     configIsUsable(school.firebaseConfig) &&
     (school.auditLogApiUrl === undefined ||

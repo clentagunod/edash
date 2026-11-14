@@ -211,6 +211,7 @@ export default function StudentImportPanel() {
         <span>{filename || 'Choose a dataset · up to 10 MB'}</span>
       </div>
       <p className="student-import-hint">JSON, JSON Lines, CSV, TSV, XLS, XLSX, XLSB, ODS, Spreadsheet XML, and HTML tables. Detection uses content rather than the filename. One worksheet per import; macros are never run. Text LRNs preserve leading zeros.</p>
+      <p className="student-import-hint">A populated CPP column marks the learner as a 4Ps beneficiary. Blank CPP cells leave existing 4Ps tagging unchanged when updating students.</p>
 
       {!!sheets.length && <div className="student-import-sheet-options">
         <label>Worksheet<select value={sheet} disabled={busy} onChange={event => { setSheet(+event.target.value); invalidate(); }}>{sheets.map((name, index) => <option value={index} key={name}>{name}</option>)}</select></label>

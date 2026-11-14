@@ -24,7 +24,20 @@ function persistentStore() {
 
 describe('public school logo caching', () => {
   beforeEach(() => { vi.resetModules(); vi.stubGlobal('caches', undefined); });
-  afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+  afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); window.history.replaceState(null, '', '/'); });
+  it('shares equivalent public logo paths and resolves them from the site root on nested routes', async () => {
+    window.history.replaceState(null, '', '/parent/sample-school');
+    const fetchLogo = vi.fn().mockResolvedValue(imageResponse()); vi.stubGlobal('fetch', fetchLogo);
+    const { cachedSchoolLogoSource } = await import('./school-logo-cache');
+    const sources = await Promise.all([
+      'public/assets/school/logo.png', 'assets/school/logo.png', '/assets/school/logo.png', './public/assets/school/logo.png',
+    ].map(cachedSchoolLogoSource));
+    expect(sources[0]).toMatch(/^data:image/);
+    expect(new Set(sources).size).toBe(1);
+    expect(fetchLogo).toHaveBeenCalledTimes(1);
+    expect(fetchLogo).toHaveBeenCalledWith(`${window.location.origin}/assets/school/logo.png`, expect.any(Object));
+  });
+
   it('shares pending downloads and completed bytes between repeated logo requests', async () => {
     const fetchLogo = vi.fn().mockResolvedValue(imageResponse()); vi.stubGlobal('fetch', fetchLogo);
     const { cachedSchoolLogoSource } = await import('./school-logo-cache');

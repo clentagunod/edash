@@ -1,4 +1,4 @@
-"""Minimal ttk interface. All remote work runs in a separate Python process."""
+"""Responsive ttk interface. All remote work runs in a separate Python process."""
 
 from datetime import datetime, timezone
 import json
@@ -12,10 +12,11 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 from . import __version__
+from .asset_reference import LOGO_REFERENCE_ERROR, VIDEO_REFERENCE_ERROR, normalize_asset_reference
 from .cli import command_for, doctor
 from .deployment import OutputRedactor, display_command
 from .models import ASSETS, Options, ProvisionError
-from .validation import prepare_plan, read_json, reject_secrets
+from .validation import _unique_object, prepare_plan, read_json, reject_secrets
 
 BG = "#f3f6f8"
 INK = "#172b3a"
@@ -24,37 +25,129 @@ ACCENT = "#087f74"
 ENTRY = Path(__file__).resolve().parents[2] / "main.py"
 
 
+def fit_window(window, width, height, minimum=(420, 420)):
+    """Keep the initial window and its minimum size inside the desktop work area."""
+    left, top = 0, 0
+    right, bottom = window.winfo_screenwidth(), window.winfo_screenheight()
+    if os.name == "nt":
+        import ctypes
+        from ctypes.wintypes import RECT
+        area = RECT()
+        if ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(area), 0):
+            left, top, right, bottom = area.left, area.top, area.right, area.bottom
+    available_width = max(1, right - left - 32)
+    available_height = max(1, bottom - top - 64)
+    width, height = min(width, available_width), min(height, available_height)
+    window.minsize(min(minimum[0], available_width), min(minimum[1], available_height))
+    window.geometry(f"{width}x{height}+{left + (right - left - width) // 2}+{top + max(8, (bottom - top - height) // 2 - 16)}")
+    return available_width, available_height
+
+
+class FlowFrame(ttk.Frame):
+    """Wrap a short group of buttons or options onto additional rows as needed."""
+
+    def __init__(self, parent, **kwargs):
+        super().__init__(parent, **kwargs)
+        self.bind("<Configure>", self.reflow)
+
+    def reflow(self, _=None):
+        width = self.winfo_width()
+        x, row, column = 0, 0, 0
+        for child in self.winfo_children():
+            needed = child.winfo_reqwidth() + 6
+            if column and x + needed > width:
+                x, column, row = 0, 0, row + 1
+            child.grid(row=row, column=column, sticky="w", padx=(0, 6), pady=2)
+            x += needed
+            column += 1
+
+
+class FormField(ttk.Frame):
+    """Put labels above their inputs when a full form row would be too narrow."""
+
+    def __init__(self, parent, label, variable, browse=None):
+        super().__init__(parent, style="Surface.TFrame")
+        self.label = ttk.Label(self, text=label, style="Surface.TLabel", width=19)
+        self.control = ttk.Frame(self, style="Surface.TFrame")
+        self.control.columnconfigure(0, weight=1)
+        self.entry = ttk.Entry(self.control, textvariable=variable, width=1)
+        self.entry.grid(row=0, column=0, sticky="ew")
+        self.browse = None
+        if browse:
+            self.browse = ttk.Button(self.control, text="Browse…", command=browse)
+            self.browse.grid(row=0, column=1, padx=(8, 0))
+        self.bind("<Configure>", self.reflow)
+
+    def reflow(self, _=None):
+        # Use font-dependent requested widths so larger text also triggers stacking.
+        needed = self.label.winfo_reqwidth() + self.entry.winfo_reqheight() * 8 + 24
+        if self.browse:
+            needed += self.browse.winfo_reqwidth() + 8
+        stacked = self.winfo_width() < needed
+        self.columnconfigure(0, weight=1 if stacked else 0)
+        self.columnconfigure(1, weight=0 if stacked else 1)
+        self.label.grid(row=0, column=0, sticky="w", padx=(0, 0 if stacked else 16), pady=(0, 4 if stacked else 0))
+        self.control.grid(row=1 if stacked else 0, column=0 if stacked else 1, sticky="ew")
+
+
 class ScrollForm(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent, style="Surface.TFrame")
-        self.canvas = tk.Canvas(self, background="white", highlightthickness=0, borderwidth=0)
+        self.canvas = tk.Canvas(self, width=1, height=1, background="white", highlightthickness=0,
+                                borderwidth=0, yscrollincrement=18)
         scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.canvas.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
         self.canvas.pack(side="left", fill="both", expand=True)
-        self.body = ttk.Frame(self.canvas, padding=(22, 18), style="Surface.TFrame")
-        self.body.columnconfigure(1, weight=1)
+        self.body = ttk.Frame(self.canvas, padding=(16, 14), style="Surface.TFrame")
+        self.body.columnconfigure(0, weight=1)
         item = self.canvas.create_window(0, 0, anchor="nw", window=self.body)
         self.body.bind("<Configure>", self._body_changed)
         self.canvas.bind("<Configure>", lambda event: self.canvas.itemconfigure(item, width=event.width))
-        self.bind_all("<MouseWheel>", self._wheel, add="+")
+
+    def enable_scrolling(self):
+        def bind_children(widget):
+            widget.bind("<MouseWheel>", self._wheel, add="+")
+            widget.bind("<Button-4>", self._wheel, add="+")
+            widget.bind("<Button-5>", self._wheel, add="+")
+            widget.bind("<FocusIn>", lambda event: self.see(event.widget), add="+")
+            for child in widget.winfo_children():
+                bind_children(child)
+        bind_children(self)
 
     def _body_changed(self, _):
-        width = self.body.winfo_width()
-        label_width = self.body.grid_bbox(0, 0)[2]
-        for child in self.body.winfo_children():
-            if isinstance(child, ttk.Label) and child.cget("style") == "Hint.TLabel":
-                column = int(child.grid_info().get("column", 0))
-                child.configure(wraplength=max(180, width - 44 - (label_width if column else 0)))
+        def wrap_hints(parent):
+            for child in parent.winfo_children():
+                if isinstance(child, ttk.Label) and child.cget("style") == "Hint.TLabel":
+                    child.configure(wraplength=max(1, parent.winfo_width() - 32))
+                wrap_hints(child)
+        wrap_hints(self.body)
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def _wheel(self, event):
-        widget = event.widget
-        while widget is not None:
-            if widget == self:
-                self.canvas.yview_scroll(-int(event.delta / 120), "units")
-                return
-            widget = getattr(widget, "master", None)
+        if self.canvas.yview() == (0.0, 1.0):
+            return
+        if getattr(event, "num", None) in (4, 5):
+            units = -1 if event.num == 4 else 1
+        elif event.delta:
+            units = -int(event.delta / 120) if abs(event.delta) >= 120 else (-1 if event.delta > 0 else 1)
+        else:
+            return
+        self.canvas.yview_scroll(units, "units")
+        return "break"
+
+    def see(self, widget):
+        """Keep keyboard focus and newly expanded options inside the viewport."""
+        if not widget.winfo_ismapped():
+            return
+        height = max(1, self.body.winfo_height())
+        y = widget.winfo_rooty() - self.body.winfo_rooty()
+        view_top = self.canvas.canvasy(0)
+        view_height = self.canvas.winfo_height()
+        if y < view_top or widget.winfo_height() > view_height:
+            self.canvas.yview_moveto(max(0, y - 8) / height)
+        elif y + widget.winfo_height() > view_top + view_height:
+            self.canvas.yview_moveto((y + widget.winfo_height() - view_height + 8) / height)
 
 
 class ProvisionApp:
@@ -68,9 +161,7 @@ class ProvisionApp:
             self.icon.put("white", to=rectangle)
         root.iconphoto(True, self.icon)
         root.configure(background=BG)
-        width, height = min(1020, root.winfo_screenwidth() - 60), min(900, root.winfo_screenheight() - 80)
-        root.geometry(f"{width}x{height}+{max(0, (root.winfo_screenwidth() - width) // 2)}+30")
-        root.minsize(760, 640)
+        self.desktop_size = fit_window(root, 940, 680)
         self.events: queue.Queue = queue.Queue(maxsize=2000)
         self.redactor = OutputRedactor()
         self.process: subprocess.Popen | None = None
@@ -82,11 +173,25 @@ class ProvisionApp:
         self.preview_timer = None
         self.poll_timer = None
         self.layout_timer = None
+        self.sash_timer = None
+        self.orientation = None
+        self.output_visible = True
+        self.output_requested = True
+        self.compact = False
+        self.compact_show_output = False
+        self.pane_extent = None
+        self.sash_ratios = {"horizontal": 0.57, "vertical": 0.68}
         self.forms = {}
         self.inputs = {}
+        self.text_size = tk.StringVar(value="100%")
         self.dry_run = tk.BooleanVar(value=True)
         self._style()
         self._layout()
+        self.root.bind("<Configure>", self._queue_layout, add="+")
+        self.root.bind("<Control-plus>", lambda _: self._zoom(1))
+        self.root.bind("<Control-equal>", lambda _: self._zoom(1))
+        self.root.bind("<Control-minus>", lambda _: self._zoom(-1))
+        self.root.bind("<Control-0>", lambda _: self._set_text_size("100%"))
         self.dry_run.trace_add("write", self._changed)
         self.notebook.bind("<<NotebookTabChanged>>", self._changed)
         self.root.protocol("WM_DELETE_WINDOW", self._close)
@@ -96,98 +201,238 @@ class ProvisionApp:
         self._log("Choose a mode and target project. Dry run validates locally and never connects to Firebase.")
 
     def _style(self):
+        self.scale = int(self.text_size.get().rstrip("%")) / 100
+        def size(points):
+            return max(8, round(points * self.scale))
         style = ttk.Style(self.root)
         style.theme_use("clam")
-        style.configure(".", font=("Segoe UI", 10), background=BG, foreground=INK)
+        style.configure(".", font=("Segoe UI", size(10)), background=BG, foreground=INK)
         style.configure("TFrame", background=BG)
         style.configure("Surface.TFrame", background="white")
         style.configure("Surface.TLabel", background="white")
         style.configure("Muted.TLabel", foreground=MUTED)
-        style.configure("Hint.TLabel", foreground=MUTED, background="white", font=("Segoe UI", 9))
-        style.configure("Heading.TLabel", font=("Segoe UI Semibold", 23))
-        style.configure("Section.TLabel", font=("Segoe UI Semibold", 10))
-        style.configure("TButton", padding=(12, 7), borderwidth=1, relief="flat", background="white")
+        style.configure("Hint.TLabel", foreground=MUTED, background="white", font=("Segoe UI", size(9)))
+        style.configure("Heading.TLabel", font=("Segoe UI Semibold", size(18)))
+        style.configure("Section.TLabel", font=("Segoe UI Semibold", size(10)), background="white", foreground=ACCENT)
+        style.configure("TButton", padding=(10, 5), borderwidth=1, relief="flat", background="white")
         style.map("TButton", background=[("active", "#e5efed")], foreground=[("disabled", "#8b979f")])
         style.configure("Accent.TButton", background=ACCENT, foreground="white", borderwidth=0)
         style.map("Accent.TButton", background=[("disabled", "#9fbab6"), ("active", "#06695f")], foreground=[("disabled", "white")])
-        style.configure("TEntry", padding=7, fieldbackground="white", bordercolor="#d5dfe5")
+        style.configure("TEntry", padding=5, fieldbackground="white", bordercolor="#d5dfe5")
         style.configure("TCheckbutton", background="white", padding=(0, 4))
         style.configure("Footer.TCheckbutton", background=BG)
         style.configure("TNotebook", borderwidth=0, background=BG)
-        style.configure("TNotebook.Tab", padding=(22, 10), background="#e3eaee", borderwidth=0)
+        style.configure("TNotebook.Tab", padding=(12, 7), background="#e3eaee", borderwidth=0)
         style.map("TNotebook.Tab", background=[("selected", "white")], foreground=[("selected", ACCENT)])
         style.configure("Horizontal.TProgressbar", background=ACCENT, troughcolor="#dfe8eb", borderwidth=0, thickness=3)
 
     def _layout(self):
-        header = ttk.Frame(self.root, padding=(24, 19, 24, 15))
-        header.pack(fill="x")
-        tk.Label(header, text="EP", bg=ACCENT, fg="white", font=("Segoe UI Semibold", 18), padx=13, pady=9).pack(side="left", padx=(0, 15))
-        copy = ttk.Frame(header)
-        copy.pack(side="left")
-        ttk.Label(copy, text="Edash Provision", style="Heading.TLabel").pack(anchor="w")
-        ttk.Label(copy, text="School registration & tenant database setup", style="Muted.TLabel").pack(anchor="w")
-        ttk.Label(header, text=f"v{__version__}", style="Muted.TLabel").pack(side="right")
+        self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(1, weight=1)
+        header = ttk.Frame(self.root, padding=(16, 12, 16, 10))
+        header.grid(row=0, column=0, sticky="ew")
+        header.columnconfigure(0, weight=1)
+        self.heading = ttk.Label(header, text="Edash Provision", style="Heading.TLabel")
+        self.heading.grid(row=0, column=0, sticky="w")
+        self.version_label = ttk.Label(header, text=f"v{__version__}", style="Muted.TLabel")
+        self.version_label.grid(row=0, column=1, sticky="e")
+        self.subtitle = ttk.Label(header, text="School registration & tenant database setup", style="Muted.TLabel")
+        self.subtitle.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 6))
+        toolbar = ttk.Frame(header)
+        toolbar.grid(row=2, column=0, columnspan=2, sticky="ew")
+        toolbar.columnconfigure(2, weight=1)
+        ttk.Label(toolbar, text="Text size", style="Muted.TLabel").grid(row=0, column=0, padx=(0, 6))
+        self.size_picker = ttk.Combobox(toolbar, textvariable=self.text_size, values=("85%", "100%", "115%", "130%", "150%"), width=5, state="readonly")
+        self.size_picker.grid(row=0, column=1)
+        self.size_picker.bind("<<ComboboxSelected>>", lambda _: self._set_text_size(self.text_size.get()))
+        self.output_button = ttk.Button(toolbar, text="Hide output", command=self._toggle_output)
+        self.output_button.grid(row=0, column=3, sticky="e")
 
-        content = ttk.Frame(self.root, padding=(24, 0, 24, 18))
-        content.pack(fill="both", expand=True)
-        content.columnconfigure(0, weight=1)
-        content.rowconfigure(0, weight=1)
-        self.panes = ttk.Panedwindow(content, orient="vertical")
+        self.content = ttk.Frame(self.root, padding=(16, 0))
+        self.content.grid(row=1, column=0, sticky="nsew")
+        self.content.columnconfigure(0, weight=1)
+        self.content.rowconfigure(0, weight=1)
+        self.panes = tk.PanedWindow(self.content, orient="vertical", background=BG, borderwidth=0,
+                                    sashwidth=8, sashrelief="flat", showhandle=False, opaqueresize=True)
         self.panes.grid(row=0, column=0, sticky="nsew")
-        top = ttk.Frame(self.panes)
-        self.panes.add(top, weight=3)
-        self.notebook = ttk.Notebook(top)
+        self.panes.bind("<Configure>", lambda _: self._queue_layout())
+        self.panes.bind("<ButtonRelease-1>", self._remember_sash)
+        self.form_panel = ttk.Frame(self.panes)
+        self.panes.add(self.form_panel, minsize=100, stretch="always")
+        self.notebook = ttk.Notebook(self.form_panel)
         self.notebook.pack(fill="both", expand=True)
         for mode, label in (("register", "Registration"), ("tenant", "Tenant provision")):
             form = ScrollForm(self.notebook)
             self.forms[mode] = form
             self.notebook.add(form, text=label)
             self._form(mode, form.body)
+            form.enable_scrolling()
 
-        actions = ttk.Frame(top, padding=(0, 10, 0, 8))
-        actions.pack(fill="x")
-        self.dry_check = ttk.Checkbutton(actions, text="Dry run · no remote changes", variable=self.dry_run, style="Footer.TCheckbutton")
-        self.dry_check.pack(side="left")
-        self.run_button = ttk.Button(actions, text="Run dry run", command=self._start, style="Accent.TButton")
-        self.run_button.pack(side="right")
-        self.cancel_button = ttk.Button(actions, text="Cancel", command=self._cancel, state="disabled")
-        self.cancel_button.pack(side="right", padx=8)
+        self.output_panel = ttk.Frame(self.panes)
+        self.panes.add(self.output_panel, minsize=100, stretch="always")
+        self.output_notebook = ttk.Notebook(self.output_panel)
+        self.output_notebook.pack(fill="both", expand=True)
+        activity = ttk.Frame(self.output_notebook)
+        command_panel = ttk.Frame(self.output_notebook)
+        self.output_notebook.add(activity, text="Activity log")
+        self.output_notebook.add(command_panel, text="Command preview")
 
-        bottom = ttk.Frame(self.panes)
-        self.panes.add(bottom, weight=2)
-        ttk.Label(bottom, text="COMMAND", style="Section.TLabel").pack(anchor="w", pady=(9, 5))
-        command_frame = ttk.Frame(bottom)
-        command_frame.pack(fill="x")
-        self.command = tk.Text(command_frame, height=3, wrap="word", background="#e8eef1", foreground=INK,
-                               font=("Consolas", 9), relief="flat", padx=10, pady=8, state="disabled")
-        command_scroll = ttk.Scrollbar(command_frame, command=self.command.yview)
-        self.command.configure(yscrollcommand=command_scroll.set)
-        command_scroll.pack(side="right", fill="y")
-        self.command.pack(side="left", fill="x", expand=True)
-        log_header = ttk.Frame(bottom, padding=(0, 9, 0, 5))
-        log_header.pack(fill="x")
-        ttk.Label(log_header, text="ACTIVITY LOG", style="Section.TLabel").pack(side="left")
+        log_header = FlowFrame(activity)
+        log_header.pack(fill="x", pady=(3, 4))
         self.check_button = ttk.Button(log_header, text="Check tools", command=lambda: doctor(self._log))
-        self.check_button.pack(side="right")
-        ttk.Button(log_header, text="Save log", command=self._save_log).pack(side="right", padx=6)
-        ttk.Button(log_header, text="Clear", command=self._clear_log).pack(side="right")
-        log_frame = ttk.Frame(bottom)
+        ttk.Button(log_header, text="Save log", command=self._save_log)
+        ttk.Button(log_header, text="Clear", command=self._clear_log)
+        log_frame = ttk.Frame(activity)
         log_frame.pack(fill="both", expand=True)
-        self.log_box = tk.Text(log_frame, height=8, wrap="word", background="#152a36", foreground="#dcebe9",
-                               font=("Consolas", 10), relief="flat", padx=12, pady=10, state="disabled")
+        self.log_box = tk.Text(log_frame, width=1, height=1, wrap="word", background="#152a36", foreground="#dcebe9",
+                               font=("Consolas", 10), relief="flat", padx=10, pady=8, state="disabled")
         scrollbar = ttk.Scrollbar(log_frame, command=self.log_box.yview)
         self.log_box.configure(yscrollcommand=scrollbar.set)
         scrollbar.pack(side="right", fill="y")
         self.log_box.pack(side="left", fill="both", expand=True)
-        self.progress = ttk.Progressbar(content, mode="indeterminate")
-        self.progress.grid(row=1, column=0, sticky="ew", pady=(10, 6))
+
+        ttk.Button(command_panel, text="Copy command", command=self._copy_command).pack(anchor="e", pady=(3, 5))
+        command_frame = ttk.Frame(command_panel)
+        command_frame.pack(fill="both", expand=True)
+        self.command = tk.Text(command_frame, width=1, height=1, wrap="word", background="#e8eef1", foreground=INK,
+                               font=("Consolas", 10), relief="flat", padx=10, pady=8, state="disabled")
+        command_scroll = ttk.Scrollbar(command_frame, command=self.command.yview)
+        self.command.configure(yscrollcommand=command_scroll.set)
+        command_scroll.pack(side="right", fill="y")
+        self.command.pack(side="left", fill="both", expand=True)
+
+        self.actions = ttk.Frame(self.root, padding=(16, 8, 16, 4))
+        self.actions.grid(row=2, column=0, sticky="ew")
+        self.actions.columnconfigure(0, weight=1)
+        self.dry_check = ttk.Checkbutton(self.actions, text="Dry run · no remote changes", variable=self.dry_run, style="Footer.TCheckbutton")
+        self.action_buttons = ttk.Frame(self.actions)
+        self.cancel_button = ttk.Button(self.action_buttons, text="Cancel", command=self._cancel, state="disabled")
+        self.cancel_button.pack(side="left", padx=(0, 8))
+        self.run_button = ttk.Button(self.action_buttons, text="Run dry run", command=self._start, style="Accent.TButton")
+        self.run_button.pack(side="left")
+        footer = ttk.Frame(self.root, padding=(16, 0, 16, 10))
+        footer.grid(row=3, column=0, sticky="ew")
+        footer.columnconfigure(0, weight=1)
+        self.progress = ttk.Progressbar(footer, mode="indeterminate")
+        self.progress.grid(row=0, column=0, sticky="ew", pady=(2, 5))
         self.status = tk.StringVar(value="Ready · local dry run selected")
-        ttk.Label(content, textvariable=self.status, style="Muted.TLabel").grid(row=2, column=0, sticky="w")
-        self.layout_timer = self.root.after_idle(self._place_sash)
+        self.status_label = ttk.Label(footer, textvariable=self.status, style="Muted.TLabel", wraplength=300)
+        self.status_label.grid(row=1, column=0, sticky="ew")
+        self._set_text_size("100%")
+
+    def _queue_layout(self, event=None):
+        if event is not None and event.widget != self.root:
+            return
+        if not self.disposed and self.layout_timer is None:
+            self.layout_timer = self.root.after_idle(self._responsive_layout)
+
+    def _responsive_layout(self):
+        self.layout_timer = None
+        width = max(1, self.root.winfo_width() - 32)
+        self.heading.configure(wraplength=max(1, width - self.version_label.winfo_reqwidth() - 12))
+        self.subtitle.configure(wraplength=width)
+        self.status_label.configure(wraplength=width)
+        stacked = width < self.dry_check.winfo_reqwidth() + self.action_buttons.winfo_reqwidth() + 16
+        self.dry_check.grid(row=0, column=0, sticky="w")
+        self.action_buttons.grid(row=1 if stacked else 0, column=0 if stacked else 1,
+                                 sticky="e", pady=(4 if stacked else 0, 0))
+        orientation = "horizontal" if width >= 1080 * self.scale else "vertical"
+        changed = orientation != self.orientation
+        self.orientation = orientation
+        self.panes.configure(orient=orientation)
+        compact = orientation == "vertical" and self.panes.winfo_height() < round(300 * self.scale)
+        if compact != self.compact:
+            self.compact_show_output = False
+        self.compact = compact
+        self._arrange_panels()
+        extent = self.panes.winfo_width() if orientation == "horizontal" else self.panes.winfo_height()
+        if changed or extent != self.pane_extent:
+            self._queue_sash()
+        self.pane_extent = extent
+
+    def _arrange_panels(self):
+        # On short windows use the whole workspace for either setup or output.
+        self.output_visible = self.compact_show_output if self.compact else self.output_requested
+        panels = [] if self.compact and self.output_visible else [self.form_panel]
+        if self.output_visible:
+            panels.append(self.output_panel)
+        if tuple(str(panel) for panel in panels) != tuple(str(panel) for panel in self.panes.panes()):
+            for panel in self.panes.panes():
+                self.panes.forget(panel)
+            for panel in panels:
+                self.panes.add(panel, minsize=self._pane_minimum(panel), stretch="always")
+            self._queue_sash()
+        for panel in panels:
+            minimum = self._pane_minimum(panel)
+            if int(self.panes.panecget(panel, "minsize")) != minimum:
+                self.panes.paneconfigure(panel, minsize=minimum)
+        text = "Back to setup" if self.compact and self.output_visible else "Hide output" if self.output_visible else "Show output"
+        self.output_button.configure(text=text)
+
+    def _pane_minimum(self, panel):
+        form = panel == self.form_panel
+        base = (360 if form else 320) if self.orientation == "horizontal" else (130 if form else 120)
+        return round(base * self.scale)
+
+    def _queue_sash(self):
+        if self.sash_timer:
+            self.root.after_cancel(self.sash_timer)
+        self.sash_timer = self.root.after_idle(self._place_sash)
 
     def _place_sash(self):
-        self.layout_timer = None
-        self.panes.sashpos(0, max(300, int(self.root.winfo_height() * 0.57)))
+        self.sash_timer = None
+        if len(self.panes.panes()) == 2:
+            horizontal = self.orientation == "horizontal"
+            extent = self.panes.winfo_width() if horizontal else self.panes.winfo_height()
+            position = max(
+                self._pane_minimum(self.form_panel),
+                min(extent - self._pane_minimum(self.output_panel) - 8,
+                    int(extent * self.sash_ratios[self.orientation])),
+            )
+            self.panes.sash_place(0, position if horizontal else 0, 0 if horizontal else position)
+
+    def _remember_sash(self, _):
+        if len(self.panes.panes()) == 2:
+            horizontal = self.orientation == "horizontal"
+            extent = self.panes.winfo_width() if horizontal else self.panes.winfo_height()
+            self.sash_ratios[self.orientation] = self.panes.sash_coord(0)[0 if horizontal else 1] / max(1, extent)
+
+    def _toggle_output(self):
+        if self.compact:
+            self.compact_show_output = not self.compact_show_output
+        else:
+            self.output_requested = not self.output_requested
+        self._arrange_panels()
+
+    def _set_text_size(self, value):
+        self.text_size.set(value)
+        self._style()
+        # Reserve enough height for navigation and one useful viewport at large text sizes.
+        self.root.minsize(min(420, self.desktop_size[0]),
+                          min(self.desktop_size[1], max(420, round(420 + (self.scale - 1) * 180))))
+        font = ("Segoe UI", max(8, round(10 * self.scale)))
+        self.size_picker.configure(font=font)
+        def refresh(widget):
+            if isinstance(widget, ttk.Entry):
+                widget.configure(font=font)
+            elif isinstance(widget, tk.Text):
+                widget.configure(font=("Consolas", max(8, round(10 * self.scale))))
+            for child in widget.winfo_children():
+                refresh(child)
+            if isinstance(widget, (FormField, FlowFrame)):
+                widget.reflow()
+        refresh(self.root)
+        self._queue_layout()
+
+    def _zoom(self, direction):
+        values = list(self.size_picker.cget("values"))
+        index = values.index(self.text_size.get())
+        self._set_text_size(values[max(0, min(len(values) - 1, index + direction))])
+        return "break"
+
+    def _copy_command(self):
+        self.root.clipboard_clear()
+        self.root.clipboard_append(self.command.get("1.0", "end-1c"))
 
     def _var(self, value="", boolean=False):
         var = tk.BooleanVar(value=value) if boolean else tk.StringVar(value=value)
@@ -203,46 +448,61 @@ class ProvisionApp:
             "uid": self._var(), "email": self._var(), "name": self._var("School Administrator"),
         }
         note = "Register or update one school's public directory entry in the central Firebase project." if mode == "register" else "Create the shared tenant schema. Existing records and the configured current year are preserved."
-        ttk.Label(body, text=note, style="Hint.TLabel", wraplength=710).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 16))
-        self._field(body, 1, "Central project ID" if mode == "register" else "Tenant project ID", data["project"])
+        row = 0
+
+        def add(widget, gap=8):
+            nonlocal row
+            widget.grid(row=row, column=0, sticky="ew", pady=(0, gap))
+            row += 1
+            return widget
+
+        def hint(text):
+            return add(ttk.Label(body, text=text, style="Hint.TLabel", wraplength=300))
+
+        def section(text):
+            return add(ttk.Label(body, text=text, style="Section.TLabel"), gap=6)
+
+        hint(note)
+        section("Target project")
+        add(FormField(body, "Central project ID" if mode == "register" else "Tenant project ID", data["project"]))
         if mode == "tenant":
-            self._field(body, 2, "School year", data["year"])
-        service_row = 3 if mode == "tenant" else 2
-        source_row = 6 if mode == "tenant" else 4
-        self._field(body, service_row, "Service key JSON", data["service"], lambda: self._browse(mode, "service"))
-        ttk.Label(body, text="Use this project's service-account key, or leave blank for Application Default Credentials.", style="Hint.TLabel", wraplength=650).grid(row=service_row + 1, column=1, columnspan=2, sticky="w", pady=(0, 12))
-        self._field(body, source_row, "Registration JSON" if mode == "register" else "Structure JSON", data["source"], lambda: self._browse(mode, "source"))
-        tools = ttk.Frame(body, style="Surface.TFrame")
-        tools.grid(row=source_row + 1, column=1, columnspan=2, sticky="w", pady=(0, 10))
-        ttk.Button(tools, text="Edit JSON…", command=lambda: self._editor(mode)).pack(side="left")
-        ttk.Button(tools, text="Export example…" if mode == "register" else "Export structure…", command=lambda: self._export(mode)).pack(side="left", padx=6)
+            add(FormField(body, "School year", data["year"]))
+        add(FormField(body, "Service key JSON", data["service"], lambda: self._browse(mode, "service")), gap=4)
+        hint("Use this project's service-account key, or leave blank for Application Default Credentials.")
+        section("Provisioning data")
+        add(FormField(body, "Registration JSON" if mode == "register" else "Structure JSON", data["source"], lambda: self._browse(mode, "source")), gap=4)
+        tools = add(FlowFrame(body, style="Surface.TFrame"))
+        ttk.Button(tools, text="Edit JSON…", command=lambda: self._editor(mode))
+        ttk.Button(tools, text="Export example…" if mode == "register" else "Export structure…", command=lambda: self._export(mode))
         if mode == "tenant":
-            ttk.Button(tools, text="Use default", command=lambda: data["source"].set(str(ASSETS / "tenant-structure.json"))).pack(side="left")
+            ttk.Button(tools, text="Use default", command=lambda: data["source"].set(str(ASSETS / "tenant-structure.json")))
         else:
-            ttk.Label(body, text="Edit a copy of the example and replace its public Firebase placeholders. No private keys belong in this file.", style="Hint.TLabel", wraplength=650).grid(row=6, column=1, columnspan=2, sticky="w", pady=(0, 8))
-        deploy_row = ttk.Frame(body, style="Surface.TFrame")
-        deploy_row.grid(row=5 if mode == "tenant" else 8, column=1, columnspan=2, sticky="w", pady=(0, 8))
-        ttk.Checkbutton(deploy_row, text="Deploy registry rules" if mode == "register" else "Deploy tenant rules", variable=data["rules"]).pack(side="left")
+            hint("Edit a copy of the example and replace its public Firebase placeholders. No private keys belong in this file.")
+            hint("Logo and video: use public/assets/school/filename, assets/school/filename, or an HTTPS URL. Website paths resolve from the public folder; videoUrl may be empty.")
+        section("Optional setup")
+        deploy_row = add(FlowFrame(body, style="Surface.TFrame"))
+        ttk.Checkbutton(deploy_row, text="Deploy registry rules" if mode == "register" else "Deploy tenant rules", variable=data["rules"])
         if mode == "tenant":
-            ttk.Checkbutton(deploy_row, text="Deploy indexes", variable=data["indexes"]).pack(side="left", padx=16)
-            ttk.Checkbutton(body, text="Add initial School Admin profile (existing Auth account)", variable=data["admin"], command=lambda: self._toggle_admin(mode)).grid(row=8, column=1, columnspan=2, sticky="w", pady=(8, 0))
-            admin = data["admin_frame"] = ttk.Frame(body, style="Surface.TFrame")
-            admin.columnconfigure(1, weight=1)
-            admin.grid(row=9, column=0, columnspan=3, sticky="ew", pady=(8, 0))
+            ttk.Checkbutton(deploy_row, text="Deploy indexes", variable=data["indexes"])
+            add(ttk.Checkbutton(body, text="Add initial School Admin", variable=data["admin"], command=lambda: self._toggle_admin(mode)), gap=2)
+            hint("Use an existing Firebase Authentication account. This adds its Firestore profile only.")
+            admin = data["admin_frame"] = add(ttk.Frame(body, style="Surface.TFrame"))
+            admin.columnconfigure(0, weight=1)
             self._field(admin, 0, "Firebase Auth UID", data["uid"])
             self._field(admin, 1, "Admin email", data["email"])
             self._field(admin, 2, "Admin name", data["name"])
             admin.grid_remove()
 
     def _field(self, parent, row, label, variable, browse=None):
-        ttk.Label(parent, text=label, style="Surface.TLabel").grid(row=row, column=0, sticky="w", padx=(0, 18), pady=(0, 9))
-        ttk.Entry(parent, textvariable=variable).grid(row=row, column=1, sticky="ew", pady=(0, 9))
-        if browse:
-            ttk.Button(parent, text="Browse…", command=browse).grid(row=row, column=2, padx=(8, 0), pady=(0, 9))
+        FormField(parent, label, variable, browse).grid(row=row, column=0, sticky="ew", pady=(0, 8))
 
     def _toggle_admin(self, mode):
         frame = self.inputs[mode]["admin_frame"]
         frame.grid() if self.inputs[mode]["admin"].get() else frame.grid_remove()
+        if self.inputs[mode]["admin"].get():
+            # Let the scroll region grow before bringing the expanded fields into view.
+            self.forms[mode].update_idletasks()
+            self.forms[mode].see(frame)
 
     def mode(self):
         return "register" if self.notebook.index(self.notebook.select()) == 0 else "tenant"
@@ -281,6 +541,7 @@ class ProvisionApp:
             self._text(self.command, "Choose a valid JSON file path to preview the command.")
         self.run_button.configure(text="Run dry run" if self.dry_run.get() else "Review & provision…")
         self.status.set("Ready · local dry run selected" if self.dry_run.get() else "Live mode · target and summary will be reviewed before changes")
+        self._queue_layout()
 
     def _browse(self, mode, kind):
         path = filedialog.askopenfilename(parent=self.root, title="Choose service-account key" if kind == "service" else "Choose provisioning JSON", filetypes=[("JSON files", "*.json"), ("All files", "*.*")])
@@ -309,39 +570,64 @@ class ProvisionApp:
             return
         window = tk.Toplevel(self.root)
         window.title("Edit registration JSON" if mode == "register" else "Edit tenant structure JSON")
-        window.geometry("800x620")
+        fit_window(window, 780, 560, minimum=(420, 320))
         window.transient(self.root)
         window.grab_set()
-        ttk.Label(window, text="Edit public provisioning data, then save a separate JSON file.", padding=12).pack(anchor="w")
+        window.columnconfigure(0, weight=1)
+        window.rowconfigure(1, weight=1)
+        guidance = "Edit public provisioning data, then save a separate JSON file."
+        if mode == "register":
+            guidance += "\nLogo and video accept public/assets/school/filename, assets/school/filename, or an HTTPS URL. Paths are normalized when saved; videoUrl may be empty."
+        note = ttk.Label(window, text=guidance, padding=12, wraplength=360)
+        note.grid(row=0, column=0, sticky="ew")
+        window.bind("<Configure>", lambda event: note.configure(wraplength=max(1, event.width - 24)) if event.widget == window else None)
         frame = ttk.Frame(window, padding=(12, 0))
-        frame.pack(fill="both", expand=True)
-        editor = tk.Text(frame, wrap="none", font=("Consolas", 10), undo=True)
+        frame.grid(row=1, column=0, sticky="nsew")
+        frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(0, weight=1)
+        editor = tk.Text(frame, width=1, height=1, wrap="none", font=("Consolas", max(8, round(10 * self.scale))), undo=True)
         scrollbar = ttk.Scrollbar(frame, command=editor.yview)
-        scrollbar.pack(side="right", fill="y")
-        editor.configure(yscrollcommand=scrollbar.set)
-        editor.pack(side="left", fill="both", expand=True)
+        horizontal = ttk.Scrollbar(frame, orient="horizontal", command=editor.xview)
+        editor.configure(yscrollcommand=scrollbar.set, xscrollcommand=horizontal.set)
+        scrollbar.grid(row=0, column=1, sticky="ns")
+        horizontal.grid(row=1, column=0, sticky="ew")
+        editor.grid(row=0, column=0, sticky="nsew")
         editor.insert("1.0", json.dumps(value, indent=2, ensure_ascii=False))
 
         def save():
             raw = editor.get("1.0", "end-1c")
             try:
-                parsed = json.loads(raw)
+                parsed = json.loads(raw, object_pairs_hook=_unique_object)
                 if not isinstance(parsed, dict):
                     raise ProvisionError("JSON must contain one object.")
                 reject_secrets(parsed)
+                if mode == "register":
+                    logo = normalize_asset_reference(parsed.get("logoUrl"))
+                    if logo is None:
+                        raise ProvisionError(LOGO_REFERENCE_ERROR)
+                    video_value = parsed.get("videoUrl", "")
+                    if not isinstance(video_value, str):
+                        raise ProvisionError(VIDEO_REFERENCE_ERROR)
+                    video = normalize_asset_reference(video_value) if video_value.strip() else ""
+                    if video is None:
+                        raise ProvisionError(VIDEO_REFERENCE_ERROR)
+                    if parsed["logoUrl"] != logo or video_value != video:
+                        parsed["logoUrl"] = logo
+                        parsed["videoUrl"] = video
+                        raw = json.dumps(parsed, indent=2, ensure_ascii=False)
                 path = filedialog.asksaveasfilename(parent=window, defaultextension=".json", initialfile="school-registration.json" if mode == "register" else "tenant-structure.custom.json", filetypes=[("JSON", "*.json")])
                 if not path:
                     return
                 if Path(path).resolve().is_relative_to(ASSETS.resolve()):
                     raise ProvisionError("Save a separate copy outside the bundled assets folder.")
-                # Keep the operator's text; strict duplicate-key validation occurs on run.
+                # Preserve the operator's text unless a media path needed normalization.
                 Path(path).write_text(raw + "\n", encoding="utf-8")
                 self.inputs[mode]["source"].set(path)
                 window.destroy()
             except (ValueError, OSError, ProvisionError, RecursionError) as exc:
                 messagebox.showerror("Cannot save JSON", str(exc) if not isinstance(exc, RecursionError) else "JSON nesting is too deep.", parent=window)
 
-        ttk.Button(window, text="Save as…", command=save, style="Accent.TButton").pack(anchor="e", padx=12, pady=12)
+        ttk.Button(window, text="Save as…", command=save, style="Accent.TButton").grid(row=2, column=0, sticky="e", padx=12, pady=12)
 
     def _start(self):
         if self.busy:
@@ -357,6 +643,9 @@ class ProvisionApp:
             return
         command = command_for(plan.options, dry_run=dry, entry=ENTRY, gui_control=True, source_hash=plan.source_hash)
         self._text(self.command, display_command(command))
+        if not self.output_visible:
+            self._toggle_output()
+        self.output_notebook.select(0)
         self.cancel_requested.clear()
         self._busy(True)
         self.status.set("Validating dry run…" if dry else f"Provisioning {plan.options.project}…")
@@ -480,7 +769,7 @@ class ProvisionApp:
     def shutdown(self):
         """Release scheduled Tk callbacks before destroying the interpreter."""
         self.disposed = True
-        for name in ("preview_timer", "poll_timer", "layout_timer"):
+        for name in ("preview_timer", "poll_timer", "layout_timer", "sash_timer"):
             timer = getattr(self, name)
             if timer:
                 self.root.after_cancel(timer)

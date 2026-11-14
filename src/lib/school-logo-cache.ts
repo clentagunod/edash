@@ -1,3 +1,5 @@
+import { normalizeAssetReference } from '../../shared/asset-reference.mjs';
+
 // Public school branding has a separate cache from private learner/profile photos.
 export const SCHOOL_LOGO_CACHE_NAME = 'edash-school-logos-v1';
 export const SCHOOL_LOGO_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -15,9 +17,10 @@ let storageWrites = Promise.resolve();
 function logoUrl(value: string): string | null {
   if (!value?.trim()) return null;
   if (/^data:image\//i.test(value)) return value;
+  const reference = normalizeAssetReference(value);
+  if (!reference) return null;
   try {
-    const url = new URL(value, window.location.href);
-    return ['https:', 'http:'].includes(url.protocol) ? url.href : null;
+    return new URL(reference, window.location.origin).href;
   } catch { return null; }
 }
 function persistentCache() {

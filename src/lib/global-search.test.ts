@@ -49,6 +49,34 @@ describe('global search', () => {
     document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     document.body.innerHTML = '';
     vi.restoreAllMocks();
+    window.history.replaceState({}, '', '/');
+  });
+
+  it('generates absolute extensionless links from nested routes', () => {
+    window.history.replaceState({}, '', '/parent/sample-school');
+    document.getElementById('globalSearchInput').focus();
+    const links = [...document.querySelectorAll<HTMLAnchorElement>('.global-search-item')];
+    expect(links.length).toBeGreaterThan(0);
+    for (const link of links) {
+      expect(link.getAttribute('href')).toMatch(/^\/pages\/[a-z0-9-]+$/);
+    }
+  });
+
+  it.each(['/pages/masterlist', '/pages/masterlist.html'])('focuses a same-page result without navigation on %s', pathname => {
+    window.history.replaceState({}, '', pathname);
+    const target = document.createElement('button');
+    target.id = 'addLearnerBtn';
+    document.querySelector('main')!.append(target);
+    const input = document.getElementById('globalSearchInput') as HTMLInputElement;
+    input.value = 'add learner';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    const link = document.querySelector<HTMLAnchorElement>('.global-search-item')!;
+    expect(link.getAttribute('href')).toBe('/pages/masterlist');
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+    link.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(target);
+    expect(target.classList.contains('global-search-flash')).toBe(true);
   });
 
   it('shows page quick links when opened with an empty query', () => {
@@ -78,7 +106,9 @@ describe('global search', () => {
   it('does not add suggested pages to recent component history', () => {
     const input = document.getElementById('globalSearchInput');
     input.focus();
-    document.querySelector('.global-search-item').click();
+    const link = document.querySelector<HTMLAnchorElement>('.global-search-item')!;
+    link.addEventListener('click', event => event.preventDefault(), { once: true });
+    link.click();
 
     expect(window.localStorage.getItem('edash.globalSearch.recent.v1')).toBeNull();
     input.focus();
@@ -151,6 +181,25 @@ describe('global search', () => {
     expect(JSON.parse(window.localStorage.getItem('edash.globalSearch.recent.v1'))).toEqual([]);
     expect(document.querySelector('.gsi-group')?.textContent).toBe('Pages');
     expect(document.querySelector('.global-search-item strong')?.textContent).toBe('Learner Masterlist');
+  });
+
+  it('focuses a pending component after navigating to its clean URL', () => {
+    window.history.replaceState({}, '', '/pages/settings');
+    const input = document.getElementById('globalSearchInput') as HTMLInputElement;
+    input.value = 'add learner';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    const link = document.querySelector<HTMLAnchorElement>('.global-search-item')!;
+    link.addEventListener('click', event => event.preventDefault(), { once: true });
+    link.click();
+
+    window.history.replaceState({}, '', '/pages/masterlist?schoolYear=2026-2027');
+    setupTopbar();
+    const target = document.createElement('button');
+    target.id = 'addLearnerBtn';
+    document.querySelector('main')!.append(target);
+    mountGlobalSearch(NAV);
+    expect(document.activeElement).toBe(target);
+    expect(target.classList.contains('global-search-flash')).toBe(true);
   });
 
   it('uses the same search input when results are opened', () => {

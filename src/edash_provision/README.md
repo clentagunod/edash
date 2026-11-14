@@ -28,6 +28,16 @@ python main.py doctor
 
 The app prefers this local CLI, then an installed Firebase CLI. It executes Node/CLI directly with argument lists, avoiding shell interpolation and Windows `.cmd` quoting. No npm package download happens during provisioning. Database-only operations and offline dry runs do not need Node.js.
 
+## Window layout and text size
+
+The app opens at 940 × 680, reduced automatically to fit the desktop work area. At 100% text size it can shrink to 420 × 420. Fields stack their labels above the inputs in narrow windows, button groups wrap, and explanatory text follows the available width. Scroll within the form to reach additional options; moving keyboard focus with Tab also brings the focused field into view. Run, Cancel, dry-run selection, and status stay outside the scrolling area.
+
+Use **Text size** to select 85%, 100%, 115%, 130%, or 150%. Keyboard shortcuts are **Ctrl + plus**, **Ctrl + minus**, and **Ctrl + 0** (reset). Larger text raises the minimum window height slightly to keep the controls accessible.
+
+Wide windows show setup and output side by side; other windows stack them with a draggable divider. **Hide output** makes more room for setup. Short windows use the whole workspace for either setup or output: choose **Show output** and **Back to setup** to switch. Starting a run opens the activity log automatically. Output has separate **Activity log** and **Command preview** tabs, including a **Copy command** action.
+
+The JSON editor also resizes, keeps **Save as** visible, and provides both horizontal and vertical scrollbars for long documents and lines.
+
 ## Registration
 
 1. Select **Registration** and enter the **central** Firebase project ID.
@@ -37,7 +47,11 @@ The app prefers this local CLI, then an installed Firebase CLI. It executes Node
 5. Keep **Dry run** selected and run validation. The activity log shows the target `schools/{id}` document and deployment targets.
 6. Clear **Dry run**, review the command/target summary, and choose **Review & provision** to apply.
 
+`logoUrl` accepts a website image path or a hosted HTTPS image URL. `public/assets/school/logo.png`, `assets/school/logo.png`, and `/assets/school/logo.png` all become `/assets/school/logo.png`. Relative folder separators and spaces are normalized automatically. Put the image in the website's `public` folder and deploy it with the website; provisioning stores the reference and does not upload images. A hosted URL such as `https://images.example/school/logo.png` remains hosted. The JSON editor normalizes the logo when saving, and the run summary identifies the resolved website path or HTTPS URL. Windows drive paths and network shares cannot be served to website visitors.
+
 Registration is a field-level upsert. The same school ID updates that document; it does not delete/recreate it. Supplied leaf values replace their existing values; supplied arrays replace previous arrays. Omitted nested/top-level fields are retained. Empty maps are ignored during the recursive merge. The app forces `enabled: true` and generates `updatedAt` and supplied `schoolHead.updatedAt` as Firestore server timestamps. All registration fields are public under the bundled registry rules; service keys/passwords are rejected in this data.
+
+Registration `videoUrl` uses the same path resolution as `logoUrl`: `public/assets/school/video.mp4`, `assets/school/video.mp4`, and `/assets/school/video.mp4` resolve to `/assets/school/video.mp4`. A full HTTPS URL to a video is also accepted; use `"videoUrl": ""` when no video is configured. The JSON editor normalizes both media fields when saving.
 
 ## Tenant provision
 

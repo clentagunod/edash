@@ -1,4 +1,7 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "cleanUrls": true,
+  "trailingSlash": false,
   "functions": {
     "api/school-registration.mjs": { "maxDuration": 30 }
   },
@@ -21,7 +24,20 @@
       ]
     }
   ],
+  "redirects": [
+    { "source": "/index.html", "destination": "/", "permanent": true },
+    { "source": "/index", "destination": "/", "permanent": true },
+    { "source": "/pages", "destination": "/pages/dashboard", "permanent": true },
+    { "source": "/pages/:page([a-z0-9-]+)\\.html", "destination": "/pages/:page", "permanent": true },
+    { "source": "/parent.html", "destination": "/parent", "permanent": true },
+    { "source": "/login.html", "destination": "/login", "permanent": true },
+    { "source": "/register.html", "destination": "/register", "permanent": true },
+    { "source": "/select-school.html", "destination": "/select-school", "permanent": true },
+    { "source": "/privacy-policy.html", "destination": "/privacy-policy", "permanent": true }
+  ],
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/(login|select-school|privacy-policy|register|parent)", "destination": "/" },
+    { "source": "/parent/([a-z0-9][a-z0-9-]{1,62})", "destination": "/" },
+    { "source": "/pages/(dashboard|masterlist|parent-list|program-4ps|program-ip|program-sned|program-aral|program-muslim|enrollment-data|data|reports|eosy-report|grades-profile|print-card|student-card|good-moral|certificate-of-enrollment|print-good-moral|print-enrollment|request-permanent-records|outgoing-records-envelope|print-sf10-request|print-outgoing-envelope|reading-profile|math-profile|nutritional-status|transfer-info|dropout|promotion|retention|audit-log|feedback|trash|utilities|settings|preferences|manage-users|eduai)", "destination": "/" }
   ]
 }

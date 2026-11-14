@@ -1,10 +1,11 @@
 // @ts-nocheck -- ported from the original site; behavior preserved, not yet fully typed.
 import { landingPageForProfile } from "./user-preferences";
+import { appPagePath, canonicalPagePath } from './page-paths';
 import userPreferenceDefaults from "../../shared/user-preferences.json";
 import { appPageHref, showToast } from './shell';
 import { LPSApi } from './sheets-api';
 import { auth, authPersistenceReady, getPublicStats } from './firebase';
-import { APP_LOGIN_PATH, APP_PAGE_PREFIX, appSessionId, clearVisitorSession, ensureVisitorSession, hasRealUserProfile, isVisitorSession, setAppUserProfile, storedAppProfile } from './app-config';
+import { APP_LOGIN_PATH, appSessionId, clearVisitorSession, ensureVisitorSession, hasRealUserProfile, isVisitorSession, setAppUserProfile, storedAppProfile } from './app-config';
 import { clearProfilePhotoCache } from "./profile-photo-cache";
 import { LPSCache } from './cache';
 import { clearLoginPublicStats, renderLoginPublicStats } from './login-public-stats';
@@ -81,7 +82,7 @@ export function initLoginPage() {
 
   // If already signed in, skip straight to the dashboard.
   if (isVisitorSession()) {
-    window.location.href = `${APP_PAGE_PREFIX}dashboard.html`;
+    window.location.href = appPageHref('dashboard.html');
     return;
   }
   let disposed = false;
@@ -91,9 +92,9 @@ export function initLoginPage() {
     unsubscribeAuth = auth.onAuthStateChanged((user) => {
     if (user && !user.isAnonymous && !submitBtn.disabled) {
       void LPSApi.getMyProfile(user).then(profile => {
-        if (!disposed && !submitBtn.disabled) window.location.href = `${APP_PAGE_PREFIX}${landingPageForProfile(profile)}`;
+        if (!disposed && !submitBtn.disabled) window.location.href = appPagePath(landingPageForProfile(profile));
       }).catch(() => {
-        if (!disposed && !submitBtn.disabled) window.location.href = `${APP_PAGE_PREFIX}dashboard.html`;
+        if (!disposed && !submitBtn.disabled) window.location.href = appPagePath('dashboard.html');
       });
     }
     });
@@ -164,7 +165,7 @@ export function initLoginPage() {
       setAppUserProfile(sessionProfile);
       void LPSApi.recordAuditEvent("LOGIN", { ipSession: appSessionId() }).catch(() => {});
       sessionStorage.setItem(LPS_POST_LOGIN_NOTICE_KEY, "1");
-      window.location.href = `${APP_PAGE_PREFIX}${landingPageForProfile(sessionProfile)}`;
+      window.location.href = appPagePath(landingPageForProfile(sessionProfile));
     } catch (err) {
       submitBtn.disabled = false;
       submitBtn.textContent = "Sign in";
@@ -292,8 +293,8 @@ export function requireAuth() {
 
     ensureVisitorSession();
     if (isVisitorSession()) {
-      const pageName = window.location.pathname.split(/[\\/]/).pop().toLowerCase();
-      if (!["dashboard.html", "enrollment-data.html"].includes(pageName)) {
+      const pathname = canonicalPagePath(window.location.pathname);
+      if (!["/pages/dashboard", "/pages/enrollment-data"].includes(pathname)) {
         window.location.replace(appPageHref("dashboard.html"));
         return;
       }

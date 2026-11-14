@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildSchoolDocument, validateRegistration } from "./register-school.mjs";
+import assetReferenceCases from "../shared/asset-reference-cases.json";
 
 const validRegistration = {
   id: "sanroque-es",
@@ -28,6 +29,32 @@ const validRegistration = {
 };
 
 describe("school registration schema", () => {
+  it.each(assetReferenceCases.accepted)("normalizes video paths and hosted URLs: $input", ({ input, expected }) => {
+    expect(validateRegistration({ ...validRegistration, videoUrl: input }).videoUrl).toBe(expected);
+  });
+  it.each(assetReferenceCases.rejected.filter(value => value.trim()))("rejects invalid video references: %s", videoUrl => {
+    expect(() => validateRegistration({ ...validRegistration, videoUrl })).toThrow("videoUrl must be empty");
+  });
+  it('allows an empty optional video', () => {
+    for (const videoUrl of ['', '   ']) expect(validateRegistration({ ...validRegistration, videoUrl }).videoUrl).toBe('');
+    for (const videoUrl of [null, undefined, 7, {}]) {
+      expect(() => validateRegistration({ ...validRegistration, videoUrl })).toThrow('videoUrl must be empty');
+    }
+  });
+  it.each(assetReferenceCases.accepted)("normalizes a logo path or hosted URL: $input", ({ input, expected }) => {
+    const registration = validateRegistration({ ...validRegistration, logoUrl: input });
+    expect(registration.logoUrl).toBe(expected);
+    expect(buildSchoolDocument(registration, {}, "server-time").logoUrl).toBe(expected);
+  });
+
+  it.each(assetReferenceCases.rejected)("rejects an invalid logo reference: %s", (logoUrl) => {
+    expect(() => validateRegistration({ ...validRegistration, logoUrl })).toThrow("logoUrl must be a website image path");
+  });
+
+  it.each([null, undefined, 7, {}, []])("rejects a non-string logo reference: %s", (logoUrl) => {
+    expect(() => validateRegistration({ ...validRegistration, logoUrl })).toThrow("logoUrl must be a website image path");
+  });
+
   it("validates and trims an optional projectName for the central registry", () => {
     expect(validateRegistration(validRegistration)).not.toHaveProperty("projectName");
     expect(validateRegistration({ ...validRegistration, projectName: " Project Achieve " }).projectName).toBe("Project Achieve");

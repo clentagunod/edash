@@ -18,6 +18,7 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from edash_provision.cli import command_for, main
+from edash_provision.asset_reference import normalize_asset_reference
 from edash_provision.codec import SERVER_TIMESTAMP, encode_document, encode_value, make_write
 from edash_provision.deployment import OutputRedactor, deploy, display_command, redact_output
 from edash_provision.firestore import FirestoreClient, provision_documents
@@ -176,6 +177,36 @@ class ProvisionTests(unittest.TestCase):
         for url in ("http://insecure.example/image.png", "//remote.example/image.png", "javascript:alert(1)"):
             with self.subTest(url=url), self.assertRaises(ProvisionError):
                 validate_registration({**data, "logoUrl": url}, "central-registry")
+
+    def test_logo_paths_and_hosted_urls_match_website_contract(self):
+        fixture = Path(__file__).resolve().parents[3] / "shared/asset-reference-cases.json"
+        cases = json.loads(fixture.read_text(encoding="utf-8"))
+        data = self.registration()
+        for case in cases["accepted"]:
+            with self.subTest(value=case["input"]):
+                self.assertEqual(normalize_asset_reference(case["input"]), case["expected"])
+                doc = validate_registration({**data, "logoUrl": case["input"]}, "central-registry")
+                self.assertEqual(doc.data["logoUrl"], case["expected"])
+                video_doc = validate_registration({**data, "videoUrl": case["input"]}, "central-registry")
+                self.assertEqual(video_doc.data["videoUrl"], case["expected"])
+        for value in [*cases["rejected"], None, 7, {}, []]:
+            with self.subTest(rejected=value):
+                self.assertIsNone(normalize_asset_reference(value))
+                with self.assertRaises(ProvisionError):
+                    validate_registration({**data, "logoUrl": value}, "central-registry")
+                if not isinstance(value, str) or value.strip():
+                    with self.assertRaises(ProvisionError):
+                        validate_registration({**data, "videoUrl": value}, "central-registry")
+        for value in ("", "   "):
+            self.assertEqual(validate_registration({**data, "videoUrl": value}, "central-registry").data["videoUrl"], "")
+
+    def test_registration_plan_normalizes_logo_without_modifying_source(self):
+        data = {**self.registration(), "logoUrl": "public/assets/inopawan/logo.png"}
+        path = self.write(data)
+        plan = prepare_plan(Options("register", "central-registry", path))
+        self.assertEqual(plan.documents[0].data["logoUrl"], "/assets/inopawan/logo.png")
+        self.assertIn("Logo (website path): /assets/inopawan/logo.png", plan.summary())
+        self.assertEqual(json.loads(path.read_text())["logoUrl"], data["logoUrl"])
 
     def test_service_key_project_and_token_endpoint_are_checked_offline(self):
         key = {"type": "service_account", "project_id": "sample-tenant", "client_email": "operator@sample-tenant.iam.gserviceaccount.com", "private_key": "-----BEGIN PRIVATE KEY-----\nnot-real\n-----END PRIVATE KEY-----", "token_uri": "https://oauth2.googleapis.com/token"}

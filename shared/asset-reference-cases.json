@@ -1,0 +1,29 @@
+{
+  "accepted": [
+    { "input": "/assets/school/logo.png", "expected": "/assets/school/logo.png" },
+    { "input": "assets/school/logo.png", "expected": "/assets/school/logo.png" },
+    { "input": "public/assets/school/logo.png", "expected": "/assets/school/logo.png" },
+    { "input": "/public/assets/school/logo.png", "expected": "/assets/school/logo.png" },
+    { "input": "./public/assets/school/logo.png", "expected": "/assets/school/logo.png" },
+    { "input": "././assets/school/logo.png", "expected": "/assets/school/logo.png" },
+    { "input": "public\\assets\\school\\logo.png", "expected": "/assets/school/logo.png" },
+    { "input": "  public/assets/school/logo.png  ", "expected": "/assets/school/logo.png" },
+    { "input": "public/assets/My School/logo image.png?v=2#mark", "expected": "/assets/My%20School/logo%20image.png?v=2#mark" },
+    { "input": "assets/school/logo%20image.png", "expected": "/assets/school/logo%20image.png" },
+    { "input": "logo.png", "expected": "/logo.png" },
+    { "input": "https://images.example/school/logo.png", "expected": "https://images.example/school/logo.png" },
+    { "input": "https://images.example/school/logo.png?token=abc&v=2#mark", "expected": "https://images.example/school/logo.png?token=abc&v=2#mark" },
+    { "input": "HTTPS://Images.Example:443/logo image.png", "expected": "https://images.example/logo%20image.png" },
+    { "input": "https://images.example", "expected": "https://images.example/" }
+  ],
+  "rejected": [
+    "", "   ", "public", "public/", "/", "./", "?logo.png", "#logo.png",
+    "C:\\Pictures\\logo.png", "C:/Pictures/logo.png", "\\\\server\\logos\\school.png",
+    "//images.example/logo.png", "https:/images.example/logo.png", "http://images.example/logo.png",
+    "javascript:alert(1)", "data:image/png;base64,bG9nbw==", "file:///C:/Pictures/logo.png", "ftp://images.example/logo.png",
+    "https://", "https:///images.example/logo.png", "https://user:password@images.example/logo.png", "https://images.example:invalid/logo.png",
+    "https://images.example\\logo.png", "../assets/logo.png", "public/../logo.png", "assets/%2e%2e/logo.png",
+    "https://images.example/../logo.png", "assets/logo%2fother.png", "assets/logo%5cother.png",
+    "assets/logo%0a.png", "assets/logo%00.png", "assets/logo%ZZ.png", "assets/lo\ngo.png"
+  ]
+}

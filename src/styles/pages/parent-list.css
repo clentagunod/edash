@@ -1,0 +1,26 @@
+.parent-export-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.parent-export-controls .btn { width: auto; }
+.parent-directory-toolbar { padding-bottom: 16px; }
+.parent-filter-controls { display: flex; flex-wrap: wrap; }
+.parent-filter-controls > .search-box { flex: 2 1 240px; }
+.parent-filter-controls > .select-filter { flex: 1 1 160px; width: auto; }
+.parent-directory-note { margin: 0; color: var(--ink-500); font-size: 12px; line-height: 1.6; }
+.parent-table-scroll { overflow-x: auto; }
+.parent-table { min-width: 620px; }
+.parent-table td { vertical-align: top; }
+.parent-table th:first-child { width: 32%; }
+.parent-record-name, .parent-child-name { color: var(--ink-900); font-weight: 600; }
+.parent-children { display: grid; gap: 12px; list-style: none; margin: 0; padding: 0; }
+.parent-children li { display: grid; gap: 3px; }
+.parent-children small { color: var(--ink-500); font-size: 11px; }
+.parent-page-size { display: flex; align-items: center; gap: 8px; }
+.parent-page-size .select-filter { min-width: 65px; width: auto; }
+.parent-page-number { display: inline-flex; align-items: center; gap: 6px; }
+.parent-table .state-row .btn { margin: 12px auto 0; width: auto; }
+@media (max-width: 640px) {
+  .parent-list-page .page-header, .parent-list-page .learner-toolbar-heading { align-items: flex-start; flex-direction: column; }
+  .parent-export-controls { width: 100%; }
+  .parent-export-controls .select-filter { flex: 1; min-width: 0; }
+  .parent-filter-controls > .select-filter { flex-basis: 100%; }
+  .parent-list-page .pager-btns { flex-wrap: wrap; }
+}

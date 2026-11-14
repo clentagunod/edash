@@ -13,24 +13,22 @@ describe('EduAI product guidance', () => {
 
   it('explains the sidebar hierarchy and routes from Dashboard through Feedback', () => {
     const guide = buildEduAiProductGuide('Show me all dashboard to feedback navigation menu components', 'Registrar');
-    expect(guide).toContain('Dashboard — /pages/dashboard.html');
+    expect(guide).toContain('Dashboard — /pages/dashboard');
     expect(guide).toContain('Programs');
     expect(guide).toContain('Nutrition');
     expect(guide).toContain('Statistics');
     expect(guide).toContain('Profiles');
     expect(guide).toContain('Movement');
     expect(guide).toContain('Utilities');
-    expect(guide).not.toContain('/pages/trash.html');
-    expect(guide).toContain('Feedback — /pages/feedback.html');
+    expect(guide).not.toContain('/pages/trash');
+    expect(guide).toContain('Feedback — /pages/feedback');
   });
 
   it('describes the Utilities landing page tools and distinguishes its sibling links', () => {
     const guide = buildEduAiProductGuide('What components and tools are on the Utilities page?', 'Teacher');
-    expect(guide).toContain('Utilities landing page /pages/utilities.html');
-    expect(guide).toContain('Grade Calculator');
-    expect(guide).toContain('excludes empty subjects');
-    expect(guide).toContain('BMI Calculator');
-    expect(guide).toContain('age- and sex-specific percentile interpretation');
+    expect(guide).toContain('Utilities landing page /pages/utilities');
+    expect(guide).toContain('Data export workspace');
+    expect(guide).toContain('parent directory');
     expect(guide).toContain('Data is a separate export workspace');
     expect(guide).toContain('EduAI is a separate AI assistant page');
   });
@@ -41,10 +39,10 @@ describe('EduAI product guidance', () => {
       'dashboard', 'masterlist', 'program-4ps', 'program-ip', 'program-sned', 'program-aral', 'program-muslim',
       'enrollment-data', 'data', 'reports', 'eosy-report', 'grades-profile', 'print-card', 'reading-profile',
       'math-profile', 'nutritional-status', 'transfer-info', 'dropout', 'promotion', 'retention',
-      'feedback', 'utilities', 'bmi-calculator', 'grade-calculator', 'settings', 'preferences', 'eduai',
-    ].forEach((route) => expect(guide).toContain(`/pages/${route}.html`));
-    expect(guide).not.toContain('/pages/manage-users.html');
-    expect(guide).not.toContain('/pages/audit-log.html');
+      'feedback', 'utilities', 'settings', 'preferences', 'eduai',
+    ].forEach((route) => expect(guide).toContain(`/pages/${route}`));
+    expect(guide).not.toContain('/pages/manage-users');
+    expect(guide).not.toContain('/pages/audit-log');
   });
 
   it('explains global search shortcuts and navigation to indexed components', () => {
@@ -55,7 +53,7 @@ describe('EduAI product guidance', () => {
 
   it('describes the Feedback page form and its route', () => {
     const guide = buildEduAiProductGuide('Where can I send feedback and how does the rating form work?', 'Teacher');
-    expect(guide).toContain('/pages/feedback.html');
+    expect(guide).toContain('/pages/feedback');
     expect(guide).toContain('1=Poor to 5=Excellent');
     expect(guide).toContain('Submit feedback');
   });
@@ -119,6 +117,13 @@ describe('EduAI product guidance', () => {
     const routes = [...appSource.matchAll(/<Route\s+path="([^"]+)"/g)].map(match => match[1]).filter(route => !['/', '/index.html', '*'].includes(route));
     const documented = new Set(guideEntries.flatMap(entry => entry.routes || []));
     routes.forEach(route => expect(documented.has(route), `Missing product documentation for ${route}`).toBe(true));
+  });
+
+  it('only publishes extensionless application URLs in product guidance', () => {
+    for (const entry of guideEntries) {
+      expect(entry.guidance).not.toMatch(/\/(?:pages\/[a-z0-9-]+|parent|index)\.html\b/i);
+      for (const route of entry.routes || []) expect(route).not.toMatch(/\.html(?:$|[?#])/i);
+    }
   });
 
   it.each([

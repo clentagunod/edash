@@ -311,6 +311,6 @@ describe('certificate template and tenant defaults', () => {
     expect(certificateDate('2026-02-30')).toBeNull();
     expect(certificateDate('2026-08-11')?.suffix).toBe('th');
     expect(certificateDate('2026-08-21')?.suffix).toBe('st');
-    expect(printableWorkspaceHref('student-card', '2026-2027')).toBe('/pages/print-card.html?schoolYear=2026-2027');
+    expect(printableWorkspaceHref('student-card', '2026-2027')).toBe('/pages/print-card?schoolYear=2026-2027');
   });
 });

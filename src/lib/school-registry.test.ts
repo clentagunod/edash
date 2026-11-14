@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import assetReferenceCases from '../../shared/asset-reference-cases.json';
 import {
   clearStoredSchool,
   getActiveSchool,
@@ -36,6 +37,18 @@ describe('school directory tenant selection', () => {
     window.history.replaceState(null, '', '/');
   });
   afterEach(() => { window.history.replaceState(null, '', '/'); sessionStorage.clear(); });
+
+  it('accepts public-folder logo paths and HTTPS hosts consistently for stored school registrations', () => {
+    for (const { input } of assetReferenceCases.accepted) {
+      const school = { ...validSchool, logoUrl: input };
+      expect(isRegisteredSchool(school), input).toBe(true);
+      storeActiveSchool(school);
+      expect(getStoredSchool()?.logoUrl).toBe(input);
+    }
+    for (const logoUrl of assetReferenceCases.rejected) {
+      expect(isRegisteredSchool({ ...validSchool, logoUrl }), logoUrl).toBe(false);
+    }
+  });
 
   it('pins a QR-link school only to its matching parent portal tab', () => {
     const parentSchool = { ...validSchool, id: 'parent-school' };

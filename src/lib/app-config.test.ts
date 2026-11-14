@@ -1,5 +1,6 @@
 
 import preferenceDefaults from '../../shared/user-preferences.json';
+import assetReferenceCases from '../../shared/asset-reference-cases.json';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockAuth = {
@@ -137,6 +138,24 @@ describe('manually assigned Developer role', () => {
 });
 
 describe('shared application configuration', () => {
+  it('uses the same public logo path on login, nested routes, browser icons, and print branding', () => {
+    window.history.replaceState(null, '', '/parent/sample-school');
+    try {
+      for (const { input, expected } of assetReferenceCases.accepted) {
+        expect(appBrandAssetUrl(input)).toBe(expected);
+      }
+      for (const input of assetReferenceCases.rejected) {
+        expect(appBrandAssetUrl(input)).toBe('/assets/edash/edash.png');
+      }
+      updateSchoolFavicon('public/assets/school/logo.png');
+      expect(document.querySelector('link[rel="icon"]')?.getAttribute('href')).toBe('/assets/school/logo.png');
+      expect(document.querySelector<HTMLLinkElement>('link[data-school-logo-preload]')?.href)
+        .toBe(`${window.location.origin}/assets/school/logo.png`);
+    } finally {
+      window.history.replaceState(null, '', '/');
+    }
+  });
+
   it('centralizes school identity, browser branding, and Firestore schema names', () => {
     expect(APP_CONFIG.branding).toMatchObject({
       schoolName: 'E-Dash',
@@ -918,6 +937,23 @@ describe('visitor session handling', () => {
     window.history.pushState({}, '', '/');
     sessionStorage.clear();
     localStorage.clear();
+  });
+
+  it.each(['/pages/dashboard', '/pages/enrollment-data'])('allows visitor access on the clean route %s', async pathname => {
+    window.history.replaceState({}, '', `${pathname}?visitor=1`);
+    setAppUserProfile(null);
+    ensureVisitorSession(true);
+    const { requireAuth } = await import('./auth');
+    expect(await requireAuth()).toMatchObject({ uid: 'guest', isGuest: true });
+  });
+
+  it('builds clean visitor links without corrupting query strings or fragments', async () => {
+    setAppUserProfile(null);
+    ensureVisitorSession(true);
+    const { appPageHref } = await import('./shell');
+    expect(appPageHref('dashboard.html?view=summary#programSummary'))
+      .toBe('/pages/dashboard?view=summary&visitor=1#programSummary');
+    expect(appPageHref('enrollment-data.html?visitor=1')).toBe('/pages/enrollment-data?visitor=1');
   });
 
   it('keeps the login page accessible when a stale guest session is left behind', () => {
@@ -1745,10 +1781,10 @@ describe('visitor session handling', () => {
     expect(document.querySelector('.topbar-user-text .name')?.textContent).toBe('Example Admin');
     expect(document.getElementById('topbarRole')?.textContent).toBe('School Admin');
     expect(document.querySelector('.account-menu')).toBeNull();
-    const settingsLink = document.querySelector<HTMLAnchorElement>('.sidebar-nav .nav-item[href="pages/settings.html"]');
+    const settingsLink = document.querySelector<HTMLAnchorElement>('.sidebar-nav .nav-item[href="/pages/settings"]');
     expect(settingsLink?.textContent).toContain('Settings');
     expect(settingsLink?.classList.contains('is-active')).toBe(true);
-    expect(document.querySelector('.sidebar-nav a[href="pages/manage-users.html"]')).toBeNull();
+    expect(document.querySelector('.sidebar-nav a[href="/pages/manage-users"]')).toBeNull();
     expect(Array.from(document.querySelectorAll<HTMLButtonElement>('.nav-category-trigger'), (button) => button.textContent?.trim())).toEqual([
       expect.stringContaining('Programs'),
       expect.stringContaining('Nutrition'),
@@ -1758,13 +1794,13 @@ describe('visitor session handling', () => {
       expect.stringContaining('Printables'),
       expect.stringContaining('Utilities'),
     ]);
-    expect(document.querySelector('.nav-category[data-nav-category] a[href="pages/data.html"]')?.textContent).toContain('Data');
-    const movementLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>('.nav-category[data-nav-category] a[href="pages/promotion.html"], .nav-category[data-nav-category] a[href="pages/retention.html"], .nav-category[data-nav-category] a[href="pages/transfer-info.html"], .nav-category[data-nav-category] a[href="pages/dropout.html"]'));
+    expect(document.querySelector('.nav-category[data-nav-category] a[href="/pages/data"]')?.textContent).toContain('Data');
+    const movementLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>('.nav-category[data-nav-category] a[href="/pages/promotion"], .nav-category[data-nav-category] a[href="/pages/retention"], .nav-category[data-nav-category] a[href="/pages/transfer-info"], .nav-category[data-nav-category] a[href="/pages/dropout"]'));
     expect(movementLinks.map((link) => link.textContent?.trim())).toEqual(["Promotion", "Retention", "Transfer Info", "Dropout Info"]);
-    expect(movementLinks.map((link) => link.getAttribute("href"))).toEqual(["pages/promotion.html", "pages/retention.html", "pages/transfer-info.html", "pages/dropout.html"]);
+    expect(movementLinks.map((link) => link.getAttribute("href"))).toEqual(["/pages/promotion", "/pages/retention", "/pages/transfer-info", "/pages/dropout"]);
     expect(movementLinks[0]?.closest('.nav-category')?.querySelector('.nav-category-trigger')?.textContent).toContain('Movement');
     expect(Array.from(document.querySelectorAll('#nav-category-printables a'), (link) => link.textContent?.trim())).toEqual(['Learner Card (SF9)', 'Good Moral Certificate', 'Certificate of Enrollment', 'Request for Permanent Records (SF10)', 'Envelope template for Outgoing Records']);
-    expect(document.querySelector('.nav-feedback a[href="pages/feedback.html"]')?.textContent).toContain('Feedback');
+    expect(document.querySelector('.nav-feedback a[href="/pages/feedback"]')?.textContent).toContain('Feedback');
 
     document.getElementById('menuToggle')?.click();
     expect(document.getElementById('sidebar')?.classList.contains('is-open')).toBe(true);
@@ -1773,7 +1809,7 @@ describe('visitor session handling', () => {
     const programsTrigger = programsCategory?.querySelector<HTMLButtonElement>('.nav-category-trigger');
     programsTrigger?.click();
     expect(programsCategory?.classList.contains('is-open')).toBe(true);
-    const programLink = programsCategory?.querySelector<HTMLAnchorElement>('a[href="pages/program-4ps.html"]');
+    const programLink = programsCategory?.querySelector<HTMLAnchorElement>('a[href="/pages/program-4ps"]');
     programLink?.addEventListener('click', (event) => event.preventDefault(), { once: true });
     programLink?.click();
     expect(programsCategory?.classList.contains('is-open')).toBe(false);

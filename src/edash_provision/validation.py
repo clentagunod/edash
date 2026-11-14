@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 from urllib.parse import urlsplit
 
+from .asset_reference import LOGO_REFERENCE_ERROR, VIDEO_REFERENCE_ERROR, normalize_asset_reference
 from .codec import SERVER_TIMESTAMP, make_write
 from .models import ASSETS, Document, Options, Plan, ProvisionError
 
@@ -119,8 +120,11 @@ def validate_registration(value: dict, central_project: str) -> Document:
         if key not in result:
             raise ProvisionError(f"{key} is required (videoUrl may be empty).")
         result[key] = _text(result, key, 2048, required=key == "logoUrl")
-        if result[key] and not _safe_url(result[key], asset=True):
-            raise ProvisionError(f"{key} must be a same-site /path or an HTTPS URL.")
+        if key == "logoUrl" or result[key]:
+            normalized = normalize_asset_reference(result[key])
+            if normalized is None:
+                raise ProvisionError(LOGO_REFERENCE_ERROR if key == "logoUrl" else VIDEO_REFERENCE_ERROR)
+            result[key] = normalized
     for key, children in (("schoolInfo", ("region", "divisionOffice", "district")), ("schoolHead", ("name", "position", "email", "phoneNumber"))):
         if key in result:
             if not isinstance(result[key], dict):

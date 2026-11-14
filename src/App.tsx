@@ -11,6 +11,7 @@ import { auth } from './lib/firebase';
 import { resolveMaintenanceMode, startModeSettingsListener, useModeSettings } from './lib/mode-settings';
 import { clearTenantSession } from './lib/tenant-session';
 import { handlePageLinkClick } from './lib/page-navigation';
+import { canonicalPagePath } from './lib/page-paths';
 import { clearStoredSchool, getRegisteredSchool, getRegisteredSchools, getStoredSchool, sameSchoolRegistration, storeActiveSchool, storeParentPortalSchool } from './lib/school-registry';
 import { replaceWithParentPortal } from './lib/parent-portal-links';
 
@@ -50,7 +51,7 @@ function EduAiAvailabilityNotice({ schoolId }: { schoolId: string }) {
         <p>A little more help for planning, teaching, and learner support.</p>
         <Link
           className="eduai-availability-link"
-          to="/pages/eduai.html"
+          to="/pages/eduai"
           onClick={() => setVisible(false)}
         >
           Meet EduAI
@@ -76,6 +77,7 @@ function EduAiAvailabilityNotice({ schoolId }: { schoolId: string }) {
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const ParentPortalPage = lazy(() => import('./pages/ParentPortalPage'));
 const MasterlistPage = lazy(() => import('./pages/MasterlistPage'));
+const ParentListPage = lazy(() => import('./pages/ParentListPage'));
 const Program4psPage = lazy(() => import('./pages/Program4psPage'));
 const ProgramIpPage = lazy(() => import('./pages/ProgramIpPage'));
 const ProgramSnedPage = lazy(() => import('./pages/ProgramSnedPage'));
@@ -100,8 +102,6 @@ const AuditLogPage = lazy(() => import('./pages/AuditLogPage'));
 const FeedbackPage = lazy(() => import('./pages/FeedbackPage'));
 const TrashPage = lazy(() => import('./pages/TrashPage'));
 const UtilitiesPage = lazy(() => import('./pages/UtilitiesPage'));
-const BmiCalculatorPage = lazy(() => import('./pages/BmiCalculatorPage'));
-const GradeCalculatorPage = lazy(() => import('./pages/GradeCalculatorPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const ManageUsersPage = lazy(() => import('./pages/ManageUsersPage'));
 const EduaiPage = lazy(() => import('./pages/EduaiPage'));
@@ -116,7 +116,6 @@ export function SchoolRegistrationGate({ children }: { children: ReactNode }) {
   const [verifiedPath, setVerifiedPath] = useState<string | null>(null);
   const [eduAiEnabled, setEduAiEnabled] = useState(false);
   const isPublicRoute = location.pathname === '/' ||
-    location.pathname === '/index.html' ||
     location.pathname === '/select-school' ||
     location.pathname === '/privacy-policy';
 
@@ -272,7 +271,7 @@ export function SchoolRegistrationGate({ children }: { children: ReactNode }) {
     const activeSchool = getStoredSchool();
     const showEduAiNotice = eduAiEnabled &&
       location.pathname.startsWith('/pages/') &&
-      location.pathname !== '/pages/eduai.html' &&
+      location.pathname !== '/pages/eduai' &&
       !isVisitorSession();
     return (
       <>
@@ -304,14 +303,7 @@ export function SchoolRegistrationGate({ children }: { children: ReactNode }) {
   );
 }
 
-/**
- * Route paths intentionally mirror the legacy site's file layout
- * ("/pages/dashboard.html", "/pages/masterlist.html", ...) so every
- * hard-coded <a href="masterlist.html"> inside the ported markup
- * (see src/pages/markup/*.html) keeps working completely unmodified —
- * relative links resolve to these exact paths. See
- * README.md for the architecture overview.
- */
+/** Page routes use extensionless paths; legacy addresses are replaced before gating. */
 export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -325,6 +317,11 @@ export default function App() {
     document.addEventListener('click', onPageLinkClick);
     return () => document.removeEventListener('click', onPageLinkClick);
   }, [navigate]);
+
+  const canonicalPath = canonicalPagePath(location.pathname);
+  if (canonicalPath !== location.pathname) {
+    return <Navigate to={`${canonicalPath}${location.search}${location.hash}`} state={location.state} replace />;
+  }
 
   if (resolveMaintenanceMode(modeSettings.isMaintenanceMode)) {
     return <MaintenancePage />;
@@ -352,52 +349,50 @@ export default function App() {
         <SchoolRegistrationGate>
           <Routes>
           <Route path="/" element={<Navigate to="/select-school" replace />} />
-          <Route path="/index.html" element={<Navigate to="/select-school" replace />} />
           <Route path="/select-school" element={<SchoolSelectionPage />} />
           <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/parent.html" element={<ParentPortalPage />} />
+          <Route path="/parent" element={<ParentPortalPage />} />
           <Route path="/parent/:schoolId" element={<ParentPortalPage />} />
 
-          <Route path="/pages/dashboard.html" element={<DashboardPage />} />
-          <Route path="/pages/masterlist.html" element={<MasterlistPage />} />
-          <Route path="/pages/program-4ps.html" element={<Program4psPage />} />
-          <Route path="/pages/program-ip.html" element={<ProgramIpPage />} />
-          <Route path="/pages/program-sned.html" element={<ProgramSnedPage />} />
-          <Route path="/pages/program-aral.html" element={<ProgramAralPage />} />
-          <Route path="/pages/program-muslim.html" element={<ProgramMuslimPage />} />
-          <Route path="/pages/enrollment-data.html" element={<EnrollmentDataPage />} />
-          <Route path="/pages/data.html" element={<DataPage />} />
-          <Route path="/pages/reports.html" element={<ReportsPage />} />
-          <Route path="/pages/eosy-report.html" element={<EosyReportPage />} />
-          <Route path="/pages/grades-profile.html" element={<GradesProfilePage />} />
-          <Route path="/pages/print-card.html" element={<PrintableAccessGate kind="student-card"><PrintCardPage /></PrintableAccessGate>} />
-          <Route path="/pages/student-card.html" element={<PrintableAccessGate kind="student-card"><PrintablesPage key="student-card" kind="student-card" /></PrintableAccessGate>} />
-          <Route path="/pages/good-moral.html" element={<PrintableAccessGate kind="good-moral"><PrintablesPage key="good-moral" kind="good-moral" /></PrintableAccessGate>} />
-          <Route path="/pages/certificate-of-enrollment.html" element={<PrintableAccessGate kind="enrollment"><PrintablesPage key="enrollment" kind="enrollment" /></PrintableAccessGate>} />
-          <Route path="/pages/print-good-moral.html" element={<PrintableAccessGate kind="good-moral"><PrintCertificatePage key="good-moral" kind="good-moral" /></PrintableAccessGate>} />
-          <Route path="/pages/print-enrollment.html" element={<PrintableAccessGate kind="enrollment"><PrintCertificatePage key="enrollment" kind="enrollment" /></PrintableAccessGate>} />
-          <Route path="/pages/request-permanent-records.html" element={<PrintableAccessGate kind="sf10-request"><PrintablesPage key="sf10-request" kind="sf10-request" /></PrintableAccessGate>} />
-          <Route path="/pages/outgoing-records-envelope.html" element={<PrintableAccessGate kind="outgoing-envelope"><PrintablesPage key="outgoing-envelope" kind="outgoing-envelope" /></PrintableAccessGate>} />
-          <Route path="/pages/print-sf10-request.html" element={<PrintableAccessGate kind="sf10-request"><PrintCertificatePage key="sf10-request" kind="sf10-request" /></PrintableAccessGate>} />
-          <Route path="/pages/print-outgoing-envelope.html" element={<PrintableAccessGate kind="outgoing-envelope"><PrintCertificatePage key="outgoing-envelope" kind="outgoing-envelope" /></PrintableAccessGate>} />
-          <Route path="/pages/reading-profile.html" element={<ReadingProfilePage />} />
-          <Route path="/pages/math-profile.html" element={<MathProfilePage />} />
-          <Route path="/pages/nutritional-status.html" element={<NutritionalStatusPage />} />
-          <Route path="/pages/transfer-info.html" element={<TransferInfoPage />} />
-          <Route path="/pages/dropout.html" element={<DropoutPage />} />
-          <Route path="/pages/promotion.html" element={<PromotionPage />} />
-          <Route path="/pages/retention.html" element={<RetentionPage />} />
-          <Route path="/pages/audit-log.html" element={<AuditLogPage />} />
-          <Route path="/pages/feedback.html" element={<FeedbackPage />} />
-          <Route path="/pages/trash.html" element={<TrashPage />} />
-          <Route path="/pages/utilities.html" element={<UtilitiesPage />} />
-          <Route path="/pages/bmi-calculator.html" element={<BmiCalculatorPage />} />
-          <Route path="/pages/grade-calculator.html" element={<GradeCalculatorPage />} />
-          <Route path="/pages/settings.html" element={<SettingsPage />} />
-          <Route path="/pages/preferences.html" element={<PreferencesPage />} />
-          <Route path="/pages/manage-users.html" element={<ManageUsersPage />} />
-          <Route path="/pages/eduai.html" element={<EduaiPage />} />
+          <Route path="/pages/dashboard" element={<DashboardPage />} />
+          <Route path="/pages/masterlist" element={<MasterlistPage />} />
+          <Route path="/pages/parent-list" element={<ParentListPage />} />
+          <Route path="/pages/program-4ps" element={<Program4psPage />} />
+          <Route path="/pages/program-ip" element={<ProgramIpPage />} />
+          <Route path="/pages/program-sned" element={<ProgramSnedPage />} />
+          <Route path="/pages/program-aral" element={<ProgramAralPage />} />
+          <Route path="/pages/program-muslim" element={<ProgramMuslimPage />} />
+          <Route path="/pages/enrollment-data" element={<EnrollmentDataPage />} />
+          <Route path="/pages/data" element={<DataPage />} />
+          <Route path="/pages/reports" element={<ReportsPage />} />
+          <Route path="/pages/eosy-report" element={<EosyReportPage />} />
+          <Route path="/pages/grades-profile" element={<GradesProfilePage />} />
+          <Route path="/pages/print-card" element={<PrintableAccessGate kind="student-card"><PrintCardPage /></PrintableAccessGate>} />
+          <Route path="/pages/student-card" element={<PrintableAccessGate kind="student-card"><PrintablesPage key="student-card" kind="student-card" /></PrintableAccessGate>} />
+          <Route path="/pages/good-moral" element={<PrintableAccessGate kind="good-moral"><PrintablesPage key="good-moral" kind="good-moral" /></PrintableAccessGate>} />
+          <Route path="/pages/certificate-of-enrollment" element={<PrintableAccessGate kind="enrollment"><PrintablesPage key="enrollment" kind="enrollment" /></PrintableAccessGate>} />
+          <Route path="/pages/print-good-moral" element={<PrintableAccessGate kind="good-moral"><PrintCertificatePage key="good-moral" kind="good-moral" /></PrintableAccessGate>} />
+          <Route path="/pages/print-enrollment" element={<PrintableAccessGate kind="enrollment"><PrintCertificatePage key="enrollment" kind="enrollment" /></PrintableAccessGate>} />
+          <Route path="/pages/request-permanent-records" element={<PrintableAccessGate kind="sf10-request"><PrintablesPage key="sf10-request" kind="sf10-request" /></PrintableAccessGate>} />
+          <Route path="/pages/outgoing-records-envelope" element={<PrintableAccessGate kind="outgoing-envelope"><PrintablesPage key="outgoing-envelope" kind="outgoing-envelope" /></PrintableAccessGate>} />
+          <Route path="/pages/print-sf10-request" element={<PrintableAccessGate kind="sf10-request"><PrintCertificatePage key="sf10-request" kind="sf10-request" /></PrintableAccessGate>} />
+          <Route path="/pages/print-outgoing-envelope" element={<PrintableAccessGate kind="outgoing-envelope"><PrintCertificatePage key="outgoing-envelope" kind="outgoing-envelope" /></PrintableAccessGate>} />
+          <Route path="/pages/reading-profile" element={<ReadingProfilePage />} />
+          <Route path="/pages/math-profile" element={<MathProfilePage />} />
+          <Route path="/pages/nutritional-status" element={<NutritionalStatusPage />} />
+          <Route path="/pages/transfer-info" element={<TransferInfoPage />} />
+          <Route path="/pages/dropout" element={<DropoutPage />} />
+          <Route path="/pages/promotion" element={<PromotionPage />} />
+          <Route path="/pages/retention" element={<RetentionPage />} />
+          <Route path="/pages/audit-log" element={<AuditLogPage />} />
+          <Route path="/pages/feedback" element={<FeedbackPage />} />
+          <Route path="/pages/trash" element={<TrashPage />} />
+          <Route path="/pages/utilities" element={<UtilitiesPage />} />
+          <Route path="/pages/settings" element={<SettingsPage />} />
+          <Route path="/pages/preferences" element={<PreferencesPage />} />
+          <Route path="/pages/manage-users" element={<ManageUsersPage />} />
+          <Route path="/pages/eduai" element={<EduaiPage />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

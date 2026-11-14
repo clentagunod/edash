@@ -62,6 +62,10 @@ class Plan:
         ]
         if self.options.mode == "tenant":
             lines.append(f"School year: {self.options.school_year} (existing current year is retained)")
+        elif self.documents:
+            logo = self.documents[0].data.get("logoUrl", "")
+            kind = "HTTPS URL" if logo.startswith("https://") else "website path"
+            lines.append(f"Logo ({kind}): {logo}")
         lines.extend(f"  {'MERGE' if self.options.mode == 'register' else 'CREATE IF MISSING'}  {doc.path}" for doc in self.documents)
         if self.collection_paths:
             lines.append(f"Logical collection paths: {len(self.collection_paths)}; no placeholder records are created.")

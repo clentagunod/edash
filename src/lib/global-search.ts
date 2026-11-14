@@ -11,7 +11,8 @@
  *
  * Keyboard: Ctrl/Cmd + K opens, Esc closes, ArrowUp/Down + Enter to select.
  */
-import { APP_PAGE_PREFIX, canViewGradesProfile, isSchoolAdmin, isVisitorSession } from './app-config';
+import { canViewGradesProfile, isSchoolAdmin, isVisitorSession } from './app-config';
+import { appPagePath, canonicalPagePath } from './page-paths';
 import { Icon } from './icons';
 import { canAccessPrintable } from './printable-access';
 
@@ -101,6 +102,11 @@ const CURATED = [
   E('Enrollment Data', 'Male total', 'enrollment-data.html', '#enrollmentTotalMale', 'users', 'enrollment male'),
   E('Enrollment Data', 'Female total', 'enrollment-data.html', '#enrollmentTotalFemale', 'users', 'enrollment female'),
   E('Enrollment Data', 'Overall total', 'enrollment-data.html', '#enrollmentGrandTotal', 'users', 'enrollment total'),
+
+  /* ---- Parent directory -------------------------------------------------- */
+  E('List of Parents', 'Parent / guardian directory', 'parent-list.html', '.parent-table', 'users', 'parents guardians children learners family list'),
+  E('List of Parents', 'Export parent list', 'parent-list.html', '.parent-export-controls', 'download', 'parents guardians excel xlsx csv tsv export download'),
+  E('List of Parents', 'Sort parents', 'parent-list.html', '[aria-label="Sort parents"]', 'users', 'parent guardian name a-z z-a most fewest children'),
 
   /* ---- Data -------------------------------------------------------------- */
   E('Data', 'Search records', 'data.html', '#dataSearch', 'search', 'search name lrn'),
@@ -205,25 +211,12 @@ const CURATED = [
   E('Website Feedback', 'Submit feedback', 'feedback.html', '#feedbackSubmitBtn', 'chevronRight', 'submit send'),
 
   /* ---- Utilities --------------------------------------------------------- */
-  E('Utilities', 'Grade Calculator', 'utilities.html', '#utilitySubjectGrid', 'sigma', 'calculate average grades'),
-  E('Utilities', 'BMI Calculator', 'utilities.html', '.utility-bmi-grid', 'calculator', 'calculate bmi height weight'),
-
-  /* ---- Grade Calculator -------------------------------------------------- */
-  E('Grade Calculator', 'Subject grades', 'grade-calculator.html', '#utilitySubjectGrid', 'sigma', 'enter grades'),
-  E('Grade Calculator', 'Calculate average', 'grade-calculator.html', '#calculateGradeBtn', 'chevronRight', 'average compute'),
-  E('Grade Calculator', 'Clear', 'grade-calculator.html', '#resetGradeBtn', 'x', 'reset'),
-
-  /* ---- BMI Calculator ---------------------------------------------------- */
-  E('BMI Calculator', 'Height input', 'bmi-calculator.html', '#utilityHeight', 'calculator', 'height meters'),
-  E('BMI Calculator', 'Weight input', 'bmi-calculator.html', '#utilityWeight', 'calculator', 'weight kg'),
-  E('BMI Calculator', 'Calculate BMI', 'bmi-calculator.html', '#calculateBmiBtn', 'chevronRight', 'compute bmi'),
-  E('BMI Calculator', 'Clear', 'bmi-calculator.html', '#resetBmiBtn', 'x', 'reset'),
 
   /* ---- Settings ---------------------------------------------------------- */
   E('Settings', 'Upload a Profile Photo', 'settings.html', '#uploadProfilePhoto', 'edit', 'upload photo avatar'),
   E('Settings', 'Remove profile photo', 'settings.html', '#removeProfilePhoto', 'trash', 'remove photo avatar'),
   E('Settings', 'Account Settings', 'settings.html', '#openAccountSettings', 'settings', 'account name password'),
-  E('Settings', 'Preferences', 'settings.html', 'a[href="preferences.html"]', 'settings', 'themes inspection options'),
+  E('Settings', 'Preferences', 'settings.html', 'a[href="/pages/preferences"]', 'settings', 'themes inspection options'),
   E('Settings', 'Admin Console', 'settings.html', '#adminConsoleOption', 'settings', 'manage users years backup', 'admin'),
 
   /* ---- Preferences ------------------------------------------------------- */
@@ -251,7 +244,7 @@ const CURATED = [
  * Small helpers
  * ========================================================================== */
 function pageHref(fileName) {
-  return `${APP_PAGE_PREFIX}${fileName}${isVisitorSession() ? '?visitor=1' : ''}`;
+  return `${appPagePath(fileName)}${isVisitorSession() ? '?visitor=1' : ''}`;
 }
 
 function escapeHtml(value) {
@@ -292,7 +285,7 @@ function applyPendingFocus() {
   const pending = S.pending;
   if (!pending) { clearPending(); return; }
   const path = window.location.pathname || '';
-  if (!path.endsWith(`/${pending.href}`)) { clearPending(); return; }
+  if (canonicalPagePath(path) !== appPagePath(pending.href)) { clearPending(); return; }
   const element = pending.selector ? document.querySelector(pending.selector) : null;
   if (element) { flashTarget(element); clearPending(); return; }
   // Element may be rendered asynchronously after the page mounts.
@@ -526,7 +519,7 @@ function onResultClick(event) {
   const input = currentInput();
   if (input) input.value = '';
   const path = window.location.pathname || '';
-  const onSamePage = path.endsWith(`/${href}`);
+  const onSamePage = canonicalPagePath(path) === appPagePath(href);
 
   if (onSamePage) {
     event.preventDefault();

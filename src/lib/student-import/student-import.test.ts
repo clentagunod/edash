@@ -83,6 +83,54 @@ describe('student import label detection and normalization', () => {
     expect(scan.errors[0].message).toContain('More than one column');
   });
 
+  it.each(['CPP', ' cPp ', 'CPP (household ID)', 'CPP [household ID]'])('detects %s as a 4Ps membership column', label => {
+    expect(matchHeader(label)).toBe('is4Ps');
+    const scan = scanStudentTable(table([
+      ['LRN', 'Name', label], ['123456789012', 'Cruz, Juan', 'HH-12345'],
+    ]), options);
+    expect(scan.errors).toEqual([]);
+    expect(scan.mappings).toContainEqual(expect.objectContaining({ field: 'is4Ps', column: 2 }));
+    expect(scan.students[0].is4Ps).toBe(true);
+  });
+
+  it.each(['HH-12345', '✓', 'Yes', 'No', 'N/A', 12345, 0, false])('marks a nonempty CPP value %s as 4Ps', value => {
+    const scan = scanStudentTable(table([
+      ['LRN', 'Name', 'CPP'], ['123456789012', 'Cruz, Juan', value],
+    ]), options);
+    expect(scan.errors).toEqual([]);
+    expect(scan.students[0].is4Ps).toBe(true);
+  });
+
+  it.each(['', '   ', null])('omits blank CPP values %s to preserve existing tagging in update mode', value => {
+    const scan = scanStudentTable(table([
+      ['LRN', 'Name', 'CPP'], ['123456789012', 'Cruz, Juan', value],
+    ]), options);
+    expect(scan.errors).toEqual([]);
+    expect(scan.students[0]).not.toHaveProperty('is4Ps');
+  });
+
+  it('keeps explicit 4Ps yes/no validation and rejects ambiguous CPP/4Ps columns', () => {
+    const scan = scanStudentTable(table([
+      ['LRN', 'Name', '4Ps'],
+      ['123456789012', 'Cruz, Juan', 'No'],
+      ['111111111111', 'Cruz, Ana', 'HH-12345'],
+    ]), options);
+    expect(scan.students[0].is4Ps).toBe(false);
+    expect(scan.errors).toContainEqual(expect.objectContaining({ row: 3, message: expect.stringContaining('yes/no') }));
+    const ambiguous = scanStudentTable(table([
+      ['LRN', 'Name', '4Ps', 'CPP'], ['123456789012', 'Cruz, Juan', 'No', 'HH-12345'],
+    ]), options);
+    expect(ambiguous.errors[0].message).toContain('More than one column maps to is4Ps');
+  });
+
+  it('retains spreadsheet error validation for CPP cells', () => {
+    const input = table([['LRN', 'Name', 'CPP'], ['123456789012', 'Cruz, Juan', '#VALUE!']]);
+    input.errors = [{ row: 2, column: 2, message: 'Spreadsheet error at C2.' }];
+    const scan = scanStudentTable(input, options);
+    expect(scan.students).toEqual([]);
+    expect(scan.errors).toContainEqual({ row: 2, message: 'CPP: Spreadsheet error at C2.' });
+  });
+
   it('reports invalid and missing LRNs, names, dates and duplicate LRNs by source row', () => {
     const scan = scanStudentTable(table([
       ...simpleRows,

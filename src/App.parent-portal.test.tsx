@@ -1,6 +1,6 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => {
@@ -30,15 +30,23 @@ vi.mock('./lib/firebase', () => ({ auth: { signOut: mocks.signOut } }));
 vi.mock('./lib/app-config', () => ({ APP_CONFIG: {}, isVisitorSession: () => false }));
 vi.mock('./lib/tenant-session', () => ({ clearTenantSession: mocks.clearSession }));
 vi.mock('./lib/parent-portal-links', () => ({ replaceWithParentPortal: mocks.replace }));
-vi.mock('./lib/mode-settings', () => ({}));
-vi.mock('./lib/page-navigation', () => ({}));
+vi.mock('./lib/mode-settings', () => ({
+  startModeSettingsListener: () => () => {},
+  useModeSettings: () => ({ status: 'ready', isMaintenanceMode: false }),
+  resolveMaintenanceMode: () => false,
+}));
+vi.mock('./lib/page-navigation', () => ({ handlePageLinkClick: vi.fn() }));
 vi.mock('./pages/LoginPage', () => ({ default: () => null }));
 vi.mock('./pages/SchoolSelectionPage', () => ({ default: () => null }));
 vi.mock('./pages/ParentPortalPage', () => ({ default: () => null }));
+vi.mock('./pages/DashboardPage', () => ({ default: () => <p>Dashboard workspace</p> }));
+vi.mock('./pages/PreferencesPage', () => ({ default: () => <p>Preferences workspace</p> }));
+vi.mock('./pages/PrintCardPage', () => ({ default: () => <p>Print card workspace</p> }));
 vi.mock('./pages/MaintenancePage', () => ({ default: () => null }));
 vi.mock('./components/RouteLoadingFallback', () => ({ default: () => <div>Loading school</div> }));
+vi.mock('./components/PrintableAccessGate', () => ({ default: ({ children }) => children }));
 
-import { SchoolRegistrationGate } from './App';
+import App, { SchoolRegistrationGate } from './App';
 
 let root: Root;
 let container: HTMLDivElement;
@@ -47,9 +55,46 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.stored.mockReturnValue(mocks.school);
   mocks.lookup.mockResolvedValue(mocks.school);
+  mocks.directory.mockResolvedValue([mocks.school]);
   container = document.createElement('div');
   document.body.append(container);
   root = createRoot(container);
+});
+
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="location">{JSON.stringify({ path: `${location.pathname}${location.search}${location.hash}`, state: location.state })}</output>;
+}
+
+describe('extensionless application routes', () => {
+  it.each([
+    ['dashboard', 'Dashboard workspace'],
+    ['preferences', 'Preferences workspace'],
+    ['print-card', 'Print card workspace'],
+  ])('opens the clean %s route directly without falling back to school selection', async (page, text) => {
+    await act(async () => root.render(
+      <MemoryRouter initialEntries={[`/pages/${page}?schoolYear=2026-2027#details`]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <App /><LocationProbe />
+      </MemoryRouter>,
+    ));
+    await vi.waitFor(() => expect(container.textContent).toContain(text));
+    expect(container.querySelector('output')?.textContent).toContain(`/pages/${page}?schoolYear=2026-2027#details`);
+    expect(mocks.directory).toHaveBeenCalledOnce();
+  });
+
+  it('replaces a legacy route without losing query parameters, section, or navigation state', async () => {
+    await act(async () => root.render(
+      <MemoryRouter initialEntries={[{ pathname: '/pages/dashboard.html', search: '?view=summary', hash: '#learners', state: { from: 'bookmark' } }]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <App /><LocationProbe />
+      </MemoryRouter>,
+    ));
+    await vi.waitFor(() => expect(container.textContent).toContain('Dashboard workspace'));
+    expect(JSON.parse(container.querySelector('output')!.textContent!)).toEqual({
+      path: '/pages/dashboard?view=summary#learners', state: { from: 'bookmark' },
+    });
+    expect(mocks.directory).toHaveBeenCalledOnce();
+    expect(mocks.signOut).not.toHaveBeenCalled();
+  });
 });
 afterEach(() => { act(() => root.unmount()); container.remove(); vi.useRealTimers(); vi.restoreAllMocks(); });
 

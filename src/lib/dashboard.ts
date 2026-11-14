@@ -2,6 +2,7 @@
 import { LPSApi } from './sheets-api';
 import { escapeHtml, formatAppDate, renderShell, todayFormatted } from './shell';
 import { requireAuth } from './auth';
+import { appPagePath } from './page-paths';
 import { DEMO_SUMMARY, isSheetsApiConfigured } from './demo-data';
 import { isTeacher, isVisitorSession, storedAppProfile, teacherAssignmentsForSchoolYear } from './app-config';
 import { Icon } from './icons';
@@ -504,7 +505,7 @@ export function renderProgramSummary(s) {
     { icon: "alertTriangle", cls: "aral", title: "ARAL Tagged Learners", desc: "Learners at Risk of Dropping Out / ARAL", count: s.aralCount, href: "program-aral.html" },
     { icon: "users", cls: "muslim", title: "Muslim Learners", desc: "Learners identified in the Muslim category", count: s.muslimCount || 0, href: "program-muslim.html" },
   ];
-  document.getElementById("programSummary").innerHTML = rows.map((r) => `${isVisitorSession() ? "<div" : `<a href="${r.href}"`} class="summary-row" style="text-decoration:none;color:inherit;">
+  document.getElementById("programSummary").innerHTML = rows.map((r) => `${isVisitorSession() ? "<div" : `<a href="${appPagePath(r.href)}"`} class="summary-row" style="text-decoration:none;color:inherit;">
       <div class="summary-icon stat-icon ${r.cls}">${Icon[r.icon]}</div>
       <div class="summary-body">
         <div class="summary-title">${r.title}</div>

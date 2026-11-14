@@ -1,8 +1,9 @@
 // @ts-nocheck -- ported from the original site; behavior preserved, not yet fully typed.
 import { LPSApi } from './sheets-api';
 import { PRINTABLES } from './printables';
+import { appPagePath } from './page-paths';
 import { canAccessPrintable } from './printable-access';
-import { APP_CONFIG, APP_PAGE_PREFIX, APP_USER_PROFILE, appBrandAssetUrl, canManageLearners, canViewGradesProfile, isSchoolAdmin, isVisitorSession, normalizedAppRole, setAppUserProfile, storedAppProfile, updateSchoolFavicon } from './app-config';
+import { APP_CONFIG, APP_USER_PROFILE, appBrandAssetUrl, canManageLearners, canViewGradesProfile, isSchoolAdmin, isVisitorSession, normalizedAppRole, setAppUserProfile, storedAppProfile, updateSchoolFavicon } from './app-config';
 import { LPS_SESSION_KEY, displayNameFromEmail, handleLogout, initials } from './auth';
 import { Icon } from './icons';
 import { auth, db } from './firebase';
@@ -50,8 +51,7 @@ export const NAV_ITEMS = [
   { group: "Printables", key: "sf10-request", label: PRINTABLES["sf10-request"].title, icon: "recordsRequest", href: "request-permanent-records.html" },
   { group: "Printables", key: "outgoing-envelope", label: PRINTABLES["outgoing-envelope"].title, icon: "outgoingEnvelope", href: "outgoing-records-envelope.html" },
   { group: "Utilities", key: "data", label: "Data", icon: "download", href: "data.html" },
-  { group: "Utilities", key: "grade-calculator", label: "Grade Calculator", icon: "sigma", href: "grade-calculator.html" },
-  { group: "Utilities", key: "bmi-calculator", label: "BMI Calculator", icon: "calculator", href: "bmi-calculator.html" },
+  { group: "Utilities", key: "parent-list", label: "List of Parents", icon: "users", href: "parent-list.html" },
   { group: "Utilities", key: "eduai", label: "EduAI", icon: "sparkles", href: "eduai.html" },
   { group: "Feedback", key: "trash", label: "Trash", icon: "trash", href: "trash.html" },
   { group: "Feedback", key: "feedback", label: "Feedback", icon: "message", href: "feedback.html" },
@@ -78,7 +78,11 @@ function updateTestModeStamp() {
 let testModeSubscriptionInitialized = false;
 
 export function appPageHref(fileName) {
-  return `${APP_PAGE_PREFIX}${fileName}${isVisitorSession() ? "?visitor=1" : ""}`;
+  const path = appPagePath(fileName);
+  if (!isVisitorSession()) return path;
+  const url = new URL(path, window.location.origin);
+  url.searchParams.set('visitor', '1');
+  return `${url.pathname}${url.search}${url.hash}`;
 }
 
 export function renderProfileAvatar(element, photoURL, email) {
@@ -367,7 +371,7 @@ export function renderShell(activeKey, pageTitleForMobile) {
     <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
       <div class="sidebar-brand">
         <div class="sidebar-brand-mark">
-          <img src="${appBrandAssetUrl(schoolLogoUrl)}" alt="${escapeHtml(schoolNickname)} logo" width="26" height="26" style="border-radius:50%;object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+          <img src="${escapeHtml(appBrandAssetUrl(schoolLogoUrl))}" alt="${escapeHtml(schoolNickname)} logo" width="26" height="26" style="border-radius:50%;object-fit:cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
           <span style="display:none;">${Icon.book.replace("currentColor", "#fff")}</span>
         </div>
         <div class="sidebar-brand-text">

@@ -1,4 +1,5 @@
 import { formatLearnerNameSurnameFirst } from './learner-sorting';
+import { appPagePath } from './page-paths';
 import type { RegisteredSchool } from './school-registry';
 import type { CertificateTemplateId } from './certificate-preferences';
 
@@ -188,5 +189,5 @@ export function missingCertificateFields(kind: CertificateKind, fields: Certific
 }
 
 export function printableWorkspaceHref(kind: PrintableKind, year: string): string {
-  return `/pages/${PRINTABLES[kind].workspace}${year ? `?schoolYear=${encodeURIComponent(year)}` : ''}`;
+  return `${appPagePath(PRINTABLES[kind].workspace)}${year ? `?schoolYear=${encodeURIComponent(year)}` : ''}`;
 }

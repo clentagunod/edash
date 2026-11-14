@@ -1,3 +1,12 @@
+import { canonicalPagePath } from './lib/page-paths';
+
+// Canonicalize before tenant modules inspect the route or initialize Firebase.
+// Preserve query/hash and history state when opening a saved legacy link.
+const canonicalPath = canonicalPagePath(window.location.pathname);
+if (canonicalPath !== window.location.pathname) {
+  window.history.replaceState(window.history.state, '', `${canonicalPath}${window.location.search}${window.location.hash}`);
+}
+
 // Registration is independent of tenant Firebase initialization, authentication,
 // stored school selection, and centralized maintenance settings.
 const isRegistration = window.location.hostname === 'register.edash.online' ||

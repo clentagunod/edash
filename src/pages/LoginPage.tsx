@@ -10,18 +10,8 @@ import { clearTenantSession } from '../lib/tenant-session';
 import { clearStoredSchool, getStoredSchool } from '../lib/school-registry';
 import TestModeStamp from '../components/TestModeStamp';
 import { parentPortalPath } from '../lib/parent-portal-links';
-
-function safeMediaUrl(value: string): string | null {
-  try {
-    const url = new URL(value, window.location.origin);
-    if (url.protocol === 'https:' || (url.protocol === 'http:' && url.origin === window.location.origin)) {
-      return url.href;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
+import { normalizeAssetReference } from '../../shared/asset-reference.mjs';
+import { appPagePath } from '../lib/page-paths';
 
 export default function LoginPage() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -56,7 +46,7 @@ export default function LoginPage() {
     const forgotLink = container?.querySelector<HTMLAnchorElement>('#forgotPasswordLink');
     const passwordToggle = container?.querySelector<HTMLButtonElement>('#togglePasswordVisibility');
     const passwordInput = container?.querySelector<HTMLInputElement>('#password');
-    const schoolLogoUrl = safeMediaUrl(school.logoUrl);
+    const schoolLogoUrl = normalizeAssetReference(school.logoUrl);
 
     if (schoolName) schoolName.textContent = school.name;
     if (schoolTagline) {
@@ -90,7 +80,7 @@ export default function LoginPage() {
         placeholder.textContent = 'Missing video please provide';
         media.replaceChildren(placeholder);
       };
-      const videoUrl = school.videoUrl ? safeMediaUrl(school.videoUrl) : null;
+      const videoUrl = normalizeAssetReference(school.videoUrl);
       if (videoUrl) {
         const video = document.createElement('video');
         video.className = 'school-preview-video';
@@ -111,7 +101,7 @@ export default function LoginPage() {
     const onVisitorClick = () => {
       clearVisitorSession();
       ensureVisitorSession(true);
-      window.location.href = 'pages/dashboard.html?visitor=1';
+      window.location.href = `${appPagePath('dashboard.html')}?visitor=1`;
     };
     const onParentClick = () => {
       clearVisitorSession();

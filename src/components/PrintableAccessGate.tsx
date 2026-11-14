@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { requireAuth } from '../lib/auth';
 import { canAccessPrintable } from '../lib/printable-access';
 import type { PrintableKind } from '../lib/printables';
+import { appPagePath } from '../lib/page-paths';
 
 export default function PrintableAccessGate({ kind, children }: { kind: PrintableKind; children: ReactNode }) {
   const [access, setAccess] = useState<{ kind: PrintableKind; status: 'checking' | 'allowed' | 'denied' | 'error' }>({ kind, status: 'checking' });
@@ -19,7 +20,7 @@ export default function PrintableAccessGate({ kind, children }: { kind: Printabl
     {status === 'checking' ? <p role="status">Checking printable access…</p> : <section className="panel printable-intro"><div className="panel-body">
       <h1>{status === 'denied' ? 'This printable is restricted' : 'Could not verify your access'}</h1>
       <p>{status === 'denied' ? 'Teachers can use Learner Card (SF9). Other printables are available to Registrars and School Admins.' : 'Refresh the page to check your signed-in role again.'}</p>
-      <a href="/pages/student-card.html">Open Learner Card (SF9)</a>
+      <a href={appPagePath('student-card.html')}>Open Learner Card (SF9)</a>
     </div></section>}
   </main>;
 }

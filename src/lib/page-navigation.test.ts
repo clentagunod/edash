@@ -10,7 +10,7 @@ function linkEvent(target: Element) {
 
 describe('legacy page link navigation', () => {
   beforeEach(() => {
-    window.history.replaceState({}, '', '/pages/preferences.html');
+    window.history.replaceState({}, '', '/pages/preferences');
     document.body.innerHTML = preferencesMarkup;
   });
   afterEach(() => { window.history.replaceState({}, '', '/'); document.body.innerHTML = ''; });
@@ -34,7 +34,7 @@ describe('legacy page link navigation', () => {
     const event = linkEvent(document.querySelector('.preferences-back-link')!);
     handlePageLinkClick(event, navigate);
     expect(event.defaultPrevented).toBe(true);
-    expect(navigate).toHaveBeenCalledWith('/pages/settings.html');
+    expect(navigate).toHaveBeenCalledWith('/pages/settings');
   });
 
   it('routes query changes even when the page path is the same', () => {
@@ -44,6 +44,27 @@ describe('legacy page link navigation', () => {
     const event = linkEvent(link);
     handlePageLinkClick(event, navigate);
     expect(event.defaultPrevented).toBe(true);
-    expect(navigate).toHaveBeenCalledWith('/pages/preferences.html?view=other#pref-storage');
+    expect(navigate).toHaveBeenCalledWith('/pages/preferences?view=other#pref-storage');
+  });
+
+  it('canonicalizes an old page link while keeping its query and fragment', () => {
+    const link = document.createElement('a');
+    link.href = '/pages/settings.html?section=privacy#details';
+    const navigate = vi.fn();
+    handlePageLinkClick(linkEvent(link), navigate);
+    expect(navigate).toHaveBeenCalledWith('/pages/settings?section=privacy#details');
+  });
+
+  it.each(['external', 'download', 'new-tab', 'modified'])('preserves normal browser handling for %s links', kind => {
+    const link = document.createElement('a');
+    link.href = kind === 'external' ? 'https://other.test/pages/settings.html' : '/pages/settings';
+    if (kind === 'download') link.download = 'settings';
+    if (kind === 'new-tab') link.target = '_blank';
+    const event = linkEvent(link);
+    if (kind === 'modified') Object.defineProperty(event, 'ctrlKey', { value: true });
+    const navigate = vi.fn();
+    handlePageLinkClick(event, navigate);
+    expect(navigate).not.toHaveBeenCalled();
+    expect(event.defaultPrevented).toBe(false);
   });
 });

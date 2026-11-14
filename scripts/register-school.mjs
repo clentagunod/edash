@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
+import { normalizeAssetReference } from "../shared/asset-reference.mjs";
 
 function option(name, fallback = "") {
   const index = process.argv.indexOf(`--${name}`);
@@ -60,11 +61,13 @@ export function validateRegistration(value) {
     (typeof colorGradientTag !== "string" || !/^#[0-9a-fA-F]{6}$/.test(colorGradientTag))) {
     throw new Error("colorGradientTag must be a six-digit hexadecimal color such as #50A61E.");
   }
-  if (typeof value.logoUrl !== "string" || !isSafeAssetReference(value.logoUrl)) {
-    throw new Error("logoUrl must be a same-site path or an HTTPS URL.");
+  const logoUrl = normalizeAssetReference(value.logoUrl);
+  if (!logoUrl) {
+    throw new Error("logoUrl must be a website image path such as public/assets/school/logo.png, assets/school/logo.png, or /assets/school/logo.png, or a complete HTTPS image URL.");
   }
-  if (typeof value.videoUrl !== "string" || (value.videoUrl && !isSafeAssetReference(value.videoUrl))) {
-    throw new Error("videoUrl must be empty or a same-site path/HTTPS direct video URL.");
+  const videoUrl = typeof value.videoUrl === "string" && !value.videoUrl.trim() ? "" : normalizeAssetReference(value.videoUrl);
+  if (videoUrl === null) {
+    throw new Error("videoUrl must be empty, a website video path such as public/assets/school/video.mp4 or assets/school/video.mp4, or a complete HTTPS video URL.");
   }
 
   const schoolInfo = value.schoolInfo;
@@ -115,8 +118,8 @@ export function validateRegistration(value) {
     ...(value.projectName === undefined ? {} : { projectName: value.projectName.trim() }),
     ...(value.tagline === undefined ? {} : { tagline: tagline.trim() }),
     ...(value.colorGradientTag === undefined ? {} : { colorGradientTag }),
-    logoUrl: value.logoUrl.trim(),
-    videoUrl: value.videoUrl.trim(),
+    logoUrl,
+    videoUrl,
     ...(schoolInfo === undefined ? {} : { schoolInfo: {
       ...schoolInfo,
       ...Object.fromEntries(
@@ -164,15 +167,6 @@ export function buildSchoolDocument(registration, existingDocument, serverTimest
     document.schoolHead.updatedAt = serverTimestamp;
   }
   return document;
-}
-
-function isSafeAssetReference(value) {
-  try {
-    const url = new URL(value, "https://edash.invalid");
-    return url.protocol === "https:";
-  } catch {
-    return false;
-  }
 }
 
 function isHttpsUrl(value) {
