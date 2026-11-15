@@ -11,6 +11,22 @@ interface SchoolSearchSelectProps {
   onChange: (schoolId: string) => void;
 }
 const MAX_SUGGESTIONS = 50;
+const PREVIEW_LIMIT = 4;
+function schoolRecency(school: RegisteredSchool): number {
+  // Older registrations have updatedAt only; newer metadata takes precedence.
+  for (const value of [school.registeredAt, school.createdAt, school.updatedAt]) {
+    let time = NaN;
+    if (value && typeof value === 'object') {
+      const timestamp = value as { toMillis?: () => number; seconds?: number; _seconds?: number };
+      if (typeof timestamp.toMillis === 'function') time = timestamp.toMillis();
+      else if (value instanceof Date) time = value.getTime();
+      else if (typeof (timestamp.seconds ?? timestamp._seconds) === 'number') time = (timestamp.seconds ?? timestamp._seconds)! * 1000;
+    } else if (typeof value === 'number') time = value;
+    else if (typeof value === 'string' && value.trim()) time = Date.parse(value);
+    if (Number.isFinite(time)) return time;
+  }
+  return 0;
+}
 function normalize(value: unknown) {
   return String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
@@ -31,6 +47,7 @@ export default function SchoolSearchSelect({ id, schools, value, disabled = fals
   const [active, setActive] = useState(-1);
   const indexed = useMemo(() => schools.filter(school => school.enabled === true).map(school => ({
     school,
+    recency: schoolRecency(school),
     name: normalize(school.name),
     search: normalize([school.name, school.nickname, school.id, school.schoolInfo?.id,
       school.schoolInfo?.district, school.schoolInfo?.divisionOffice, school.schoolInfo?.region].filter(value => value != null).join(' ')),
@@ -42,9 +59,11 @@ export default function SchoolSearchSelect({ id, schools, value, disabled = fals
     const filtered = indexed.filter(item => words.every(word => item.search.includes(word)));
     // Keep exact names and name prefixes ahead of secondary-field matches.
     const rank = (name: string) => name === search ? 0 : name.startsWith(search) ? 1 : 2;
-    return search ? filtered.sort((a, b) => rank(a.name) - rank(b.name)) : filtered;
+    return search ? filtered.sort((a, b) => rank(a.name) - rank(b.name))
+      : filtered.sort((a, b) => b.recency - a.recency);
   }, [indexed, search]);
-  const suggestions = matches.slice(0, MAX_SUGGESTIONS);
+  const suggestionLimit = search ? MAX_SUGGESTIONS : PREVIEW_LIMIT;
+  const suggestions = matches.slice(0, suggestionLimit);
   const expanded = open && !disabled;
   const activeOption = active >= 0 && active < suggestions.length ? `${listId}-${active}` : undefined;
 
@@ -111,7 +130,7 @@ export default function SchoolSearchSelect({ id, schools, value, disabled = fals
       }}><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="m5 7.5 5 5 5-5" /></svg></button>
     </div>
     <div className="school-search-popup" hidden={!expanded}>
-      <div className="school-search-heading">{search ? 'Matching schools' : 'Registered schools'}</div>
+      <div className="school-search-heading">{search ? 'Matching schools' : 'Recent schools'}</div>
       <ul ref={list} id={listId} role="listbox" aria-label="Registered school suggestions">
         {suggestions.map(({ school }, index) => <li role="presentation" key={school.id}><button type="button" role="option" id={`${listId}-${index}`}
           aria-selected={school.id === value} tabIndex={-1} className={`school-search-option${active === index ? ' is-active' : ''}`}
@@ -122,9 +141,11 @@ export default function SchoolSearchSelect({ id, schools, value, disabled = fals
         </button></li>)}
       </ul>
       {!suggestions.length && <p className="school-search-empty">No registered schools match “{query}”. Try another name or school ID.</p>}
-      {matches.length > MAX_SUGGESTIONS && <p className="school-search-limit">Showing {MAX_SUGGESTIONS} of {matches.length} schools. Keep typing to narrow your search.</p>}
+      {matches.length > suggestionLimit && <p className="school-search-limit">{search
+        ? `Showing ${suggestionLimit} of ${matches.length} schools. Keep typing to narrow your search.`
+        : 'Showing 4 recent schools. Search by name or ID to find another school.'}</p>}
     </div>
-    <p className="school-search-hint" id={`${id}-hint`}>Type to search, or choose from registered schools.</p>
-    <span className="visually-hidden" role="status" aria-live="polite" id={`${id}-status`}>{expanded ? `${matches.length} registered school${matches.length === 1 ? '' : 's'} found${matches.length > MAX_SUGGESTIONS ? `; showing the first ${MAX_SUGGESTIONS}` : ''}.` : selected ? `${selected.name} selected.` : ''}</span>
+    <p className="school-search-hint" id={`${id}-hint`}>Choose a recent school, or search all registered schools.</p>
+    <span className="visually-hidden" role="status" aria-live="polite" id={`${id}-status`}>{expanded ? `${matches.length} registered school${matches.length === 1 ? '' : 's'} found${matches.length > suggestionLimit ? `; showing ${suggestionLimit}${search ? ' matches' : ' recent schools'}` : ''}.` : selected ? `${selected.name} selected.` : ''}</span>
   </div>;
 }

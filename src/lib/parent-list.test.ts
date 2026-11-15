@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildParentList, hasGuardianName, parentDelimitedFile, parentExportRows, parentGradeOptions, sortParentList, type ParentLearner } from './parent-list';
+import { buildParentList, hasGuardianName, parentExportRows, parentGradeOptions, sortParentList, type ParentLearner } from './parent-list';
 
 const learners: ParentLearner[] = [
   { learnerId: '001234567890', guardian: ' Ana  Cruz ', firstName: 'Ella', middleName: 'Reyes', lastName: 'Cruz', gradeLevel: 'Grade 2', section: 'Ruby', contact: '09123456789' },
@@ -36,16 +36,22 @@ describe('derived parent directory', () => {
     expect(entries[0].name).toBe('Ana Cruz');
   });
 
-  it('exports a row per learner with matched grade, section, LRN, contact and school year', () => {
+  it('numbers each parent once and keeps every learner detail on its own export row', () => {
     const rows = parentExportRows(buildParentList(learners), '2026-2027');
-    expect(rows).toHaveLength(4);
-    expect(rows[2]).toEqual(['Ana Cruz', 'Cruz, Ella Reyes', '001234567890', 'Grade 2', 'Ruby', '09123456789', '2026-2027']);
+    expect(rows).toEqual([
+      ['No.', 'Parent / Guardian', 'Learner Name', 'Learner ID', 'Grade Level', 'Section', 'Contact Number', 'School Year'],
+      [1, 'Ana Cruz', 'Cruz, Ben', '001234567891', 'Kinder', 'Amber', 'N/A', '2026-2027'],
+      ['', '', 'Cruz, Ella Reyes', '001234567890', 'Grade 2', 'Ruby', '09123456789', '2026-2027'],
+      [2, 'Zoe Santos', 'Santos, Jo', '001234567892', 'Grade 1', 'Ruby', 'N/A', '2026-2027'],
+    ]);
   });
 
-  it('quotes delimiters, quotes, and newlines while neutralizing spreadsheet formulas', () => {
-    const rows = [['A, "B"', 'Line 1\nLine 2', '=SUM(1,2)', ' +cmd', '@cmd', '001234567890', '\tformula']];
-    const csv = parentDelimitedFile(rows, ',');
-    expect(csv).toBe('\uFEFF"A, ""B""","Line 1\nLine 2","\'=SUM(1,2)","\' +cmd","\'@cmd","001234567890","\'\tformula"');
-    expect(parentDelimitedFile([['Parent', 'Child']], '\t')).toBe('\uFEFF"Parent"\t"Child"');
+  it('restarts export numbering for the selected order and filtered parent groups', () => {
+    const parents = sortParentList(buildParentList(learners), 'name-desc');
+    const rows = parentExportRows(parents, '2026-2027');
+    expect(rows.slice(1).map(row => row.slice(0, 2))).toEqual([[1, 'Zoe Santos'], [2, 'Ana Cruz'], ['', '']]);
+    const filtered = parentExportRows(buildParentList(learners, { grade: 'Grade 2' }), '2026-2027');
+    expect(filtered.slice(1).map(row => row.slice(0, 2))).toEqual([[1, 'Ana Cruz']]);
+    expect(parentExportRows([], '2026-2027')).toEqual([rows[0]]);
   });
 });

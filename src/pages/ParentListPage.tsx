@@ -5,7 +5,7 @@ import { fsSubscribeLearners } from '../lib/firestore-api';
 import { initYearSwitcher, schoolYearsLiveUnsubscribe } from '../lib/school-year';
 import { renderShell, showToast } from '../lib/shell';
 import { currentUserPreferences } from '../lib/preference-runtime';
-import { buildParentList, parentGradeOptions, parentLearnerName, parentText, sortParentList, type ParentExportFormat, type ParentLearner, type ParentSort } from '../lib/parent-list';
+import { buildParentList, parentGradeOptions, parentLearnerName, parentText, sortParentList, type ParentLearner, type ParentSort } from '../lib/parent-list';
 import { downloadParentList } from '../lib/parent-list-export';
 import '../styles/pages/parent-list.css';
 
@@ -22,7 +22,6 @@ export default function ParentListPage() {
   const [sort, setSort] = useState<ParentSort>('name-asc');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(8);
-  const [format, setFormat] = useState<ParentExportFormat>('xlsx');
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
@@ -115,8 +114,8 @@ export default function ParentListPage() {
     if (loading || error || exporting || !parents.length) return;
     setExporting(true);
     try {
-      await downloadParentList(parents, schoolYear, format);
-      showToast(`${parents.length.toLocaleString()} parents / guardians exported.`, 'success');
+      await downloadParentList(parents, schoolYear);
+      showToast(`${parents.length.toLocaleString()} parents / guardians exported to Excel.`, 'success');
     } catch {
       showToast('Unable to export the parent list. Please try again.', 'error');
     } finally {
@@ -133,11 +132,9 @@ export default function ParentListPage() {
           <div className="page-header">
             <div><h1>List of Parents</h1><p className="desc">Parents and guardians linked to learners in your school records</p></div>
             <div className="parent-export-controls">
-              <select className="select-filter" aria-label="Export format" value={format} onChange={event => setFormat(event.target.value as ParentExportFormat)}>
-                <option value="xlsx">Excel (.xlsx)</option><option value="csv">CSV (.csv)</option><option value="tsv">Tab-separated (.tsv)</option>
-              </select>
               <button className="btn btn-primary" type="button" disabled={loading || Boolean(error) || !parents.length || exporting} onClick={exportParents}>
-                {exporting ? 'Exporting…' : 'Export list'}
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 16v5h14v-5" /></svg>
+                {exporting ? 'Exporting…' : 'Export Excel'}
               </button>
             </div>
           </div>
@@ -168,29 +165,34 @@ export default function ParentListPage() {
                   </select>
                 </div>
               </div>
-              <p className="parent-directory-note">Grouped by recorded guardian name, ignoring capitalization and extra spaces. Blank and N/A names are excluded. Only learners in the selected school year{canFilter ? ' and filters' : ' assigned to you'} are shown. Exports include all matching pages, with one row per learner.</p>
+              <p className="parent-directory-note">Each parent / guardian is numbered once, with linked learners listed together. Only learners in the selected school year{canFilter ? ' and filters' : ' assigned to you'} are shown. Excel exports include all matching pages in the selected order.</p>
             </div>
-            <div className="parent-table-scroll">
+            <div className="parent-table-scroll" role="region" aria-label="Parent directory table" tabIndex={0}>
               <table className="data-table parent-table" aria-busy={loading}>
-                <thead><tr><th scope="col">Parent / guardian</th><th scope="col">Children / learners</th><th scope="col">Linked learners</th></tr></thead>
+                <caption className="visually-hidden">Parents and guardians for {schoolYear || 'the selected school year'}, numbered by parent with one row per learner.</caption>
+                <thead><tr><th scope="col">No.</th><th scope="col">Parent / Guardian</th><th scope="col">Learner Name</th><th scope="col">Learner ID</th><th scope="col">Grade Level</th><th scope="col">Section</th><th scope="col">Contact Number</th><th scope="col">School Year</th></tr></thead>
                 <tbody>
-                  {loading ? <tr><td colSpan={3} className="state-row">Loading parents / guardians…</td></tr>
-                    : error ? <tr><td colSpan={3} className="state-row"><div role="alert">{error}</div><button type="button" className="btn btn-secondary" onClick={() => setRetry(value => value + 1)}>Try again</button></td></tr>
-                    : !visible.length ? <tr><td colSpan={3} className="state-row">{search || activeGrade || activeSection ? 'No parents / guardians match these filters.' : 'No named parents / guardians are linked to learners in this scope.'}</td></tr>
-                    : visible.map(parent => <tr key={parent.key}>
-                      <td><strong className="parent-record-name">{parent.name}</strong></td>
-                      <td><ul className="parent-children">{parent.children.map(child => <li key={child.learnerId}>
-                        <span className="parent-child-name">{parentLearnerName(child)}</span>
-                        <small>{[parentText(child.gradeLevel), parentText(child.section), child.learnerId].filter(Boolean).join(' · ')}</small>
-                      </li>)}</ul></td>
-                      <td>{parent.children.length}</td>
-                    </tr>)}
+                  {loading ? <tr><td colSpan={8} className="state-row">Loading parents / guardians…</td></tr>
+                    : error ? <tr><td colSpan={8} className="state-row"><div role="alert">{error}</div><button type="button" className="btn btn-secondary" onClick={() => setRetry(value => value + 1)}>Try again</button></td></tr>
+                    : !visible.length ? <tr><td colSpan={8} className="state-row">{search || activeGrade || activeSection ? 'No parents / guardians match these filters.' : 'No named parents / guardians are linked to learners in this scope.'}</td></tr>
+                    : visible.flatMap((parent, parentIndex) => parent.children.map((child, childIndex) => <tr key={`${parent.key}:${child.learnerId}`} className={parentIndex === visible.length - 1 ? 'is-last-parent' : undefined}>
+                      {childIndex === 0 && <>
+                        <td className="parent-index parent-group-cell" rowSpan={parent.children.length}>{start + parentIndex + 1}</td>
+                        <td className="parent-group-cell" rowSpan={parent.children.length}><strong className="parent-record-name">{parent.name}</strong></td>
+                      </>}
+                      <td><span className="parent-child-name">{parentLearnerName(child)}</span></td>
+                      <td className="parent-learner-id">{child.learnerId}</td>
+                      <td>{parentText(child.gradeLevel) || 'N/A'}</td>
+                      <td>{parentText(child.section) || 'N/A'}</td>
+                      <td className="parent-contact">{parentText(child.contact) || 'N/A'}</td>
+                      <td className="parent-school-year">{schoolYear}</td>
+                    </tr>))}
                 </tbody>
               </table>
             </div>
             <div className="pagination">
               <span aria-live="polite">{loading || error ? '—' : parents.length ? `Showing ${start + 1}–${Math.min(start + pageSize, parents.length)} of ${parents.length.toLocaleString()} parents / guardians` : '0 parents / guardians'}</span>
-              <label className="parent-page-size">Rows per page<select className="select-filter" value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1); }}>
+              <label className="parent-page-size">Parents per page<select className="select-filter" value={pageSize} onChange={event => { setPageSize(Number(event.target.value)); setPage(1); }}>
                 {[8, 10, 25, 50].map(value => <option key={value} value={value}>{value}</option>)}
               </select></label>
               <nav className="pager-btns" aria-label="Parent list pagination">

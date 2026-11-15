@@ -83,28 +83,53 @@ describe('parent list page', () => {
     expect(container.querySelector('[aria-label="Filter by grade level"]')).toBeNull();
     expect(container.querySelector('[aria-label="Filter by section"]')).toBeNull();
     expect(container.querySelector('input')).toBeNull();
-    expect(container.querySelectorAll('tbody tr')).toHaveLength(1);
-    expect(container.querySelectorAll('.parent-children li')).toHaveLength(2);
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(2);
+    expect(container.querySelectorAll('.parent-child-name')).toHaveLength(2);
+    expect(container.querySelectorAll('.parent-record-name')).toHaveLength(1);
+    expect(container.querySelector('.parent-record-name')?.closest('td')?.rowSpan).toBe(2);
+    expect(container.querySelector<HTMLTableCellElement>('.parent-index')?.rowSpan).toBe(2);
+    expect(container.querySelectorAll('thead th')).toHaveLength(8);
     expect(container.querySelector('input[type="checkbox"]')).toBeNull();
     expect(container.textContent).not.toMatch(/Delete|Add Parent|Edit/);
     expect(container.querySelector('[aria-label="Sort parents"]')).not.toBeNull();
   });
 
-  it('exports every matching page in the selected order and format', async () => {
+  it('exports every matching page as Excel in the selected order without format options', async () => {
     await mount();
+    expect(container.querySelector('[aria-label="Export format"]')).toBeNull();
     await select('Sort parents', 'name-desc');
-    await select('Export format', 'csv');
-    await act(async () => button('Export list').click());
-    const [parents, year, format] = state.download.mock.calls[0];
+    await act(async () => button('Export Excel').click());
+    const [parents, year] = state.download.mock.calls[0];
     expect(parents).toHaveLength(12);
     expect(parents[0].name).toBe('Parent 11');
     expect(year).toBe('2026-2027');
-    expect(format).toBe('csv');
+    expect(state.download.mock.calls[0]).toHaveLength(2);
     await select('Filter by grade level', 'Grade 1');
-    await select('Export format', 'tsv');
-    await act(async () => button('Export list').click());
+    await act(async () => button('Export Excel').click());
     expect(state.download.mock.calls[1][0]).toHaveLength(6);
-    expect(state.download.mock.calls[1][2]).toBe('tsv');
+    expect(state.download.mock.calls[1][0][0].name).toBe('Parent 10');
+    expect(state.download.mock.calls[1]).toHaveLength(2);
+  });
+
+  it('keeps siblings together and continues parent indexes across pages', async () => {
+    await mount('School Admin', [...records, {
+      ...records[7], learnerId: '001234567890', firstName: 'Sibling', contact: '09123456789',
+    }]);
+    const indexes = () => [...container.querySelectorAll('.parent-index')].map(cell => cell.textContent);
+    expect(indexes()).toEqual(['1', '2', '3', '4', '5', '6', '7', '8']);
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(9);
+    expect(container.querySelectorAll('.parent-record-name')).toHaveLength(8);
+    expect(container.querySelectorAll('.parent-group-cell[rowspan="2"]')).toHaveLength(2);
+    const sibling = [...container.querySelectorAll('tbody tr')].find(row => row.textContent?.includes('Sibling'))!;
+    expect(sibling.querySelector('.parent-learner-id')?.textContent).toBe('001234567890');
+    expect(sibling.querySelector('.parent-contact')?.textContent).toBe('09123456789');
+    expect(sibling.querySelector('.parent-school-year')?.textContent).toBe('2026-2027');
+    expect(container.querySelector('.parent-contact')?.textContent).toBe('N/A');
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Next page"]')!.click());
+    expect(indexes()).toEqual(['9', '10', '11', '12']);
+    expect(container.querySelectorAll('tbody tr')).toHaveLength(4);
+    await select('Filter by grade level', 'Grade 2');
+    expect(indexes()).toEqual(['1', '2', '3', '4', '5', '6']);
   });
 
   it('clears results on year changes, ignores stale snapshots, and releases listeners', async () => {
@@ -112,7 +137,7 @@ describe('parent list page', () => {
     const old = state.subscribers[0];
     await act(async () => state.changeYear!('2025-2026'));
     expect(old.stop).toHaveBeenCalledOnce();
-    expect(button('Export list').disabled).toBe(true);
+    expect(button('Export Excel').disabled).toBe(true);
     await act(async () => old.change(records));
     expect(container.textContent).toContain('Loading parents / guardians');
     const current = state.subscribers[1];
@@ -127,7 +152,7 @@ describe('parent list page', () => {
     await mount();
     await act(async () => state.subscribers[0].error());
     expect(container.querySelector('[role="alert"]')?.textContent).toContain('Unable to load');
-    expect(button('Export list').disabled).toBe(true);
+    expect(button('Export Excel').disabled).toBe(true);
     expect(container.querySelector('.parent-record-name')).toBeNull();
     await act(async () => button('Try again').click());
     expect(state.subscribers[0].stop).toHaveBeenCalledOnce();
@@ -139,6 +164,6 @@ describe('parent list page', () => {
     await mount('Visitor');
     expect(state.subscribers).toHaveLength(0);
     expect(container.textContent).toContain('school staff only');
-    expect(button('Export list').disabled).toBe(true);
+    expect(button('Export Excel').disabled).toBe(true);
   });
 });

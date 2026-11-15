@@ -20,7 +20,6 @@ export interface ParentEntry {
 }
 
 export type ParentSort = 'name-asc' | 'name-desc' | 'children-desc' | 'children-asc';
-export type ParentExportFormat = 'xlsx' | 'csv' | 'tsv';
 export const parentText = (value: unknown) => String(value ?? '').normalize('NFC').trim().replace(/\s+/g, ' ');
 const keyFor = (value: unknown) => parentText(value).toLowerCase();
 const compareNames = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true });
@@ -66,22 +65,14 @@ export function parentGradeOptions(learners: ParentLearner[]): string[] {
   return [...new Set(learners.map(l => parentText(l.gradeLevel)).filter(Boolean))].sort(compareGradeLevelLabels);
 }
 
-/** One row per child keeps each grade, section, and contact paired with its learner. */
-export function parentExportRows(parents: ParentEntry[], schoolYear: string): string[][] {
+/** Number parent groups once while keeping each learner's details on a separate row. */
+export function parentExportRows(parents: ParentEntry[], schoolYear: string): (string | number)[][] {
   return [
-    ['Parent / Guardian', 'Learner Name', 'Learner ID', 'Grade Level', 'Section', 'Contact Number', 'School Year'],
-    ...parents.flatMap(parent => parent.children.map(child => [
-      parent.name, parentLearnerName(child), child.learnerId, parentText(child.gradeLevel),
-      parentText(child.section), parentText(child.contact), schoolYear,
+    ['No.', 'Parent / Guardian', 'Learner Name', 'Learner ID', 'Grade Level', 'Section', 'Contact Number', 'School Year'],
+    ...parents.flatMap((parent, parentIndex) => parent.children.map((child, childIndex) => [
+      childIndex === 0 ? parentIndex + 1 : '', childIndex === 0 ? parent.name : '',
+      parentLearnerName(child), child.learnerId, parentText(child.gradeLevel) || 'N/A',
+      parentText(child.section) || 'N/A', parentText(child.contact) || 'N/A', schoolYear,
     ])),
   ];
-}
-
-// Quote fields and neutralize spreadsheet formulas in user-entered text.
-export function parentDelimitedFile(rows: string[][], delimiter: ',' | '\t'): string {
-  return '\uFEFF' + rows.map(row => row.map(value => {
-    let text = String(value ?? '');
-    if (/^[=+\-@]/.test(text.trimStart()) || /^[\t\r\n]/.test(text)) text = "'" + text;
-    return '"' + text.replace(/"/g, '""') + '"';
-  }).join(delimiter)).join('\r\n');
 }

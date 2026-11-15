@@ -105,7 +105,7 @@ const CURATED = [
 
   /* ---- Parent directory -------------------------------------------------- */
   E('List of Parents', 'Parent / guardian directory', 'parent-list.html', '.parent-table', 'users', 'parents guardians children learners family list'),
-  E('List of Parents', 'Export parent list', 'parent-list.html', '.parent-export-controls', 'download', 'parents guardians excel xlsx csv tsv export download'),
+  E('List of Parents', 'Export parent list', 'parent-list.html', '.parent-export-controls', 'download', 'parents guardians excel xlsx export download'),
   E('List of Parents', 'Sort parents', 'parent-list.html', '[aria-label="Sort parents"]', 'users', 'parent guardian name a-z z-a most fewest children'),
 
   /* ---- Data -------------------------------------------------------------- */

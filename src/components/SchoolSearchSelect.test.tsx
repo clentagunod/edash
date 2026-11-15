@@ -31,7 +31,7 @@ describe('searchable registered-school selector', () => {
   });
   afterEach(async () => { await act(async () => root.unmount()); host.remove(); });
 
-  it('suggests registered schools alphabetically when focused without a query', async () => {
+  it('uses alphabetical order when schools have no recency metadata', async () => {
     await render(); await act(async () => input().focus());
     expect(input().getAttribute('aria-expanded')).toBe('true');
     expect(options().map(option => option.querySelector('strong')?.textContent)).toEqual(['Mapaso Elementary School', 'Peña Elementary School', 'San Roque Elementary School']);
@@ -73,7 +73,7 @@ describe('searchable registered-school selector', () => {
     expect(host.textContent).toContain('No registered schools match');
     expect(host.querySelector('img')).toBeNull(); expect(onChange).not.toHaveBeenCalled();
   });
-  it('restores a saved school, provides all suggestions, and clears selection', async () => {
+  it('restores a saved school, provides recent suggestions, and clears selection', async () => {
     await render('san-roque'); expect(input().value).toBe('San Roque Elementary School');
     await act(async () => input().focus()); expect(options()).toHaveLength(3);
     await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Clear school search"]')!.click());
@@ -89,9 +89,32 @@ describe('searchable registered-school selector', () => {
   it('bounds suggestions while retaining search access to every registered school', async () => {
     const many = Array.from({ length: 75 }, (_, index) => ({ ...schools[0], id: `school-${index}`, name: `School ${index}` }));
     await render('', many); await act(async () => input().focus());
+    expect(options()).toHaveLength(4); expect(host.textContent).toContain('Showing 4 recent schools');
+    expect(host.querySelector('[role="status"]')?.textContent).toContain('showing 4 recent schools');
+    await type('School');
     expect(options()).toHaveLength(50); expect(host.textContent).toContain('Showing 50 of 75');
     await type('School 74'); expect(options()).toHaveLength(1);
     await key('Enter'); expect(onChange).toHaveBeenLastCalledWith('school-74');
+  });
+  it('previews only the four most recent active schools and can search older schools', async () => {
+    const choices = [
+      { ...schools[0], id: 'old-school', name: 'A Old School', updatedAt: '2025-01-01T00:00:00Z' },
+      { ...schools[0], id: 'second', name: 'Second School', createdAt: { seconds: 1772323200 } },
+      { ...schools[0], id: 'latest', name: 'Latest School', registeredAt: { toMillis: () => Date.parse('2026-04-01T00:00:00Z') } },
+      { ...schools[0], id: 'third', name: 'Third School', updatedAt: '2026-02-01T00:00:00Z' },
+      { ...schools[0], id: 'fourth', name: 'Fourth School', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-05-01T00:00:00Z' },
+      { ...schools[0], id: 'unknown', name: 'Unknown School', updatedAt: 'invalid' },
+      { ...schools[0], id: 'disabled', name: 'Disabled School', enabled: false, updatedAt: '2026-06-01T00:00:00Z' } as unknown as RegisteredSchool,
+    ];
+    await render('', choices); await act(async () => input().focus());
+    expect(options().map(option => option.querySelector('strong')?.textContent)).toEqual(['Latest School', 'Second School', 'Third School', 'Fourth School']);
+    await type('Old School'); expect(options()).toHaveLength(1);
+    await key('Enter'); expect(onChange).toHaveBeenLastCalledWith('old-school');
+    await render('old-school', choices);
+    expect(input().value).toBe('A Old School');
+    await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Clear school search"]')!.click());
+    expect(options()).toHaveLength(4);
+    expect(options()[0].textContent).toContain('Latest School');
   });
   it('ignores Enter while an input method is composing text', async () => {
     await render(); await type('roque');

@@ -3331,6 +3331,7 @@ body.dark-mode .school-registration-status.is-error {
 }
 
 .school-selection-document {
+  scroll-behavior: smooth;
   scrollbar-width: thin;
   scrollbar-color: #aab9ce #eef2f7;
 }
@@ -3349,7 +3350,68 @@ body.dark-mode .school-registration-status.is-error {
 }
 
 .school-selection-page .login-shell {
+  position: relative;
   min-height: 100vh;
+}
+
+.school-selection-page .login-shell > .login-panel {
+  padding-bottom: 96px;
+}
+
+.school-scroll-indicator {
+  position: absolute;
+  z-index: 2;
+  bottom: 22px;
+  left: 50%;
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 16px;
+  transform: translateX(-50%);
+  border: 1px solid #d5e0ef;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(19, 52, 96, .1);
+  color: #315d9d;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.school-scroll-indicator:hover {
+  border-color: #9fb9df;
+  background: #edf4ff;
+  color: #173f79;
+}
+
+.school-scroll-indicator:focus-visible {
+  outline: 3px solid #356dc5;
+  outline-offset: 4px;
+}
+
+.school-scroll-indicator svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  animation: school-scroll-nudge 2s ease-in-out infinite;
+}
+
+@keyframes school-scroll-nudge {
+  0%, 100% { transform: translateY(-2px); }
+  50% { transform: translateY(2px); }
+}
+
+@media (min-width: 861px) {
+  .school-selection-page .login-shell > .login-visual { padding-bottom: 96px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .school-selection-document { scroll-behavior: auto; }
+  .school-scroll-indicator svg { animation: none; }
 }
 
 .school-privacy-note {
