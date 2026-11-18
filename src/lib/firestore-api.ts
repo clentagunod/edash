@@ -18,6 +18,8 @@ import { normalizeRecordDocumentPreferences, validateRecordDocumentPreference, t
 import type { RecordDocumentKind } from './printables';
 import { TRANSFER_SCHOOL_FIELDS, transferSchoolDetails, validateTransferSchoolDetails } from './learner-transfer';
 import { sf10EmailRecord, type Sf10EmailReceipt } from './sf10-email';
+import { profileStoredValue, readingProfileInstrument, validateProfileValue, type ProfileValueEdit } from './profile-editing';
+import { gradeTermsForCount } from './academic-grades';
 
 /**
  * ============================================================================
@@ -180,6 +182,7 @@ export async function fsGetTrash(schoolYear) {
     : item);
 }
 
+/** Synchronize assignment keys shared by teacher Trash access and student imports. */
 async function fsEnsureTeacherTrashAccessKeys_() {
   const snapshot = await db.collection(FS_USERS).where("role", "==", "Teacher").get();
   const updates = snapshot.docs.flatMap((doc) => {
@@ -1702,8 +1705,7 @@ export async function fsGetNutritionStatus(schoolYear) {
 export async function fsGetReadingProfiles(schoolYear) {
   const learners = await fsGetLearners(schoolYear);
   return learners.map((learner) => {
-    const hasCrla = learner.bosyCRLA || learner.mosyCRLA || learner.eosyCRLA;
-    const hasPhilIri = learner.bosyPhilIRI || learner.mosyPhilIRI || learner.eosyPhilIRI;
+    const hasCrla = readingProfileInstrument(learner) === 'CRLA';
     const prefix = hasCrla ? "CRLA" : "Phil-IRI";
     const fields = hasCrla ? ["bosyCRLA", "mosyCRLA", "eosyCRLA"] : ["bosyPhilIRI", "mosyPhilIRI", "eosyPhilIRI"];
     return {
@@ -1711,7 +1713,7 @@ export async function fsGetReadingProfiles(schoolYear) {
       bosy: learner[fields[0]] || "", mosy: learner[fields[1]] || "", eosy: learner[fields[2]] || "",
       change: fsProfileChange_(learner, fields),
     };
-  }).filter((learner) => learner.bosy || learner.mosy || learner.eosy);
+  });
 }
 
 export async function fsGetMathProfiles(schoolYear) {
@@ -1720,7 +1722,7 @@ export async function fsGetMathProfiles(schoolYear) {
     ...learner, name: fsLearnerName_(learner),
     bosy: learner.bosyRMA || "", mosy: learner.mosyRMA || "", eosy: learner.eosyRMA || "",
     change: fsProfileChange_(learner, ["bosyRMA", "mosyRMA", "eosyRMA"]),
-  })).filter((learner) => learner.bosy || learner.mosy || learner.eosy);
+  }));
 }
 
 export async function fsGetGradesProfiles(schoolYear) {
@@ -1892,6 +1894,11 @@ export async function fsCancelLearnerMovement(archive, schoolYear, learnerId) {
         ...(activeSnapshot.exists ? activeSnapshot.data() : {}),
         ...resetMovementFields,
       };
+      // Cancelling movement is not a new import. Retain only the active
+      // record's marker when one already exists, without replaying an old one.
+      if (!activeSnapshot.exists || !Object.prototype.hasOwnProperty.call(activeSnapshot.data(), '__studentImportId')) {
+        delete restoredLearner.__studentImportId;
+      }
       const batch = db.batch();
       batch.set(learnerRef, restoredLearner);
       batch.delete(sourceRef);
@@ -1981,6 +1988,129 @@ export async function fsGetPromotionConfiguration() {
     throw new Error("Invalid Promotion setting. The canPromoteStudents value must be true or false.");
   }
   return { canPromoteStudents: value ?? false, configured: typeof value === "boolean" };
+}
+
+function fsImportConfiguration_(snapshot) {
+  const value = snapshot.exists ? snapshot.data()?.canTeacherImport : undefined;
+  if (value !== undefined && typeof value !== "boolean") {
+    throw new Error("Invalid Imports setting. The canTeacherImport value must be true or false.");
+  }
+  return { canTeacherImport: value ?? false, configured: typeof value === "boolean" };
+}
+
+export async function fsGetImportConfiguration() {
+  return fsImportConfiguration_(await db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles).get());
+}
+
+function fsProfileEditingConfiguration_(snapshot) {
+  const value = snapshot.exists ? snapshot.data()?.canTeacherEditProfiles : undefined;
+  if (value !== undefined && typeof value !== 'boolean') throw new Error('Invalid Profile editing setting. The canTeacherEditProfiles value must be true or false.');
+  return { canTeacherEditProfiles: value ?? true, configured: typeof value === 'boolean' };
+}
+
+export async function fsGetProfileEditingConfiguration() {
+  return fsProfileEditingConfiguration_(await db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles).get());
+}
+
+export function fsSubscribeProfileEditingConfiguration(next, error) {
+  return db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles).onSnapshot(snapshot => {
+    try { next(fsProfileEditingConfiguration_(snapshot)); }
+    catch (failure) { error(failure); }
+  }, error);
+}
+
+export async function fsSetCanTeacherEditProfiles(enabled) {
+  if (typeof enabled !== 'boolean') throw new Error('Teacher profile editing must be enabled or disabled.');
+  if (!isSchoolAdmin()) throw new Error('Only a School Admin can change teacher profile editing access.');
+  // Existing accounts may predate the assignment keys used by security rules.
+  if (enabled) await fsEnsureTeacherTrashAccessKeys_();
+  await fsWriteAuditedSettings_(db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles), { canTeacherEditProfiles: enabled });
+  return enabled;
+}
+
+/** Update one profile cell without overwriting other subjects, periods, or learner details. */
+export async function fsUpdateProfileValue(schoolYear: string, learnerId: string, edit: ProfileValueEdit) {
+  const year = fsNormalizeSchoolYear_(schoolYear);
+  if (!/^\d{4}-\d{4}$/.test(year) || Number(year.slice(5)) !== Number(year.slice(0, 4)) + 1) throw new Error('Choose a valid school year.');
+  if (!learnerId || typeof learnerId !== 'string' || learnerId.includes('/')) throw new Error('Choose a valid learner.');
+  if (!auth.currentUser || !['Teacher', 'Developer', 'School Admin', 'Registrar'].includes(appRole())) throw new Error('Sign in with an authorized school account to edit profiles.');
+  if (!edit || !['grades', 'reading', 'math'].includes(edit.kind)) throw new Error('Choose a valid profile.');
+  const ref = fsLearnersCollection_(year).doc(learnerId);
+  let previousValue = '', savedValue = '';
+  try {
+    await db.runTransaction(async transaction => {
+      const [snapshot, toggles] = await Promise.all([
+        transaction.get(ref), transaction.get(db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles)),
+      ]);
+      if (!snapshot.exists) throw new Error('This learner was moved or removed. Refresh the profile before editing.');
+      const learner = snapshot.data();
+      if (isTeacher()) {
+        if (!fsProfileEditingConfiguration_(toggles).canTeacherEditProfiles) throw new Error('Teacher profile editing has been disabled by your school administrator.');
+        const covered = fsTeacherAssignmentsForSchoolYear_(year).some(assignment =>
+          fsNormalizeGrade_(assignment.gradeLevel) === fsNormalizeGrade_(learner.gradeLevel)
+          && fsNormalizeValue_(assignment.section) === fsNormalizeValue_(learner.section));
+        if (!covered) throw new Error('You can edit profiles only for your assigned grade and section.');
+      }
+      let grading;
+      if (edit.kind === 'grades') {
+        const [terms, grade, pool] = await Promise.all([
+          transaction.get(fsGradeTermsYearRef_(year)),
+          transaction.get(fsGradesCollection_(year).doc(fsNormalizeKey_(learner.gradeLevel))),
+          transaction.get(db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.curriculumSubjectPool)),
+        ]);
+        const subjects = normalizeCurriculumSubjectPool(pool.exists ? pool.data()?.subjects : CURRICULUM_SUBJECTS);
+        if (!grade.exists || !normalizeCurriculumSubjectIds(grade.data()?.subjectIds, subjects).includes(edit.field)) throw new Error('This subject is not assigned to the learner’s grade. Refresh the profile.');
+        let termCount = terms.exists ? terms.data()?.termCount ?? DEFAULT_GRADE_TERM_COUNT : DEFAULT_GRADE_TERM_COUNT;
+        if (!terms.exists) {
+          const [yearDocument, legacyTerms] = await Promise.all([
+            transaction.get(db.collection(FS_SCHOOL_YEARS).doc(year)),
+            transaction.get(db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.gradeTerms)),
+          ]);
+          if (yearDocument.exists && yearDocument.data()?.isCurrent && legacyTerms.exists) termCount = legacyTerms.data()?.termCount ?? DEFAULT_GRADE_TERM_COUNT;
+        }
+        if (!gradeTermsForCount(termCount).some(term => term.id === edit.term)) throw new Error('Choose a configured grade term.');
+        grading = terms.exists ? terms.data()?.gradeLevels?.[gradeLevelConfigKey(learner.gradeLevel)] : undefined;
+      }
+      savedValue = validateProfileValue(edit, learner, grading);
+      previousValue = profileStoredValue(learner, edit);
+      if (previousValue !== String(edit.previousValue ?? '').trim()) throw new Error('This value changed since you opened the profile. Refresh the page before editing it again.');
+      // Legacy records can store an empty string instead of a grades map.
+      // Merge from the transaction snapshot so concurrent subject edits survive retries.
+      const gradeMap = learner.gradesByTerm && typeof learner.gradesByTerm === 'object' && !Array.isArray(learner.gradesByTerm) ? learner.gradesByTerm : {};
+      const termMap = gradeMap[edit.term] && typeof gradeMap[edit.term] === 'object' && !Array.isArray(gradeMap[edit.term]) ? gradeMap[edit.term] : {};
+      const patch = edit.kind === 'grades'
+        ? { gradesByTerm: { ...gradeMap, [edit.term]: { ...termMap, [edit.field]: savedValue } }, ...(edit.term === 'final' ? { [edit.field]: savedValue } : {}) }
+        : { [edit.field]: savedValue };
+      transaction.update(ref, patch);
+    });
+    fsInvalidateReadCaches_(year);
+    fsSchedulePublicStatsRefresh_();
+    fsAudit_('PROFILE_UPDATE', { sheet: `learners_${year}`, recordId: learnerId,
+      oldValue: JSON.stringify({ field: edit.field, term: edit.term || '', value: previousValue }),
+      newValue: JSON.stringify({ field: edit.field, term: edit.term || '', value: savedValue }) });
+    return { updated: true, value: savedValue };
+  } catch (error) { throw fsError_('Update profile', error); }
+}
+
+export function fsSubscribeImportConfiguration(next, error) {
+  return db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles).onSnapshot(snapshot => {
+    try { next(fsImportConfiguration_(snapshot)); }
+    catch (failure) { error(failure); }
+  }, error);
+}
+
+export async function fsSetCanTeacherImport(enabled) {
+  if (typeof enabled !== "boolean") throw new Error("Teacher import access must be enabled or disabled.");
+  if (!isSchoolAdmin()) throw new Error("Only a School Admin can change Imports access.");
+  try {
+    // Existing teacher profiles may predate assignment security keys. Complete
+    // the backfill before exposing imports so assigned teachers can use them.
+    if (enabled) await fsEnsureTeacherTrashAccessKeys_();
+    await fsWriteAuditedSettings_(db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles), { canTeacherImport: enabled });
+    return enabled;
+  } catch (error) {
+    throw fsError_("Update Imports access", error);
+  }
 }
 
 export async function fsSetCanPromoteStudents(enabled) {
@@ -2214,6 +2344,8 @@ export async function fsPromoteLearner(sourceSchoolYear, targetSchoolYear, learn
       };
       // A request sent in the source year does not belong to the new enrollment.
       delete promotedRecord.sf10Email;
+      // Import markers describe the source enrollment, not this progression.
+      delete promotedRecord.__studentImportId;
       transaction.set(targetRef, promotedRecord);
       return { ...promotedRecord, previousYearLearner: sourceLearner };
     });
@@ -2608,7 +2740,7 @@ export async function fsGetLearnerSchema(schoolYear) {
   const knownFields = new Set([
     "learnerId", "firstName", "middleName", "lastName", "suffix", "birthDate", "age", "gradeLevel", "section", "gender",
     "enrollmentStatus", "eosyStatus", "guardian", "contact", "dateAdded", "is4Ps", "isIP", "isSNED", "isARAL", "isMuslim",
-    "anecdotalRecords", "teacherComments", "attendance", ...DOCUMENT_STATUS_FIELDS, "extra",
+    "anecdotalRecords", "teacherComments", "attendance", ...DOCUMENT_STATUS_FIELDS, "extra", "__studentImportId",
     ...FS_DYNAMIC_CURRICULUM_SUBJECT_IDS,
   ]);
   const extraFields = new Set();
@@ -2715,6 +2847,12 @@ export async function fsUpdateLearner(schoolYear, learnerId, learner) {
     validateTransferSchoolDetails(learner);
     const ref = fsLearnersCollection_(schoolYear).doc(learnerId);
     const update = fsCanonicalLearner_(learner);
+    // Partial callers must not clear subjects or assessments they did not edit.
+    const profileFields = ['gradesByTerm', 'extra', ...CURRICULUM_SUBJECTS.map(subject => subject.id), ...FS_DYNAMIC_CURRICULUM_SUBJECT_IDS,
+      ...['bosy', 'mosy', 'eosy'].flatMap(period => ['CRLA', 'PhilIRI', 'RMA'].map(suffix => `${period}${suffix}`))];
+    for (const field of profileFields) {
+      if (!Object.prototype.hasOwnProperty.call(learner, field)) delete update[field];
+    }
     // Older callers may update other fields without sending the card record.
     for (const field of ["teacherComments", "attendance", ...DOCUMENT_STATUS_FIELDS, ...TRANSFER_SCHOOL_FIELDS]) {
       if (!Object.prototype.hasOwnProperty.call(learner, field)) delete update[field];

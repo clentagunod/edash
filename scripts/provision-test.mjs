@@ -50,6 +50,10 @@ admin account is created only when --apply is specified.`);
 function getSeedDocuments(schoolYear) {
   return [
     {
+      path: "settings/toggles",
+      data: { canTeacherImport: false, canTeacherEditProfiles: true },
+    },
+    {
       path: "settings/eduai",
       data: {
         ...JSON.parse(readFileSync(new URL("../src/lib/eduai-tenant-defaults.json", import.meta.url), "utf8")),

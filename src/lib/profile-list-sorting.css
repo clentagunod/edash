@@ -1,0 +1,50 @@
+.profile-sort-controls { display: flex; flex: 0 1 auto; align-items: center; gap: 8px; margin-left: auto; min-width: 0; }
+.profile-sort-controls label { color: var(--ink-500); font-size: 12px; font-weight: 700; white-space: nowrap; }
+.profile-sort-controls select { min-width: 125px; min-height: 42px; padding: 8px 10px; border: 1px solid var(--line-200); border-radius: var(--radius-md); background: var(--bg-card); color: var(--ink-900); font: inherit; font-size: 13px; }
+.profile-sort-controls select:focus-visible { outline: 2px solid var(--blue-600); outline-offset: 2px; }
+.profile-learners-panel > .toolbar.profile-filters .profile-sort-controls { flex: 0 1 auto; }
+.profile-learners-panel > .toolbar.profile-filters .profile-sort-controls select { flex: 1 1 auto; width: auto; min-width: 125px; }
+
+/* Keep search, filters, and sorting together; narrow screens scroll this row. */
+.toolbar.profile-list-toolbar,
+.grades-filter-toolbar.profile-list-toolbar,
+.profile-learners-panel > .toolbar.profile-filters.profile-list-toolbar {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: 12px;
+}
+.profile-list-toolbar > .search-box,
+.grades-filter-toolbar.profile-list-toolbar > .search-box,
+.profile-learners-panel > .toolbar.profile-filters.profile-list-toolbar > .search-box {
+  flex: 1.5 1 200px;
+  min-width: 180px;
+  width: auto;
+}
+.profile-list-toolbar > .select-filter,
+.grades-filter-toolbar.profile-list-toolbar > .select-filter,
+.profile-learners-panel > .toolbar.profile-filters.profile-list-toolbar > .select-filter {
+  flex: 1 1 150px;
+  min-width: var(--profile-filter-min-width, 140px);
+  width: auto;
+  min-height: 42px;
+}
+.profile-list-toolbar > select[id$="PeriodFilter"] { --profile-filter-min-width: 190px; }
+.profile-list-toolbar > select[id$="StatusFilter"] { --profile-filter-min-width: 180px; }
+.profile-list-toolbar > .profile-sort-controls,
+.profile-learners-panel > .toolbar.profile-filters.profile-list-toolbar > .profile-sort-controls {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  width: auto;
+  margin-left: auto;
+}
+.profile-list-toolbar > .profile-sort-controls label { flex: 0 0 auto; }
+.profile-list-toolbar > .profile-sort-controls select,
+.profile-learners-panel > .toolbar.profile-filters.profile-list-toolbar > .profile-sort-controls select {
+  flex: 0 0 auto;
+  min-width: 110px;
+  width: auto;
+}

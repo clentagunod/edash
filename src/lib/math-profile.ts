@@ -9,15 +9,25 @@ import { debounce } from './learner-list';
 import { isTeacher } from './app-config';
 import { initProfileSectionTabs, matchesProfileAssessmentFilters, normalizeProfileGender, normalizeProfileGrade, renderProfileDistributionCharts, RMA_CATEGORIES } from './profile-charts';
 import { initGraphEnhancements } from './graph-enhancements';
-import { compareLearnersBySurname } from './learner-sorting';
+import { compareProfileLearners, formatLearnerName, formatProfileLearnerName } from './learner-sorting';
+import { initProfileSortControls } from './profile-list-sorting';
+import { createProfileEditor } from './profile-editor';
 
 export let mathProfiles = [];
 export let mathPage = 1;
 export let mathSearch = "";
 export const MATH_PAGE_SIZE = 10;
-const mathFilterIds = ["mathPeriodFilter", "mathSexFilter", "mathStatusFilter", "mathGradeFilter", "mathSearch"];
+const mathFilterIds = ["mathPeriodFilter", "mathSexFilter", "mathStatusFilter", "mathGradeFilter", "mathSearch", "mathSort", "mathSortDirection"];
+let mathRequestId = 0;
+let mathInitId = 0;
+const mathEditor = createProfileEditor({
+  kind: 'math', exportButtonId: 'exportMathBtn', tableBodyId: 'mathTableBody',
+  reload: (year) => loadMathProfiles(year, true),
+  render: renderFilteredMath,
+});
 
 export async function initMathProfiles() {
+  const initId = ++mathInitId;
   renderShell("math", "Math Profile");
   initGraphEnhancements();
   initProfileSectionTabs("math");
@@ -26,28 +36,43 @@ export async function initMathProfiles() {
   if (isTeacher()) gradeFilter?.remove();
   ["mathPeriodFilter", "mathSexFilter", "mathStatusFilter", "mathGradeFilter"].forEach((id) => document.getElementById(id)?.addEventListener("change", () => { mathPage = 1; renderFilteredMath(); }));
   document.getElementById("mathSearch")?.addEventListener("input", debounce((event) => { mathSearch = event.target.value.trim().toLowerCase(); mathPage = 1; renderFilteredMath(); }, 200));
+  initProfileSortControls('math', () => { mathPage = 1; renderFilteredMath(); });
+  await mathEditor.initialize();
+  if (initId !== mathInitId) return () => {};
   await initYearSwitcher(loadMathProfiles);
+  return () => {
+    if (initId !== mathInitId) return;
+    mathInitId += 1;
+    mathRequestId += 1;
+    mathEditor.dispose();
+  };
 }
 
-export async function loadMathProfiles(schoolYear) {
+export async function loadMathProfiles(schoolYear, preserveEdit = false) {
+  if (!preserveEdit) mathEditor.reset();
+  const requestId = ++mathRequestId;
   restoreFilterControls(`math:${schoolYear}`, mathFilterIds);
+  initProfileSortControls('math', () => { mathPage = 1; renderFilteredMath(); });
   mathSearch = document.getElementById("mathSearch")?.value.trim().toLowerCase() || "";
-  mathPage = 1;
+  if (!preserveEdit) mathPage = 1;
   const body = document.getElementById("mathTableBody");
   if (body) {
     body.innerHTML = `<tr><td colspan="7" class="state-row">Loading math profiles…</td></tr>`;
   }
   try {
     const records = await LPSApi.getMathProfiles(schoolYear);
-    mathProfiles = records.sort(compareLearnersBySurname);
+    if (requestId !== mathRequestId) return;
+    mathProfiles = records.sort(compareMathProfiles);
     renderFilteredMath();
   } catch (error) {
+    if (requestId !== mathRequestId) return;
     mathProfiles = [];
     const summary = document.getElementById("mathSummary");
     if (summary) summary.innerHTML = "";
     if (body) {
       body.innerHTML = `<tr><td colspan="7" class="state-row error">${escapeHtml(error.message || "Unable to load math profiles.")}<br><small>Add BOSYRMA, MOSYRMA, and EOSYRMA to the selected Learners school-year tab.</small></td></tr>`;
     }
+    if (preserveEdit) throw error;
   }
 }
 
@@ -57,14 +82,19 @@ export function renderFilteredMath() {
   const sex = document.getElementById("mathSexFilter")?.value || "";
   const status = document.getElementById("mathStatusFilter")?.value || "";
   const grade = document.getElementById("mathGradeFilter")?.value || "";
-  const chartCohort = mathProfiles.filter((record) => { const text = `${record.name || ""} ${record.learnerId || ""} ${record.gradeLevel || ""}`.toLowerCase(); return (!mathSearch || text.includes(mathSearch)) && (!sex || normalizeProfileGender(record.gender) === normalizeProfileGender(sex)); });
+  const chartCohort = mathProfiles.filter((record) => { const text = `${record.name || ""} ${formatLearnerName(record)} ${formatProfileLearnerName(record)} ${record.learnerId || ""} ${record.gradeLevel || ""}`.toLowerCase(); return (!mathSearch || text.includes(mathSearch)) && (!sex || normalizeProfileGender(record.gender) === normalizeProfileGender(sex)); });
   const cohort = chartCohort.filter((record) => !grade || normalizeProfileGrade(record.gradeLevel) === normalizeProfileGrade(grade));
   const records = cohort.filter((record) => matchesProfileAssessmentFilters(record, period, status));
   renderMathCharts(records);
   renderMathSummary(records);
-  records.sort(compareLearnersBySurname);
+  records.sort(compareMathProfiles);
+  mathPage = Math.min(mathPage, Math.max(1, Math.ceil(records.length / currentUserPreferences().tablePageSize)));
   renderMathTable(records.slice((mathPage - 1) * currentUserPreferences().tablePageSize, mathPage * currentUserPreferences().tablePageSize));
   renderProfilePagination("math", records.length, mathPage, (page) => { mathPage = page; renderFilteredMath(); });
+}
+
+export function compareMathProfiles(first, second) {
+  return compareProfileLearners(first, second, document.getElementById('mathSort')?.value || 'name', document.getElementById('mathSortDirection')?.value || 'asc');
 }
 
 export function renderMathCharts(records = mathProfiles) {
@@ -99,6 +129,11 @@ export function renderMathSummary(records = []) {
 
 export function mathMeasure(record, stage) {
   const value = record?.[stage] == null ? "" : String(record[stage]).trim();
+  const editor = mathEditor.cell(record, `${stage}RMA`, value, {
+    choices: RMA_CATEGORIES.map(({ label }) => label),
+    label: `${formatProfileLearnerName(record, 'Learner')} ${stage.toUpperCase()} RMA`,
+  });
+  if (editor) return `<div class="reading-measure">${editor}<span>RMA</span></div>`;
   return `<div class="reading-measure"><strong>${escapeHtml(value || "—")}</strong><span>RMA</span></div>`;
 }
 
@@ -106,7 +141,7 @@ export function renderMathTable(records = []) {
   const body = document.getElementById("mathTableBody");
   if (!body) return;
   if (!records.length) { body.innerHTML = `<tr><td colspan="7" class="state-row">No math profiles found.</td></tr>`; return; }
-  body.innerHTML = records.map((record) => `<tr><td class="cell-name">${escapeHtml(record?.name || "—")}</td><td>${escapeHtml(record?.gradeLevel || "—")}</td><td>${escapeHtml(record?.gender || "—")}</td><td>${mathMeasure(record, "bosy")}</td><td>${mathMeasure(record, "mosy")}</td><td>${mathMeasure(record, "eosy")}</td><td><strong>${escapeHtml(record?.change || "No change recorded")}</strong></td></tr>`).join("");
+  body.innerHTML = records.map((record) => `<tr><td class="cell-name">${escapeHtml(formatProfileLearnerName(record, "—"))}</td><td>${escapeHtml(record?.gradeLevel || "—")}</td><td>${escapeHtml(record?.gender || "—")}</td><td>${mathMeasure(record, "bosy")}</td><td>${mathMeasure(record, "mosy")}</td><td>${mathMeasure(record, "eosy")}</td><td><strong>${escapeHtml(record?.change || "No change recorded")}</strong></td></tr>`).join("");
 }
 
 export async function exportMathExcel() {
@@ -120,7 +155,7 @@ export async function exportMathExcel() {
   const year = getSelectedSchoolYear() || "Current";
   const headers = ["Learner ID", "Name", "Grade Level", "Gender", "Reference", "BOSY RMA", "MOSY RMA", "EOSY RMA", "Change"];
   const cell = (value, isLearnerId = false) => `<td${isLearnerId ? " class=\"text-cell\"" : ""}>${escapeHtml(value == null ? "" : String(value))}</td>`;
-  const rows = mathProfiles.map((record) => [record?.learnerId || "", record?.name || "", record?.gradeLevel || "", record?.gender || "", "RMA", record?.bosy || "", record?.mosy || "", record?.eosy || "", record?.change || "No change recorded"]);
+  const rows = mathProfiles.slice().sort(compareMathProfiles).map((record) => [record?.learnerId || "", formatProfileLearnerName(record), record?.gradeLevel || "", record?.gender || "", "RMA", record?.bosy || "", record?.mosy || "", record?.eosy || "", record?.change || "No change recorded"]);
   const workbook = `<html><head><meta charset="UTF-8"><style>table{border-collapse:collapse;font-family:Arial}th,td{border:1px solid #b9c5d9;padding:6px 8px}th{background:#dfeaff}.text-cell{mso-number-format:'\\@';}</style></head><body><h1>${escapeHtml(APP_CONFIG.branding.schoolName)} Math Profile - ${escapeHtml(year)}</h1><table><tr>${headers.map(cell).join("")}</tr>${rows.map((row) => `<tr>${row.map((value, index) => cell(value, index === 0)).join("")}</tr>`).join("")}</table></body></html>`;
   const url = URL.createObjectURL(new Blob(["\ufeff", workbook], { type: "application/vnd.ms-excel" }));
   const link = document.createElement("a"); link.href = url; link.download = `${appSchoolFilePrefix()}-math-profile-${year.replace(/\s+/g, "")}.xls`; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);

@@ -10,13 +10,14 @@ import { isTeacher } from './app-config';
 import { initProfileSectionTabs } from './profile-charts';
 import { renderNutritionCharts } from './nutrition-charts';
 import { initGraphEnhancements } from './graph-enhancements';
-import { compareLearnersBySurname } from './learner-sorting';
+import { compareProfileLearners, formatLearnerName, formatProfileLearnerName } from './learner-sorting';
+import { initProfileSortControls } from './profile-list-sorting';
 
 export let nutritionRecords = [];
 export let nutritionPage = 1;
 export let nutritionSearch = "";
 export const PROFILE_PAGE_SIZE = 10;
-const nutritionFilterIds = ["nutritionPeriodFilter", "nutritionGradeFilter", "nutritionSexFilter", "nutritionStatusFilter", "nutritionSearch"];
+const nutritionFilterIds = ["nutritionPeriodFilter", "nutritionGradeFilter", "nutritionSexFilter", "nutritionStatusFilter", "nutritionSearch", "nutritionSort", "nutritionSortDirection"];
 
 export async function initNutritionPage() {
   renderShell("nutrition", "Nutritional Status");
@@ -30,11 +31,13 @@ export async function initNutritionPage() {
   if (isTeacher()) gradeFilter?.remove();
   ["nutritionPeriodFilter", "nutritionSexFilter", "nutritionStatusFilter", "nutritionGradeFilter"].forEach((id) => document.getElementById(id)?.addEventListener("change", () => { nutritionPage = 1; renderFilteredNutrition(); }));
   document.getElementById("nutritionSearch")?.addEventListener("input", debounce((event) => { nutritionSearch = event.target.value.trim().toLowerCase(); nutritionPage = 1; renderFilteredNutrition(); }, 200));
+  initProfileSortControls('nutrition', () => { nutritionPage = 1; renderFilteredNutrition(); });
   await initYearSwitcher(loadNutritionStatus);
 }
 
 export async function loadNutritionStatus(schoolYear) {
   restoreFilterControls(`nutrition:${schoolYear}`, nutritionFilterIds);
+  initProfileSortControls('nutrition', () => { nutritionPage = 1; renderFilteredNutrition(); });
   nutritionSearch = document.getElementById('nutritionSearch')?.value.trim().toLowerCase() || '';
   nutritionPage = 1;
   const table = document.getElementById("nutritionTableBody");
@@ -42,7 +45,7 @@ export async function loadNutritionStatus(schoolYear) {
   table.innerHTML = `<tr><td colspan="6" class="state-row">Loading nutritional records…</td></tr>`;
   try {
     const records = await LPSApi.getNutritionStatus(schoolYear);
-    nutritionRecords = records.sort(compareLearnersBySurname);
+    nutritionRecords = records;
     renderFilteredNutrition();
   } catch (error) {
     nutritionRecords = [];
@@ -59,16 +62,24 @@ export function renderFilteredNutrition() {
   const status = document.getElementById("nutritionStatusFilter")?.value || "";
   const grade = document.getElementById("nutritionGradeFilter")?.value || "";
   const records = nutritionRecords.filter((record) => {
-    const text = `${record.name || ""} ${record.learnerId || ""} ${record.gender || ""}`.toLowerCase();
+    const text = `${record.name || ""} ${formatLearnerName(record)} ${formatProfileLearnerName(record)} ${record.learnerId || ""} ${record.gender || ""}`.toLowerCase();
     const hasSelectedStatus = !status || (period
       ? record[period + "NutritionalStatus"] === status
       : ["bosy", "mosy", "eosy"].some((key) => record[key + "NutritionalStatus"] === status));
     return (!nutritionSearch || text.includes(nutritionSearch)) && (!grade || record.gradeLevel === grade) && (!sex || record.gender === sex) && (!period || record[period + "NutritionalStatus"]) && hasSelectedStatus;
-  }).sort(compareLearnersBySurname);
+  });
+  sortNutritionRecords(records);
+  nutritionPage = Math.min(nutritionPage, Math.max(1, Math.ceil(records.length / currentUserPreferences().tablePageSize)));
   renderNutritionSummary(records);
   renderNutritionCharts(records);
   renderNutritionTable(records.slice((nutritionPage - 1) * currentUserPreferences().tablePageSize, nutritionPage * currentUserPreferences().tablePageSize));
   renderProfilePagination("nutrition", records.length, nutritionPage, (page) => { nutritionPage = page; renderFilteredNutrition(); });
+}
+
+export function sortNutritionRecords(records) {
+  const field = document.getElementById('nutritionSort')?.value || 'name';
+  const direction = document.getElementById('nutritionSortDirection')?.value || 'asc';
+  return records.sort((first, second) => compareProfileLearners(first, second, field, direction));
 }
 
 export function renderProfilePagination(prefix, total, page, onPageChange) {
@@ -112,7 +123,7 @@ export function renderNutritionTable(records) {
     return;
   }
   body.innerHTML = records.map((record) => `
-    <tr><td class="cell-name">${escapeHtml(record.name)}</td><td>${escapeHtml(record.gender || "—")}</td>
+    <tr><td class="cell-name">${escapeHtml(formatProfileLearnerName(record, "—"))}</td><td>${escapeHtml(record.gender || "—")}</td>
       <td>${nutritionMeasure(record, "bosy")}</td><td>${nutritionMeasure(record, "mosy")}</td><td>${nutritionMeasure(record, "eosy")}</td>
       <td><strong>${escapeHtml(record.statusChange)}</strong><small class="nutrition-delta">${record.heightChange == null ? "" : `Height ${record.heightChange >= 0 ? "+" : ""}${(record.heightChange / 100).toFixed(2)} m`}${record.weightChange == null ? "" : ` · Weight ${record.weightChange >= 0 ? "+" : ""}${record.weightChange} kg`}</small></td></tr>`).join("");
 }
@@ -130,7 +141,7 @@ export async function exportNutritionExcel() {
     if (indicator.cancelled) return;
   const yearLabel = getSelectedSchoolYear() || "Current";
   const headers = ["Name", "Gender", "Baseline Height (m)", "Baseline Weight (kg)", "Baseline BMI", "Baseline Status", "Midline Height (m)", "Midline Weight (kg)", "Midline BMI", "Midline Status", "Endline Height (m)", "Endline Weight (kg)", "Endline BMI", "Endline Status", "Height Change (m)", "Weight Change (kg)", "Status Change"];
-  const rows = nutritionRecords.map((record) => [record.name, record.gender, record.bosyHeight == null ? "" : record.bosyHeight / 100, record.bosyWeight, record.bosyBmi, record.bosyNutritionalStatus, record.mosyHeight == null ? "" : record.mosyHeight / 100, record.mosyWeight, record.mosyBmi, record.mosyNutritionalStatus, record.eosyHeight == null ? "" : record.eosyHeight / 100, record.eosyWeight, record.eosyBmi, record.eosyNutritionalStatus, record.heightChange == null ? "" : record.heightChange / 100, record.weightChange, record.statusChange]);
+  const rows = sortNutritionRecords([...nutritionRecords]).map((record) => [formatProfileLearnerName(record), record.gender, record.bosyHeight == null ? "" : record.bosyHeight / 100, record.bosyWeight, record.bosyBmi, record.bosyNutritionalStatus, record.mosyHeight == null ? "" : record.mosyHeight / 100, record.mosyWeight, record.mosyBmi, record.mosyNutritionalStatus, record.eosyHeight == null ? "" : record.eosyHeight / 100, record.eosyWeight, record.eosyBmi, record.eosyNutritionalStatus, record.heightChange == null ? "" : record.heightChange / 100, record.weightChange, record.statusChange]);
   const cell = (value) => `<td>${escapeHtml(value == null ? "" : value)}</td>`;
   const workbook = `<html><head><meta charset="UTF-8"><style>table{border-collapse:collapse;font-family:Arial}th,td{border:1px solid #b9c5d9;padding:6px 8px}th{background:#dfeaff}</style></head><body><h1>${escapeHtml(APP_CONFIG.branding.schoolName)} Nutritional Status - ${escapeHtml(yearLabel)}</h1><table><tr>${headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("")}</tr>${rows.map((row) => `<tr>${row.map(cell).join("")}</tr>`).join("")}</table></body></html>`;
   const url = URL.createObjectURL(new Blob(["\ufeff", workbook], { type: "application/vnd.ms-excel" }));

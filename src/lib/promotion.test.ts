@@ -44,12 +44,14 @@ describe('reviewing learner details before school-year migration', () => {
       learnerId: '123456789012', firstName: 'Alex', lastName: 'Reyes', gradeLevel: 'Grade 1', section: 'A', age: 7,
       eosyStatus: mode === 'promotion' ? 'Promoted' : 'Retained', guardian: 'Original guardian',
       teacherComments: ['Source comment', '', ''], attendance: { daysPresent: { Aug: '20' } },
+      __studentImportId: 'source-enrollment-import',
     };
     const before = JSON.stringify(learner);
     await openPromotionForm(learner);
     const form = document.querySelector<HTMLFormElement>('#promotionForm')!;
     expect(form.querySelectorAll('[data-teacher-comment]')).toHaveLength(3);
     expect(form.querySelector('[data-promotion-field="attendance"]')).toBeNull();
+    expect(form.querySelector('[data-promotion-field="__studentImportId"]')).toBeNull();
     expect(form.querySelector<HTMLTextAreaElement>('[data-teacher-comment="0"]')!.value).toBe('Source comment');
     form.querySelector<HTMLTextAreaElement>('[data-teacher-comment="0"]')!.value = 'Target-year comment';
     form.querySelector<HTMLInputElement>('[aria-label="Present Aug"]')!.value = '0';

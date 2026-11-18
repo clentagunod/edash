@@ -85,6 +85,14 @@ async function seedSchoolStructure(db, schoolYear) {
     subjects: [],
     updatedAt: FieldValue.serverTimestamp(),
   });
+  const togglesRef = db.collection("settings").doc("toggles");
+  const togglesSnapshot = await togglesRef.get();
+  if (!togglesSnapshot.exists || togglesSnapshot.data()?.canTeacherImport === undefined) {
+    await ensureDoc(togglesRef, { canTeacherImport: false });
+  }
+  if (!togglesSnapshot.exists || togglesSnapshot.data()?.canTeacherEditProfiles === undefined) {
+    await ensureDoc(togglesRef, { canTeacherEditProfiles: true });
+  }
   const eduAiSettingsRef = db.collection("settings").doc("eduai");
   const eduAiSettingsSnapshot = await eduAiSettingsRef.get();
   if (!eduAiSettingsSnapshot.exists) {
@@ -273,6 +281,7 @@ async function main() {
   console.log("- settings/currentSchoolYear");
   console.log("- settings/eduai");
   console.log("- settings/curriculumSubjectPool");
+  console.log("- settings/toggles");
   console.log("- settings/gradeTerms/years/{schoolYear}");
   console.log("- publicStats/summary");
   console.log("Teacher assignment history: users/{uid}/assignmentHistory/{schoolYear}");

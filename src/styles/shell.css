@@ -1754,8 +1754,8 @@ body.dark-mode .export-indicator { border-color: var(--line-200); background: #1
 .utility-result.is-error { border-color: var(--danger-100); background: var(--danger-100); }
 .utility-result.is-error span, .utility-result.is-error strong { color: var(--danger-600); }
 .grades-table-wrap { overflow-x: auto; }
-.grades-filter-toolbar { display: flex; align-items: center; gap: 10px; margin: 2px 0 18px; }
-.grades-filter-toolbar .search-box { flex: 1; }
+.grades-filter-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 2px 0 18px; }
+.grades-filter-toolbar .search-box { flex: 1 1 220px; }
 .grades-filter-toolbar .select-filter { min-width: 150px; }
 .grades-panel-header { align-items: center; }
 .grades-curriculum-state { padding: 0 20px 12px; color: var(--ink-500); font-size: 11px; }
@@ -1763,8 +1763,6 @@ body.dark-mode .export-indicator { border-color: var(--line-200); background: #1
 .grades-term-navigation button { border: 1px solid var(--line, #d8e0eb); border-radius: 999px; padding: 7px 12px; background: #fff; color: var(--ink-600); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
 .grades-term-navigation button.is-active { border-color: var(--blue-600); background: var(--blue-100); color: var(--blue-700); }
 .grades-term-note { margin: 0; padding: 0 20px 10px; color: var(--ink-500); font-size: 11px; }
-.grades-sort-controls { display: flex; align-items: center; gap: 8px; color: var(--ink-500); font-size: 12px; font-weight: 700; }
-.grades-sort-controls select { min-width: 130px; padding: 8px 10px; }
 .grades-profile-table { min-width: 1320px; }
 .grades-profile-table th, .grades-profile-table td { white-space: nowrap; }
 .grades-profile-table .grade-cell, .grades-profile-table .average-cell { text-align: center; }
@@ -1794,10 +1792,9 @@ body.dark-mode .export-indicator { border-color: var(--line-200); background: #1
   .data-filter-grid { grid-template-columns: 1fr; }
   .utility-subject-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .grades-filter-toolbar { align-items: stretch; flex-direction: column; }
+  .grades-filter-toolbar .search-box { flex: 0 1 auto; width: 100%; }
   .grades-filter-toolbar .select-filter { width: 100%; }
   .grades-panel-header { align-items: stretch; flex-direction: column; gap: 12px; }
-  .grades-sort-controls { flex-wrap: wrap; }
-  .grades-sort-controls select { flex: 1; min-width: 0; }
   .data-export-summary { align-items: stretch; flex-direction: column; }
   .data-export-actions { flex-direction: column; }
   .data-export-actions .btn { justify-content: center; }

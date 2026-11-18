@@ -78,6 +78,58 @@ service cloud.firestore {
       return exists(togglesPath)
         && get(togglesPath).data.get("canPromoteStudents", false) == true;
     }
+    function teacherImportEnabled() {
+      let togglesPath = /databases/$(database)/documents/settings/toggles;
+      return exists(togglesPath)
+        && get(togglesPath).data.get("canTeacherImport", false) == true;
+    }
+    function teacherProfileEditingEnabled() {
+      let togglesPath = /databases/$(database)/documents/settings/toggles;
+      return !exists(togglesPath)
+        || get(togglesPath).data.get("canTeacherEditProfiles", true) == true;
+    }
+    function teacherProfileUpdateAllowed(yearId) {
+      // Unknown fields include custom curriculum subject IDs. Keeping a list
+      // of non-profile fields also protects future subjects and legacy extra
+      // grade data without relying on a fixed list of subject names.
+      let onlyOtherFields = request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        "firstName", "lastName", "middleName", "suffix", "age", "birthDate", "learnerId", "name", "gradeLevel", "section", "gender",
+        "guardian", "contact", "enrollmentStatus", "eosyStatus", "schoolYear", "dateAdded", "is4Ps", "isIP", "isSNED", "isARAL", "isMuslim",
+        "bosyHeight", "bosyWeight", "bosyNutritionalStatus", "mosyHeight", "mosyWeight", "mosyNutritionalStatus", "eosyHeight", "eosyWeight", "eosyNutritionalStatus",
+        "transferType", "transferIn", "transferOut", "transferSchoolId", "transferSchool", "transferSchoolAddress", "transferSchoolZipCode", "transferDate", "transferReason", "transferNotes",
+        "documentStatus", "documentStatusCustom", "documentStatusDates", "sf10Email", "anecdotalRecords", "teacherComments", "attendance",
+        "progressionSourceSchoolYear", "progressionType", "__studentImportId", "__trashRestoreId"
+      ]);
+      return !isTeacher() || onlyOtherFields
+        || (teacherProfileEditingEnabled()
+          && teacherImportPlacement(resource.data, yearId)
+          && teacherImportPlacement(request.resource.data, yearId));
+    }
+    function teacherImportPlacement(learner, yearId) {
+      let keys = myProfile().data.get("teacherAssignmentSecurityKeys", []);
+      let grade = learner.get("gradeLevel", "");
+      let section = learner.get("section", "");
+      return keys is list && grade is string && section is string
+        && keys.hasAny([yearId + "::" + grade + "::" + section]);
+    }
+    function importLearnerIsActive(learner) {
+      return learner.get("transferOut", false) != true
+        && !(learner.get("enrollmentStatus", "") in ["TRANSFERRED_OUT", "DROPPED_OUT"])
+        && learner.get("eosyStatus", "") != "Dropped Out";
+    }
+    function validTeacherImport(yearId, learnerId) {
+      let learner = request.resource.data;
+      let marker = learner.get("__studentImportId", "");
+      return isTeacher() && teacherImportEnabled()
+        && marker is string && marker.size() > 0 && marker.size() <= 100
+        && learnerId.matches("^\\d{12}$")
+        && learner.get("learnerId", "") == learnerId
+        && learner.get("schoolYear", "") == yearId
+        && teacherImportPlacement(learner, yearId)
+        && importLearnerIsActive(learner)
+        && !exists(/databases/$(database)/documents/schoolYears/$(yearId)/dropouts/$(learnerId))
+        && !exists(/databases/$(database)/documents/schoolYears/$(yearId)/transferredOut/$(learnerId));
+    }
     function validTeacherProgression(learnerId) {
       let learner = request.resource.data;
       let sourceYearValue = learner.get("progressionSourceSchoolYear", "");
@@ -238,8 +290,26 @@ service cloud.firestore {
       match /learners/{learnerId} {
         allow read: if isStaff();
         allow create: if isStaff()
-          && (!isTeacher() || validTeacherProgression(learnerId) || validTeacherTrashRestore(yearId, learnerId));
-        allow update, delete: if isStaff();
+          && (request.resource.data.keys().hasAny(["__studentImportId"])
+            ? (isAdmin() || validTeacherTrashRestore(yearId, learnerId) || (validTeacherImport(yearId, learnerId)
+              && request.resource.data.get("__trashRestoreId", "") == ""
+              && request.resource.data.get("progressionSourceSchoolYear", "") == ""
+              && request.resource.data.get("progressionType", "") == ""))
+            : (!isTeacher() || validTeacherProgression(learnerId) || validTeacherTrashRestore(yearId, learnerId)));
+        // Import markers change for each import. Ordinary edits retaining an
+        // existing marker keep their prior permissions; import writes must
+        // recheck the toggle and both the existing and target assignments.
+        allow update: if isStaff()
+          && teacherProfileUpdateAllowed(yearId)
+          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(["__studentImportId"])
+            || isAdmin()
+            || (validTeacherImport(yearId, learnerId)
+              && teacherImportPlacement(resource.data, yearId)
+              && importLearnerIsActive(resource.data)
+              && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+                "__trashRestoreId", "progressionSourceSchoolYear", "progressionType"
+              ])));
+        allow delete: if isStaff();
         allow get: if isAnonymous()
           && parentAccessEnabled()
           && resource.data.get("enrollmentStatus", "") != "TRANSFERRED_OUT"

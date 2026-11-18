@@ -10,8 +10,7 @@ export default function GradesProfilePage() {
       title="Grades Profile"
       onMount={async () => {
         await requireAuth();
-    await initGradesProfile();
-        
+        return await initGradesProfile();
       }}
     />
   );

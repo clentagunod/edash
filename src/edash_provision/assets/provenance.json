@@ -1,5 +1,5 @@
 {
-  "snapshotDate": "2026-11-10",
+  "snapshotDate": "2026-11-17",
   "websiteSchemaVersion": 3,
   "appVersion": "1.0.0",
   "sources": [
@@ -19,12 +19,12 @@
   "sha256": {
     "school-registration.example.json": "091f7fd85589bbae4bf1ea10b30a3be2677c8692e6b4b4313fdec4ff5b6b5117",
     "school-registry.rules": "35482168afca49969cc402226699325792c19bf1dca10d04396e4820f0f7344e",
-    "firestore.rules": "61d3e98cb8bfc11d1f8fe7c67134d29195eba8d0c39844acfdf1af901b07a4ff",
+    "firestore.rules": "9974c9e59495232675958efd2bd45a01e9badcfd6a2ef15526dee34855eb9654",
     "firebase.index.json": "e4c299a23f616afe61d73e95bea999afa2424b0328d64ce0a296f3549e1b4b54",
     "firebase.registry.json": "098210e158ad5f70aab3ff72f80afe0c631bf314c8e33f425dfc1daf37baccdc",
     "firebase.tenant.json": "1630fdf22e9fbd47ac8cd7f37bd502f500c3e9a1cc78ce001ee5a016a2c04efe",
     "eduai-tenant-defaults.json": "3a90f61f61f7ff2a52edc1ac2a7b8ccd6e25bc847248c91fbfd5386ac9fa760a",
-    "tenant-structure.json": "29b1af0247c42a065b06641e58426089d4a3857fa5b770cab9aab008a2cc926c",
+    "tenant-structure.json": "1175224003592b998eedbd21bc966b9ad362d8f51c7cb0132a4a7de654bac4db",
     "user-preferences.json": "a234d4c4ea932b43f825a50b44c0174a6d50ab76db4663575257423d43b38143"
   }
 }

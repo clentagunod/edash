@@ -58,6 +58,8 @@ class ProvisionTests(unittest.TestCase):
         self.assertEqual(len(docs), 10)
         self.assertIn("schoolYears/2026-2027", docs)
         self.assertEqual(docs["settings/toggles"]["trashConfg"], "30")
+        self.assertFalse(docs["settings/toggles"]["canTeacherImport"])
+        self.assertTrue(docs["settings/toggles"]["canTeacherEditProfiles"])
         self.assertEqual(docs["settings/cardPrintingPreferences"]["activeTemplate"], "sf9")
         self.assertEqual(docs["settings/printableSignatures"]["slots"], {})
         self.assertEqual(docs["settings/printableSignatures"]["assignments"]["student-card"], [])

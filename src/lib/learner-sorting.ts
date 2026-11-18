@@ -25,6 +25,59 @@ export function formatLearnerName(learner: LearnerNameRecord, fallback = ''): st
   return nameParts.join(' ') || text(learner.name) || fallback;
 }
 
+/** Name convention used by profile lists and the EOSY report. */
+export function formatProfileLearnerName(learner: LearnerNameRecord, fallback = ''): string {
+  const firstName = text(learner.firstName);
+  const lastName = text(learner.lastName);
+  if (!firstName && !lastName) return text(learner.name) || fallback;
+  const middleName = text(learner.middleName);
+  const initials = /^(?:n\/?a|none|not applicable|-)$/i.test(middleName) ? '' : middleName
+    .split(/\s+/).map(part => part.match(/\p{L}/u)?.[0]).filter(Boolean).map(initial => `${initial.toUpperCase()}.`).join(' ');
+  const surname = [lastName, text(learner.suffix)].filter(Boolean).join(' ');
+  const givenNames = [firstName, initials].filter(Boolean).join(' ');
+  return [surname, givenNames].filter(Boolean).join(', ');
+}
+
+type ProfileSortRecord = LearnerNameRecord & {
+  gradeLevel?: unknown; section?: unknown; gender?: unknown; average?: unknown; eosyStatus?: unknown;
+};
+
+function compareProfileNames(first: LearnerNameRecord, second: LearnerNameRecord) {
+  const surname = (record: LearnerNameRecord) => text(record.lastName)
+    || (text(record.name).includes(',') ? text(record.name).split(',')[0] : learnerSurname(record));
+  const compare = (a: unknown, b: unknown) => text(a).localeCompare(text(b), undefined, { numeric: true, sensitivity: 'base' });
+  return compare(surname(first), surname(second))
+    || compare(first.firstName, second.firstName)
+    || compare(first.middleName, second.middleName)
+    || compare(first.name, second.name)
+    || compare(first.learnerId, second.learnerId);
+}
+
+/** Sort the entire filtered cohort before pagination; missing values remain last. */
+export function compareProfileLearners(first: ProfileSortRecord, second: ProfileSortRecord, field = 'name', direction = 'asc') {
+  const sign = direction === 'desc' ? -1 : 1;
+  if (!['learnerId', 'gradeLevel', 'section', 'gender', 'average', 'eosyStatus'].includes(field)) return compareProfileNames(first, second) * sign;
+  const a = first[field], b = second[field];
+  const isMissing = (value: unknown) => text(value) === '' || (field === 'average' && !Number.isFinite(Number(value)));
+  const aMissing = isMissing(a), bMissing = isMissing(b);
+  if (aMissing !== bMissing) return aMissing ? 1 : -1;
+  let result = 0;
+  if (!aMissing) {
+    if (field === 'average') result = Number(a) - Number(b);
+    else if (field === 'gradeLevel') {
+      const gradeOrder = (value: unknown) => {
+        const normalized = text(value).toLowerCase().replace(/\s+/g, '');
+        if (['k', 'kg', 'kinder', 'kindergarten', '0'].includes(normalized)) return 0;
+        const match = normalized.match(/^(?:grade)?(\d+)$/);
+        return match ? Number(match[1]) : Number.MAX_SAFE_INTEGER;
+      };
+      result = gradeOrder(a) - gradeOrder(b);
+    } else result = text(a).localeCompare(text(b), undefined, { numeric: true, sensitivity: 'base' });
+  }
+  // A predictable surname order resolves equal grades, sections, and statuses.
+  return result ? result * sign : compareProfileNames(first, second);
+}
+
 /**
  * Surname-first convention (e.g. "Dela Cruz, Juan Santos").
  * Used for archived/movement learner lists (dropout, transfer, promotion, retention).

@@ -10,8 +10,7 @@ export default function MathProfilePage() {
       title="Math Profile"
       onMount={async () => {
         await requireAuth();
-    await initMathProfiles();
-        
+        return await initMathProfiles();
       }}
     />
   );

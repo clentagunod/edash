@@ -8,14 +8,23 @@ import { getSelectedSchoolYear, initYearSwitcher } from './school-year';
 import { debounce } from './learner-list';
 import { CRLA_CATEGORIES, initProfileSectionTabs, matchesProfileAssessmentFilters, normalizeProfileGender, normalizeProfileGrade, PHIL_IRI_CATEGORIES, renderProfileDistributionCharts } from './profile-charts';
 import { initGraphEnhancements } from './graph-enhancements';
-import { compareLearnersBySurname } from './learner-sorting';
+import { compareProfileLearners, formatLearnerName, formatProfileLearnerName } from './learner-sorting';
+import { initProfileSortControls } from './profile-list-sorting';
+import { createProfileEditor } from './profile-editor';
 
 export let readingProfiles = [];
 export let readingPage = 1;
 export let readingSearch = "";
 export let readingGrade = "";
 export const READING_PAGE_SIZE = 10;
-const readingFilterIds = ["readingPeriodFilter", "readingGradeFilter", "readingSexFilter", "readingStatusFilter", "readingSearch"];
+const readingFilterIds = ["readingPeriodFilter", "readingGradeFilter", "readingSexFilter", "readingStatusFilter", "readingSearch", "readingSort", "readingSortDirection"];
+let readingRequestId = 0;
+let readingInitId = 0;
+const readingEditor = createProfileEditor({
+  kind: 'reading', exportButtonId: 'exportReadingBtn', tableBodyId: 'readingTableBody',
+  reload: (year) => loadReadingProfiles(year, true),
+  render: renderFilteredReading,
+});
 
 export function readingClassificationOptions(grade = "") {
   const normalizedGrade = normalizeProfileGrade(grade);
@@ -35,6 +44,7 @@ export function updateReadingClassificationOptions() {
 }
 
 export async function initReadingProfiles() {
+  const initId = ++readingInitId;
   renderShell("reading", "Reading Profile");
   initGraphEnhancements();
   initProfileSectionTabs("reading");
@@ -42,13 +52,25 @@ export async function initReadingProfiles() {
   updateReadingClassificationOptions();
   ["readingPeriodFilter", "readingGradeFilter", "readingSexFilter", "readingStatusFilter"].forEach((id) => document.getElementById(id)?.addEventListener("change", (event) => { if (id === "readingGradeFilter") { readingGrade = event.target.value; updateReadingClassificationOptions(); } readingPage = 1; renderFilteredReading(); }));
   document.getElementById("readingSearch")?.addEventListener("input", debounce((event) => { readingSearch = event.target.value.trim().toLowerCase(); readingPage = 1; renderFilteredReading(); }, 200));
+  initProfileSortControls('reading', () => { readingPage = 1; renderFilteredReading(); });
+  await readingEditor.initialize();
+  if (initId !== readingInitId) return () => {};
   await initYearSwitcher(loadReadingProfiles);
+  return () => {
+    if (initId !== readingInitId) return;
+    readingInitId += 1;
+    readingRequestId += 1;
+    readingEditor.dispose();
+  };
 }
 
-export async function loadReadingProfiles(schoolYear) {
+export async function loadReadingProfiles(schoolYear, preserveEdit = false) {
+  if (!preserveEdit) readingEditor.reset();
+  const requestId = ++readingRequestId;
   restoreFilterControls(`reading:${schoolYear}`, readingFilterIds);
+  initProfileSortControls('reading', () => { readingPage = 1; renderFilteredReading(); });
   readingSearch = document.getElementById("readingSearch")?.value.trim().toLowerCase() || "";
-  readingPage = 1;
+  if (!preserveEdit) readingPage = 1;
   readingGrade = document.getElementById("readingGradeFilter")?.value || "";
   updateReadingClassificationOptions();
   restoreFilterControls(`reading:${schoolYear}`, ["readingStatusFilter"]);
@@ -58,15 +80,18 @@ export async function loadReadingProfiles(schoolYear) {
   }
   try {
     const records = await LPSApi.getReadingProfiles(schoolYear);
-    readingProfiles = records.sort(compareLearnersBySurname);
+    if (requestId !== readingRequestId) return;
+    readingProfiles = records.sort(compareReadingProfiles);
     renderFilteredReading();
   } catch (error) {
+    if (requestId !== readingRequestId) return;
     readingProfiles = [];
     const summary = document.getElementById("readingSummary");
     if (summary) summary.innerHTML = "";
     if (body) {
       body.innerHTML = `<tr><td colspan="7" class="state-row error">${escapeHtml(error.message || "Unable to load reading profiles.")}<br><small>Add the CRLA and Phil-IRI BOSY/MOSY/EOSY columns to the selected Learners school-year tab.</small></td></tr>`;
     }
+    if (preserveEdit) throw error;
   }
 }
 
@@ -76,14 +101,19 @@ export function renderFilteredReading() {
   const grade = document.getElementById("readingGradeFilter")?.value || "";
   const sex = document.getElementById("readingSexFilter")?.value || "";
   const status = document.getElementById("readingStatusFilter")?.value || "";
-  const chartCohort = readingProfiles.filter((record) => { const text = `${record.name || ""} ${record.learnerId || ""} ${record.gradeLevel || ""}`.toLowerCase(); return (!readingSearch || text.includes(readingSearch)) && (!sex || normalizeProfileGender(record.gender) === normalizeProfileGender(sex)); });
+  const chartCohort = readingProfiles.filter((record) => { const text = `${record.name || ""} ${formatLearnerName(record)} ${formatProfileLearnerName(record)} ${record.learnerId || ""} ${record.gradeLevel || ""}`.toLowerCase(); return (!readingSearch || text.includes(readingSearch)) && (!sex || normalizeProfileGender(record.gender) === normalizeProfileGender(sex)); });
   const cohort = chartCohort.filter((record) => !grade || normalizeProfileGrade(record.gradeLevel) === normalizeProfileGrade(grade));
   const records = cohort.filter((record) => matchesProfileAssessmentFilters(record, period, status));
   renderReadingCharts(records);
   renderReadingSummary(records);
-  records.sort(compareLearnersBySurname);
+  records.sort(compareReadingProfiles);
+  readingPage = Math.min(readingPage, Math.max(1, Math.ceil(records.length / currentUserPreferences().tablePageSize)));
   renderReadingTable(records.slice((readingPage - 1) * currentUserPreferences().tablePageSize, readingPage * currentUserPreferences().tablePageSize));
   renderProfilePagination("reading", records.length, readingPage, (page) => { readingPage = page; renderFilteredReading(); });
+}
+
+export function compareReadingProfiles(first, second) {
+  return compareProfileLearners(first, second, document.getElementById('readingSort')?.value || 'name', document.getElementById('readingSortDirection')?.value || 'asc');
 }
 
 export function renderReadingCharts(records = []) {
@@ -135,7 +165,14 @@ export function renderReadingSummary(records = []) {
 
 export function readingMeasure(record, stage) {
   const value = record?.[stage] == null ? "" : String(record[stage]).trim();
-  const reference = record?.reference == null ? "" : String(record.reference).trim();
+  const storedReference = String(record?.reference || '').trim();
+  const reference = storedReference || (["grade1", "grade2", "grade3"].includes(normalizeProfileGrade(record?.gradeLevel)) ? 'CRLA' : 'Phil-IRI');
+  const isCrla = reference.toUpperCase() === 'CRLA';
+  const editor = readingEditor.cell(record, `${stage}${isCrla ? 'CRLA' : 'PhilIRI'}`, value, {
+    choices: (isCrla ? CRLA_CATEGORIES : PHIL_IRI_CATEGORIES).map(({ label }) => label),
+    label: `${formatProfileLearnerName(record, 'Learner')} ${stage.toUpperCase()} ${reference}`,
+  });
+  if (editor) return `<div class="reading-measure">${editor}<span>${escapeHtml(reference)}</span></div>`;
   return `<div class="reading-measure"><strong>${escapeHtml(value || "—")}</strong><span>${escapeHtml(reference || "—")}</span></div>`;
 }
 
@@ -147,7 +184,7 @@ export function renderReadingTable(records = []) {
     return;
   }
   body.innerHTML = records.map((record) => `
-    <tr><td class="cell-name">${escapeHtml(record?.name || "—")}</td><td>${escapeHtml(record?.gradeLevel || "—")}</td><td>${escapeHtml(record?.gender || "—")}</td>
+    <tr><td class="cell-name">${escapeHtml(formatProfileLearnerName(record, "—"))}</td><td>${escapeHtml(record?.gradeLevel || "—")}</td><td>${escapeHtml(record?.gender || "—")}</td>
       <td>${readingMeasure(record, "bosy")}</td><td>${readingMeasure(record, "mosy")}</td><td>${readingMeasure(record, "eosy")}</td><td><strong>${escapeHtml(record?.change || "No change recorded")}</strong></td></tr>`).join("");
 }
 
@@ -165,7 +202,7 @@ export async function exportReadingExcel() {
   const year = getSelectedSchoolYear() || "Current";
   const headers = ["Learner ID", "Name", "Grade Level", "Gender", "Reference", "BOSY", "MOSY", "EOSY", "Change"];
   const cell = (value, isLearnerId = false) => `<td${isLearnerId ? " class=\"text-cell\"" : ""}>${escapeHtml(value == null ? "" : String(value))}</td>`;
-  const rows = readingProfiles.map((record) => [record?.learnerId || "", record?.name || "", record?.gradeLevel || "", record?.gender || "", record?.reference || "", record?.bosy || "", record?.mosy || "", record?.eosy || "", record?.change || "No change recorded"]);
+  const rows = readingProfiles.slice().sort(compareReadingProfiles).map((record) => [record?.learnerId || "", formatProfileLearnerName(record), record?.gradeLevel || "", record?.gender || "", record?.reference || "", record?.bosy || "", record?.mosy || "", record?.eosy || "", record?.change || "No change recorded"]);
   const workbook = `<html><head><meta charset="UTF-8"><style>table{border-collapse:collapse;font-family:Arial}th,td{border:1px solid #b9c5d9;padding:6px 8px}th{background:#dfeaff}.text-cell{mso-number-format:'\\@';}</style></head><body><h1>${escapeHtml(APP_CONFIG.branding.schoolName)} Reading Profile - ${escapeHtml(year)}</h1><table><tr>${headers.map(cell).join("")}</tr>${rows.map((row) => `<tr>${row.map((value, index) => cell(value, index === 0)).join("")}</tr>`).join("")}</table></body></html>`;
   const url = URL.createObjectURL(new Blob(["\ufeff", workbook], { type: "application/vnd.ms-excel" }));
   const link = document.createElement("a");

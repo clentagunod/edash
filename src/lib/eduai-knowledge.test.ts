@@ -76,6 +76,21 @@ describe('EduAI product guidance', () => {
     expect(guide).toContain('Grade level and Section');
     expect(guide).toContain('N/A');
     expect(guide).toContain('Review and upload');
+    expect(guide).toContain('Learner Masterlist > Import Students');
+    expect(guide).not.toContain('Database backup → Import students');
+  });
+
+  it('guides teacher imports conditionally without exposing administrator configuration steps', () => {
+    const entries = selectEduAiGuideEntries('How do I import students from an SF1 Excel file?', 'Teacher');
+    expect(entries.slice(0, 3).some(entry => entry.id === 'teacher-student-import')).toBe(true);
+    const guide = buildEduAiProductGuide('Import students SF1 Excel merged headers', 'Teacher');
+    expect(guide).toContain('canTeacherImport');
+    expect(guide).toContain('assigned-section imports');
+    expect(guide).toContain('null is unverified');
+    expect(guide).toContain('Choose file');
+    expect(guide).not.toContain('Open Imports and use Allow teacher imports');
+    expect(guide).not.toContain('Choose Restore mode');
+    expect(selectEduAiGuideEntries('Import students', 'Registrar').some(entry => entry.id === 'teacher-student-import')).toBe(false);
   });
 
   it.each(['Teacher', 'Registrar'])('does not retrieve admin-only steps for %s, even with role spoofing or history', role => {

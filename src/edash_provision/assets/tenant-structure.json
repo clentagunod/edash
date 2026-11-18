@@ -61,6 +61,8 @@
       "data": {
         "canParentAccess": true,
         "canPromoteStudents": false,
+        "canTeacherImport": false,
+        "canTeacherEditProfiles": true,
         "trashConfg": "30",
         "roundType": "nearest_integer",
         "updatedAt": {
@@ -221,6 +223,16 @@
   ],
   "recordSchemas": {
     "settings/toggles": {
+      "canTeacherEditProfiles": {
+        "type": "boolean",
+        "default": true,
+        "description": "Allow teachers to edit grades and Reading/Math assessment results for learners in their assigned sections. Missing settings default to enabled. Only school administrators can change this setting."
+      },
+      "canTeacherImport": {
+        "type": "boolean",
+        "default": false,
+        "description": "Allow teachers to import student files into their assigned sections from Learner Masterlist. Only school administrators can change this setting."
+      },
       "printables": {
         "type": "map",
         "default": {

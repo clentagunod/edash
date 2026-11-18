@@ -23,6 +23,23 @@ export interface EduAiContext {
   learnerNames: string[];
   learnerNameCount: number;
   graphs: EduAiGraph[];
+  /** Present only when rebuilt by the gateway from server-verified role/settings. */
+  applicationAccess?: {
+    capturedAt: string;
+    dataScope: string;
+    capabilities: Record<string, boolean | null>;
+    assignedClasses: Array<{ gradeLevel: string; section: string }>;
+    assignmentCount: number;
+    assignmentsTruncated: boolean;
+    schoolSettings: {
+      status: 'verified' | 'unavailable';
+      teacherPromotionEnabled: boolean | null;
+      canTeacherImport: boolean | null;
+      parentPortalEnabled: boolean | null;
+      trashRetention: string | null;
+      finalGradeRounding: string | null;
+    };
+  };
 }
 
 const MAX_CONTEXT_NAMES = 150;

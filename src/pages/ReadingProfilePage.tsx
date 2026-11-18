@@ -10,8 +10,7 @@ export default function ReadingProfilePage() {
       title="Reading Profile"
       onMount={async () => {
         await requireAuth();
-    await initReadingProfiles();
-        
+        return await initReadingProfiles();
       }}
     />
   );

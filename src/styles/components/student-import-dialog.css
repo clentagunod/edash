@@ -1,0 +1,23 @@
+.masterlist-header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.masterlist-header-actions .btn { width: auto; }
+.student-import-dialog { width: min(1120px, calc(100vw - 32px)); max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); padding: 0; border: 1px solid var(--line-200); border-radius: 18px; background: var(--bg-card); color: var(--ink-900); box-shadow: 0 24px 80px rgb(0 0 0 / 24%); overflow: auto; overscroll-behavior: contain; scroll-padding-top: 140px; }
+.student-import-dialog::backdrop { background: rgb(10 22 40 / 55%); backdrop-filter: blur(3px); }
+.student-import-dialog-heading { position: sticky; top: 0; z-index: 3; display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 24px 28px 20px; border-bottom: 1px solid var(--line-200); background: var(--bg-card); }
+.student-import-dialog-eyebrow { color: var(--blue-600); font-size: 10px; font-weight: 750; letter-spacing: .1em; text-transform: uppercase; }
+.student-import-dialog-heading h2 { margin: 5px 0 7px; color: var(--ink-900); font-size: 24px; letter-spacing: -.035em; }
+.student-import-dialog-heading p { margin: 0; color: var(--ink-500); font-size: 13px; line-height: 1.6; }
+.student-import-dialog-close { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; padding: 0; border: 1px solid var(--line-200); border-radius: 10px; background: var(--bg-card); color: var(--ink-700); cursor: pointer; }
+.student-import-dialog-close:hover { background: var(--bg-app); }
+.student-import-dialog :is(button, a, summary, select):focus-visible { outline: 2px solid var(--blue-600); outline-offset: 3px; }
+.student-import-dialog-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px 28px; border-top: 1px solid var(--line-200); background: var(--bg-card); }
+.student-import-dialog-footer > span { color: var(--ink-500); font-size: 12px; }
+.student-import-dialog-footer .btn { width: auto; }
+.student-import-dialog :disabled { cursor: not-allowed; opacity: .6; }
+@media (max-width: 600px) {
+  .masterlist-header-actions { width: 100%; }
+  .masterlist-header-actions .btn { flex: 1; justify-content: center; }
+  .student-import-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); border-radius: 12px; }
+  .student-import-dialog-heading { padding: 18px; gap: 12px; }
+  .student-import-dialog-heading h2 { font-size: 21px; }
+  .student-import-dialog-footer { padding: 14px 18px; }
+}

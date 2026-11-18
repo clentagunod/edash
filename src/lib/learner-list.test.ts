@@ -22,6 +22,7 @@ vi.stubGlobal('firebase', {
 const {
   buildLearnerDetailSections,
   applyAutomaticFinalGrades,
+  applyLearnerProfileAccessToPayload,
   ensureSubjectInputs,
   ensureIdentityInputs,
   ensureSuffixInputs,
@@ -42,6 +43,7 @@ const {
   sortLearners,
   wireGuardianContactFields,
   wireModal,
+  updateLearnerProfileAccessControls,
 } = await import('./learner-list');
 const { showToast } = await import('./shell');
 const { fsCanonicalLearner_ } = await import('./firestore-api');
@@ -52,6 +54,56 @@ const { ensureAnecdotalRecordsInput, organizeLearnerForm } = await import('./lea
 const { openArchiveEditor } = await import('./archive-editor');
 const { LPSApi } = await import('./sheets-api');
 const learnerPageMarkup = import.meta.glob('../pages/markup/{masterlist,program-*}.html', { eager: true, query: '?raw', import: 'default' }) as Record<string, string>;
+
+describe('teacher profile access in existing learner forms', () => {
+  let previousProfile: string | null;
+  let previousState: Pick<typeof LL, 'editingId' | 'profileEditingAllowed' | 'curriculumSubjects'>;
+  beforeEach(() => {
+    previousProfile = sessionStorage.getItem('lps_user_profile');
+    previousState = { editingId: LL.editingId, profileEditingAllowed: LL.profileEditingAllowed, curriculumSubjects: LL.curriculumSubjects };
+    sessionStorage.setItem('lps_user_profile', JSON.stringify({ role: 'Teacher' }));
+    LL.editingId = '123456789012';
+    LL.profileEditingAllowed = false;
+    LL.curriculumSubjects = [...LL.curriculumSubjects, { id: 'customReading', label: 'Custom reading' }];
+    document.body.innerHTML = '<form id="learnerForm"><div class="subject-input-group"><div class="subject-inputs"><input id="f_math" /><input id="f_customReading" /></div></div><select id="f_bosyCRLA"></select><div id="extraFieldsContainer"><input id="extra_0" /></div><input id="f_contact" /></form>';
+  });
+  afterEach(() => {
+    Object.assign(LL, previousState);
+    if (previousProfile === null) sessionStorage.removeItem('lps_user_profile');
+    else sessionStorage.setItem('lps_user_profile', previousProfile);
+    document.body.innerHTML = '';
+  });
+
+  it('keeps assessments and subject inputs read-only after a term rerender while leaving demographics editable', () => {
+    updateLearnerProfileAccessControls();
+    renderLearnerTermGrades();
+    expect(document.querySelector<HTMLInputElement>('#f_math')!.disabled).toBe(true);
+    expect(document.querySelector<HTMLInputElement>('#f_customReading')!.disabled).toBe(true);
+    expect(document.querySelector<HTMLSelectElement>('#f_bosyCRLA')!.disabled).toBe(true);
+    expect(document.querySelector<HTMLInputElement>('#extra_0')!.disabled).toBe(true);
+    expect(document.querySelector<HTMLInputElement>('#f_contact')!.disabled).toBe(false);
+    expect(document.querySelector('#learnerProfileAccessNote')!.textContent).toContain('administrator has disabled');
+  });
+
+  it('omits profile values from demographic updates and skips automatic final-grade mutation', () => {
+    const learner = { contact: '123456', math: '91', customReading: '93', bosyCRLA: '', mosyPhilIRI: '', eosyRMA: '', gradesByTerm: { quarter1: { math: '91' } }, extra: { Math: '91' } };
+    expect(applyLearnerProfileAccessToPayload(learner)).toEqual({ contact: '123456' });
+    expect(applyAutomaticFinalGrades(learner)).toBe(learner);
+    expect(learner.math).toBe('91');
+  });
+
+  it('restores normal field access for add flows and preserves their profile payload', () => {
+    updateLearnerProfileAccessControls();
+    LL.editingId = null;
+    updateLearnerProfileAccessControls();
+    expect(document.querySelector<HTMLInputElement>('#f_math')!.disabled).toBe(false);
+    expect(document.querySelector<HTMLSelectElement>('#f_bosyCRLA')!.disabled).toBe(false);
+    expect(document.querySelector<HTMLInputElement>('#extra_0')!.disabled).toBe(false);
+    expect(document.querySelector<HTMLElement>('#learnerProfileAccessNote')!.hidden).toBe(true);
+    const learner = { math: '91', bosyCRLA: 'Developing' };
+    expect(applyLearnerProfileAccessToPayload(learner)).toBe(learner);
+  });
+});
 
 describe('learner list sorting and teacher scope', () => {
   it('sorts names by surname and preserves lowercase after hyphens', () => {

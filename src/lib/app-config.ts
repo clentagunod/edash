@@ -53,6 +53,8 @@ export const APP_CONFIG = Object.freeze({
       toggles: Object.freeze({
         canParentAccess: true,
         canPromoteStudents: false,
+        canTeacherImport: false,
+        canTeacherEditProfiles: true,
         trashConfg: "30",
         roundType: "nearest_integer",
         printables: Object.freeze(normalizeRecordDocumentPreferences()),

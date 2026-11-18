@@ -215,6 +215,8 @@ test('builds explicit per-role capabilities and does not assume unverified teach
     teacherAssignments: [{ schoolYear: '2026-2027', gradeLevel: '6', section: 'A', teacherUid: 'PRIVATE-UID' }],
   }, '2026-2027');
   assert.equal(teacher.capabilities.progression, null);
+  assert.equal(teacher.capabilities.studentImport, null);
+  assert.equal(teacher.schoolSettings.canTeacherImport, null);
   assert.equal(teacher.capabilities.tenantBackupRestore, false);
   assert.equal(teacher.schoolSettings.status, 'unavailable');
   assert.deepEqual(teacher.assignedClasses, [{ gradeLevel: 'Grade 6', section: 'A' }]);
@@ -227,16 +229,22 @@ test('builds explicit per-role capabilities and does not assume unverified teach
 test('uses only allowlisted school settings, with defaults only when the document was read', () => {
   const empty = buildEduAiApplicationAccess('Teacher', {}, '2026-2027', {});
   assert.equal(empty.capabilities.progression, false);
+  assert.equal(empty.capabilities.studentImport, false);
+  assert.equal(empty.schoolSettings.canTeacherImport, false);
   assert.equal(empty.schoolSettings.parentPortalEnabled, true);
   const configured = buildEduAiApplicationAccess('Teacher', {}, '2026-2027', {
-    canPromoteStudents: true, canParentAccess: false, trashConfg: 'never', roundType: 'none', providerKey: 'PRIVATE-KEY',
+    canPromoteStudents: true, canTeacherImport: true, canParentAccess: false, trashConfg: 'never', roundType: 'none', providerKey: 'PRIVATE-KEY',
   });
   assert.equal(configured.capabilities.progression, true);
+  assert.equal(configured.capabilities.studentImport, true);
+  assert.equal(configured.schoolSettings.canTeacherImport, true);
   assert.equal(configured.schoolSettings.parentPortalEnabled, false);
   assert.equal(configured.schoolSettings.trashRetention, 'never');
   assert.equal(configured.schoolSettings.finalGradeRounding, 'none');
   assert.doesNotMatch(JSON.stringify(configured), /PRIVATE-KEY/);
   assert.equal(buildEduAiApplicationAccess('Teacher', {}, '', { canPromoteStudents: 'true' }).capabilities.progression, null);
+  assert.equal(buildEduAiApplicationAccess('Teacher', {}, '', { canTeacherImport: 'true' }).capabilities.studentImport, null);
+  assert.equal(buildEduAiApplicationAccess('Registrar', {}, '', { canTeacherImport: true }).capabilities.studentImport, false);
 });
 
 test('system prompts always include the verified role policy and keep names and private payloads bounded', () => {
@@ -272,7 +280,7 @@ test('worker rebuilds teacher capabilities and data scope using signed-in Firest
     let payload;
     if (path === 'users/teacher-1') payload = document(path, { status: 'Active', role: 'Teacher', teacherAssignments: [{ schoolYear: '2026-2027', gradeLevel: 'Grade 6', section: 'A' }] });
     else if (path === 'settings/currentSchoolYear') payload = document(path, { value: '2026-2027' });
-    else if (path === 'settings/toggles') payload = document(path, { canPromoteStudents: false, canParentAccess: true });
+    else if (path === 'settings/toggles') payload = document(path, { canPromoteStudents: false, canTeacherImport: true, canParentAccess: true });
     else if (path === 'schoolYears/2026-2027:runQuery') payload = [
       { document: document('schoolYears/2026-2027/learners/one', { name: 'Assigned learner', gradeLevel: 'Grade 6', section: 'A' }) },
       { document: document('schoolYears/2026-2027/learners/two', { name: 'Other class learner', gradeLevel: 'Grade 6', section: 'B' }) },
@@ -286,6 +294,8 @@ test('worker rebuilds teacher capabilities and data scope using signed-in Firest
     assert.equal(context.summary.totalLearners, 1);
     assert.deepEqual(context.learnerNames, ['Assigned learner']);
     assert.equal(context.applicationAccess.capabilities.progression, false);
+    assert.equal(context.applicationAccess.capabilities.studentImport, true);
+    assert.equal(context.applicationAccess.schoolSettings.canTeacherImport, true);
     assert.equal(context.applicationAccess.capabilities.adminConsole, false);
     assert.deepEqual(context.applicationAccess.assignedClasses, [{ gradeLevel: 'Grade 6', section: 'A' }]);
     assert.ok(reads.includes('settings/toggles'));

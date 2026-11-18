@@ -15,12 +15,13 @@
       </div>
       <section class="panel profile-learners-panel" id="readingLearnersPanel" role="tabpanel" aria-labelledby="readingLearnersTab">
         <div class="panel-header"><h3>Learners</h3></div>
-        <div class="toolbar profile-filters">
+        <div class="toolbar profile-filters profile-list-toolbar">
           <div class="search-box"><input id="readingSearch" type="search" placeholder="Search learner or LRN..." /></div>
-          <select class="select-filter" id="readingPeriodFilter"><option value="">All Assessment Periods</option><option value="bosy">BOSY</option><option value="mosy">MOSY</option><option value="eosy">EOSY</option></select>
+          <select class="select-filter" id="readingPeriodFilter" aria-label="With results in assessment period"><option value="">With results in: Any period</option><option value="bosy">With results in: BOSY</option><option value="mosy">With results in: MOSY</option><option value="eosy">With results in: EOSY</option></select>
           <select class="select-filter" id="readingGradeFilter"><option value="">All Grade Levels</option><option>Kinder</option><option>Grade 1</option><option>Grade 2</option><option>Grade 3</option><option>Grade 4</option><option>Grade 5</option><option>Grade 6</option></select>
           <select class="select-filter" id="readingSexFilter"><option value="">All Sex</option><option>Male</option><option>Female</option></select>
           <select class="select-filter" id="readingStatusFilter"><option value="">All Reading Classifications</option></select>
+          <div class="profile-sort-controls"><label for="readingSort">Sort by</label><select class="select-filter" id="readingSort"><option value="name">Surname</option><option value="gradeLevel">Grade level</option><option value="learnerId">Learner ID</option><option value="gender">Gender</option></select><select class="select-filter" id="readingSortDirection" aria-label="Sort direction"><option value="asc">A-Z</option><option value="desc">Z-A</option></select></div>
         </div>
         <div style="overflow-x:auto;"><table class="data-table reading-profile-table" style="min-width:950px;"><thead><tr><th>Name</th><th>Grade</th><th>Gender</th><th>BOSY<br><small>Reference / Level</small></th><th>MOSY<br><small>Reference / Level</small></th><th>EOSY<br><small>Reference / Level</small></th><th>Change</th></tr></thead><tbody id="readingTableBody"><tr><td colspan="7" class="state-row">Loading reading profiles...</td></tr></tbody></table></div>
         <div class="pagination"><span id="readingPageInfo">-</span><div class="pager-btns" id="readingPagerBtns"></div></div>

@@ -494,6 +494,8 @@ async function main() {
   const togglesRef = db.collection("settings").doc("toggles");
   const existingToggles = await togglesRef.get();
   const toggleDefaults = {};
+  if (!existingToggles.exists || typeof existingToggles.data()?.canTeacherImport !== "boolean") toggleDefaults.canTeacherImport = false;
+  if (!existingToggles.exists || typeof existingToggles.data()?.canTeacherEditProfiles !== "boolean") toggleDefaults.canTeacherEditProfiles = true;
   if (!existingToggles.exists || typeof existingToggles.data()?.trashConfg !== "string") toggleDefaults.trashConfg = "30";
   if (!existingToggles.exists || typeof existingToggles.data()?.roundType !== "string") toggleDefaults.roundType = "nearest_integer";
   if (Object.keys(toggleDefaults).length) batch.set(togglesRef, toggleDefaults, { merge: true });

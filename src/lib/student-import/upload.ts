@@ -4,13 +4,17 @@ import { GUARDIAN_CONTACT_FIELDS, isUnavailableContact } from './schema';
 export type DuplicateMode = 'skip' | 'merge';
 export interface ImportProgress { created: number; updated: number; skipped: number; processed: number }
 export interface StudentSnapshot { exists: boolean; data(): Record<string, unknown> | undefined }
+export interface ImportAuthorization {
+  maxBatchSize?: number;
+  assertExisting?: (year: string, learner: Record<string, unknown>) => void;
+}
 export interface StudentImportStore {
-  authorize(): Promise<void>;
+  authorize(year?: string, students?: StudentRecord[]): Promise<void | ImportAuthorization>;
   read(year: string, collection: string, id: string): Promise<StudentSnapshot>;
   transaction<T>(callback: (transaction: {
     read(collection: string, id: string): Promise<StudentSnapshot>;
     write(id: string, data: StudentRecord, merge: boolean): void;
-  }) => Promise<T>, year: string): Promise<T>;
+  }) => Promise<T>, year: string, students?: StudentRecord[]): Promise<T>;
   refresh(year: string): void;
 }
 
@@ -19,7 +23,7 @@ function archived(data: Record<string, unknown> | undefined) {
 }
 
 export async function inspectStudentTargets(store: StudentImportStore, year: string, students: StudentRecord[], onProgress: (count: number) => void = () => {}) {
-  await store.authorize();
+  const authorization = (await store.authorize(year, students)) || {};
   let existing = 0;
   const conflicts: string[] = [];
   // Bound concurrent Firestore requests for larger files.
@@ -27,7 +31,10 @@ export async function inspectStudentTargets(store: StudentImportStore, year: str
     await Promise.all(students.slice(offset, offset + 20).map(async student => {
       const id = String(student.learnerId);
       const snapshots = await Promise.all(['learners', 'dropouts', 'transferredOut'].map(collection => store.read(year, collection, id)));
-      if (snapshots[0].exists) existing++;
+      if (snapshots[0].exists) {
+        authorization?.assertExisting?.(year, snapshots[0].data() || {});
+        existing++;
+      }
       if (snapshots[1].exists || snapshots[2].exists || archived(snapshots[0].data())) conflicts.push(id);
     }));
     onProgress(Math.min(offset + 20, students.length));
@@ -49,10 +56,11 @@ export async function uploadStudents(
   if (!/^\d{4}-\d{4}$/.test(year) || students.some(student => !/^\d{12}$/.test(String(student.learnerId)) || student.schoolYear !== year)) {
     throw new Error('Student identifiers or school years are invalid. Scan the file again.');
   }
-  await store.authorize();
+  const authorization = (await store.authorize(year, students)) || {};
+  const batchSize = Math.max(1, Math.min(25, authorization?.maxBatchSize || 25));
   try {
-    for (let offset = 0; offset < students.length; offset += 25) {
-      const chunk = students.slice(offset, offset + 25);
+    for (let offset = 0; offset < students.length; offset += batchSize) {
+      const chunk = students.slice(offset, offset + batchSize);
       const committed = await store.transaction(async transaction => {
         const decisions = await Promise.all(chunk.map(async student => {
           const id = String(student.learnerId);
@@ -78,7 +86,7 @@ export async function uploadStudents(
           counts[current.exists ? 'updated' : 'created']++;
         }
         return counts;
-      }, year);
+      }, year, chunk);
       progress.created += committed.created;
       progress.updated += committed.updated;
       progress.skipped += committed.skipped;

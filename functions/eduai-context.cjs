@@ -340,17 +340,20 @@ function buildEduAiApplicationAccess(role, profile, schoolYear, toggles) {
   const verified = Boolean(toggles && typeof toggles === 'object' && !Array.isArray(toggles));
   const flag = (key, fallback) => !verified ? null : toggles[key] === undefined ? fallback : typeof toggles[key] === 'boolean' ? toggles[key] : null;
   const teacherPromotionEnabled = flag('canPromoteStudents', false);
+  const canTeacherImport = flag('canTeacherImport', false);
   const assignments = role === 'Teacher' ? teacherAssignmentsForYear(profile || {}, schoolYear) : [];
   return {
     capturedAt: new Date().toISOString(),
     dataScope: rolePolicies[role].dataScope,
-    capabilities: { ...rolePolicies[role].capabilities, progression: role === 'Teacher' ? teacherPromotionEnabled : true },
+    capabilities: { ...rolePolicies[role].capabilities, progression: role === 'Teacher' ? teacherPromotionEnabled : true,
+      studentImport: role === 'Teacher' ? canTeacherImport : rolePolicies[role].capabilities.studentImport },
     assignedClasses: assignments.slice(0, 50).map(assignment => ({ gradeLevel: assignment.gradeLevel.slice(0, 80), section: assignment.section.slice(0, 80) })),
     assignmentCount: assignments.length,
     assignmentsTruncated: assignments.length > 50,
     schoolSettings: {
       status: verified ? 'verified' : 'unavailable',
       teacherPromotionEnabled,
+      canTeacherImport,
       parentPortalEnabled: flag('canParentAccess', true),
       trashRetention: verified && (toggles.trashConfg === undefined || ['7', '15', '30', 'never'].includes(String(toggles.trashConfg))) ? String(toggles.trashConfg ?? '30') : null,
       finalGradeRounding: verified && (toggles.roundType === undefined || ['nearest_integer', 'none'].includes(toggles.roundType)) ? (toggles.roundType ?? 'nearest_integer') : null,

@@ -9,8 +9,10 @@ import { APP_CONFIG, appSchoolFilePrefix, paginationPageNumbers } from './app-co
 import { CURRICULUM_GRADE_LEVELS, CURRICULUM_SUBJECTS, LEGACY_CURRICULUM_SUBJECT_IDS, curriculumSubjectIdsForGrade, normalizeCurriculumGrade, normalizeCurriculumSubjectPool } from './curriculum-subjects';
 import { DEFAULT_GRADE_TERMS, FINAL_GRADE_TERM, gradeTermsForCount, gradeForTerm } from './academic-grades';
 import { fsGetGradeLevelGradingConfigurations, fsGetGradeTermCount } from './firestore-api';
-import { gradeLevelConfigKey } from './grading-config';
-import { compareLearnersBySurname, formatLearnerName } from './learner-sorting';
+import { gradeLevelConfigKey, normalizeGradeLevelGrading } from './grading-config';
+import { compareProfileLearners, formatLearnerName, formatProfileLearnerName } from './learner-sorting';
+import { initProfileSortControls } from './profile-list-sorting';
+import { createProfileEditor } from './profile-editor';
 
 export let gradesProfiles = [];
 export let gradesLearnerRecords = [];
@@ -27,24 +29,37 @@ export let gradesCurriculumAssignments = {};
 export let gradesCurriculumAvailable = false;
 export let gradesCurriculumSubjects = [...CURRICULUM_SUBJECTS];
 export let gradesGradingByGrade = {};
+let gradesInitId = 0;
+const gradesEditor = createProfileEditor({
+  kind: 'grades', exportButtonId: 'exportGradesBtn', tableBodyId: 'gradesTableBody',
+  reload: year => loadGradesProfiles(year, true), render: () => renderGradesTable(gradesFilteredProfiles),
+});
 
 export async function initGradesProfile() {
+  const initId = ++gradesInitId;
   renderShell("grades", "Grades Profile");
-  gradesTerms = gradeTermsForCount(await fsGetGradeTermCount());
+  const termCount = await fsGetGradeTermCount();
+  if (initId !== gradesInitId) return () => {};
+  gradesTerms = gradeTermsForCount(termCount);
   if (!gradesTerms.some(({ id }) => id === gradesSelectedTerm)) gradesSelectedTerm = FINAL_GRADE_TERM;
   renderGradesTermNavigation();
   document.getElementById("exportGradesBtn").addEventListener("click", exportGradesExcel);
-  document.getElementById("gradesSort").addEventListener("change", (event) => { gradesSortField = event.target.value; renderGradesTable(gradesFilteredProfiles); });
-  document.getElementById("gradesSortDirection").addEventListener("change", (event) => { gradesSortDirection = event.target.value; renderGradesTable(gradesFilteredProfiles); });
   document.getElementById("gradesSort").value = gradesSortField;
   document.getElementById("gradesSortDirection").value = gradesSortDirection;
+  initProfileSortControls('grades', applyGradesSort);
   ["gradesSearch", "gradesGradeFilter", "gradesProgramFilter", "gradesGenderFilter"].forEach((id) => document.getElementById(id).addEventListener("input", () => { gradesPage = 1; filterGradesProfiles(); }));
   ["gradesGradeFilter", "gradesProgramFilter", "gradesGenderFilter"].forEach((id) => document.getElementById(id).addEventListener("change", () => { gradesPage = 1; filterGradesProfiles(); }));
   document.getElementById("gradesTermNavigation")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-grade-term]");
     if (button) selectGradesTerm(button.dataset.gradeTerm);
   });
-  initYearSwitcher(loadGradesProfiles);
+  await gradesEditor.initialize();
+  if (initId !== gradesInitId) return () => {};
+  await initYearSwitcher(loadGradesProfiles);
+  return () => {
+    if (initId !== gradesInitId) return;
+    gradesInitId++; gradesRequestId++; gradesEditor.dispose();
+  };
 }
 
 export function renderGradesTermNavigation() {
@@ -56,14 +71,16 @@ export function renderGradesTermNavigation() {
     </button>`).join("");
 }
 
-export async function loadGradesProfiles(schoolYear) {
+export async function loadGradesProfiles(schoolYear, preserveEdit = false) {
+  if (!preserveEdit) gradesEditor.reset();
   restoreFilterControls(`grades:${schoolYear}`, gradesFilterIds);
   const rememberedTerm = readRememberedView(`grades:${schoolYear}`).selectedTerm;
-  gradesSelectedTerm = gradesTerms.some(term => term.id === rememberedTerm) ? rememberedTerm : FINAL_GRADE_TERM;
+  if (!preserveEdit) gradesSelectedTerm = gradesTerms.some(term => term.id === rememberedTerm) ? rememberedTerm : FINAL_GRADE_TERM;
   renderGradesTermNavigation();
   gradesSortField = document.getElementById('gradesSort')?.value || 'name';
   gradesSortDirection = document.getElementById('gradesSortDirection')?.value || 'asc';
-  gradesPage = 1;
+  initProfileSortControls('grades', applyGradesSort);
+  if (!preserveEdit) gradesPage = 1;
   const body = document.getElementById("gradesTableBody");
   const requestId = ++gradesRequestId;
   gradesCurriculumAssignments = {};
@@ -72,12 +89,16 @@ export async function loadGradesProfiles(schoolYear) {
   document.getElementById("gradesCurriculumState").textContent = "";
   body.innerHTML = `<tr><td colspan="4" class="state-row">Loading grades...</td></tr>`;
   try {
-    const [records, curriculum, grading] = await Promise.all([
+    const [records, curriculum, grading, termCount] = await Promise.all([
       loadGradesProfileData(schoolYear),
       loadGradesCurriculum(schoolYear),
       fsGetGradeLevelGradingConfigurations(schoolYear),
+      fsGetGradeTermCount(schoolYear),
     ]);
     if (requestId !== gradesRequestId) return;
+    gradesTerms = gradeTermsForCount(termCount);
+    if (!gradesTerms.some(term => term.id === gradesSelectedTerm)) gradesSelectedTerm = FINAL_GRADE_TERM;
+    renderGradesTermNavigation();
     gradesCurriculumAssignments = curriculum.assignments;
     gradesCurriculumAvailable = curriculum.available;
     gradesCurriculumSubjects = normalizeCurriculumSubjectPool(curriculum.subjects || gradesCurriculumSubjects);
@@ -99,6 +120,7 @@ export async function loadGradesProfiles(schoolYear) {
     gradesFilteredProfiles = [];
     document.getElementById("gradesSummary").innerHTML = "";
     body.innerHTML = `<tr><td colspan="${4 + getVisibleGradeSubjects().length}" class="state-row error">${escapeHtml(error.message || "Unable to load grades.")}</td></tr>`;
+    if (preserveEdit) throw error;
   }
 }
 
@@ -177,7 +199,7 @@ export function createGradeProfileFromLearner(learner, subjectIds = LEGACY_CURRI
   const extraByKey = {};
   Object.keys(extra).forEach((key) => { extraByKey[key.toLowerCase().replace(/[^a-z0-9]/g, "")] = extra[key]; });
   const profile = {
-    learnerId: learner.learnerId, name: formatLearnerName(learner), firstName: learner.firstName,
+    learnerId: learner.learnerId, name: formatProfileLearnerName(learner), searchName: `${learner.name || ''} ${formatLearnerName(learner)}`.trim(), firstName: learner.firstName,
     middleName: learner.middleName, lastName: learner.lastName, suffix: learner.suffix,
     gradeLevel: learner.gradeLevel, section: learner.section, gender: learner.gender,
     is4Ps: learner.is4Ps, isIP: learner.isIP, isSNED: learner.isSNED, isARAL: learner.isARAL, isMuslim: learner.isMuslim,
@@ -223,7 +245,7 @@ export function filterGradesProfiles() {
   const program = document.getElementById("gradesProgramFilter").value;
   const gender = document.getElementById("gradesGenderFilter").value;
   gradesFilteredProfiles = gradesProfiles.filter((record) => {
-    const searchable = `${record.name || ""} ${record.learnerId || ""}`.toLowerCase();
+    const searchable = `${record.name || ""} ${record.searchName || ""} ${record.learnerId || ""}`.toLowerCase();
     return (!search || searchable.includes(search)) && (!grade || enrollmentGradeLabel(record.gradeLevel) === enrollmentGradeLabel(grade)) && (!gender || record.gender === gender) && (!program || record[{ "4Ps": "is4Ps", IP: "isIP", SNED: "isSNED", ARAL: "isARAL", Muslim: "isMuslim" }[program]]);
   });
   renderGradesSummary(gradesFilteredProfiles);
@@ -244,6 +266,15 @@ export function gradeCell(value) {
   return value === "" || value == null ? `<span class="grade-empty">—</span>` : `<strong>${escapeHtml(value)}</strong>`;
 }
 
+export function editableGradeCell(record, subjectId) {
+  const grading = normalizeGradeLevelGrading(gradesGradingByGrade[gradeLevelConfigKey(record.gradeLevel)]);
+  return gradesEditor.cell(record, subjectId, record[subjectId], {
+    term: gradesSelectedTerm, numeric: grading.gradingType === 'numerical',
+    ...(grading.gradingType === 'letter' ? { choices: grading.letterScale.map(row => row.letter) } : {}),
+    label: `${gradesCurriculumSubjects.find(subject => subject.id === subjectId)?.label || subjectId}, ${gradesTerms.find(term => term.id === gradesSelectedTerm)?.label || gradesSelectedTerm}`,
+  }) || gradeCell(record[subjectId]);
+}
+
 export function renderGradesTable(records) {
   rememberFilterControls(`grades:${getSelectedSchoolYear()}`, gradesFilterIds, { selectedTerm: gradesSelectedTerm });
   const body = document.getElementById("gradesTableBody");
@@ -261,7 +292,7 @@ export function renderGradesTable(records) {
   const pageRecords = sortedRecords.slice((gradesPage - 1) * currentUserPreferences().tablePageSize, gradesPage * currentUserPreferences().tablePageSize);
   body.innerHTML = pageRecords.map((record) => `<tr>
     <td class="cell-name">${escapeHtml(record.name || "—")}</td><td>${escapeHtml(record.gradeLevel || "—")}</td><td>${escapeHtml(record.section || "—")}</td>
-    ${subjects.map(({ id }) => `<td class="grade-cell">${getGradeSubjectIds(record.gradeLevel).includes(id) ? gradeCell(record[id]) : `<span class="grade-empty">—</span>`}</td>`).join("")}
+    ${subjects.map(({ id }) => `<td class="grade-cell">${getGradeSubjectIds(record.gradeLevel).includes(id) ? editableGradeCell(record, id) : `<span class="grade-empty">—</span>`}</td>`).join("")}
     <td class="average-cell">${gradeCell(record.average)}</td>
   </tr>`).join("");
   renderGradesPagination(sortedRecords.length, pageCount);
@@ -284,26 +315,15 @@ export function renderGradesPagination(total, pageCount) {
   [...buttons.children].forEach((button, index) => { if (!button.disabled && !button.classList.contains("pager-ellipsis")) button.addEventListener("click", () => { gradesPage = button.dataset.page ? Number(button.dataset.page) : index === 0 ? gradesPage - 1 : gradesPage + 1; renderGradesTable(gradesFilteredProfiles); }); });
 }
 
+function applyGradesSort(field, direction) {
+  gradesSortField = field;
+  gradesSortDirection = direction;
+  gradesPage = 1;
+  renderGradesTable(gradesFilteredProfiles);
+}
+
 export function compareGradeProfiles(first, second) {
-  if (gradesSortField === "name") {
-    const nameComparison = compareLearnersBySurname(first, second);
-    return gradesSortDirection === "asc" ? nameComparison : -nameComparison;
-  }
-  const firstValue = first[gradesSortField];
-  const secondValue = second[gradesSortField];
-  let comparison;
-  if (gradesSortField === "average") {
-    const firstAverage = firstValue === "" || firstValue == null ? -Infinity : Number(firstValue);
-    const secondAverage = secondValue === "" || secondValue == null ? -Infinity : Number(secondValue);
-    comparison = firstAverage - secondAverage;
-  } else if (gradesSortField === "gradeLevel") {
-    const order = ["Kinder", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6"];
-    comparison = order.indexOf(enrollmentGradeLabel(firstValue)) - order.indexOf(enrollmentGradeLabel(secondValue));
-  } else {
-    comparison = String(firstValue || "").localeCompare(String(secondValue || ""), undefined, { numeric: true, sensitivity: "base" });
-  }
-  if (comparison === 0) comparison = String(first.learnerId || "").localeCompare(String(second.learnerId || ""), undefined, { numeric: true });
-  return gradesSortDirection === "asc" ? comparison : -comparison;
+  return compareProfileLearners(first, second, gradesSortField, gradesSortDirection);
 }
 
 export async function exportGradesExcel() {

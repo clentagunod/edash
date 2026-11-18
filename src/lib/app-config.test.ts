@@ -127,10 +127,10 @@ describe('manually assigned Developer role', () => {
     const get = vi.fn(async () => ({ data: () => ({ role: 'Developer', status }) }));
     vi.spyOn(mockDb, 'collection').mockReturnValue({ doc: () => ({ get }) } as never);
     try {
-      await expect(studentImportStore.authorize()).resolves.toBeUndefined();
+      await expect(studentImportStore.authorize()).resolves.toMatchObject({ maxBatchSize: 25 });
       expect(get).toHaveBeenCalledWith({ source: 'server' });
       status = 'Inactive';
-      await expect(studentImportStore.authorize()).rejects.toThrow(/active School Admin/);
+      await expect(studentImportStore.authorize()).rejects.toThrow(/active account/);
     } finally {
       mockAuth.currentUser = null;
     }
@@ -185,7 +185,7 @@ describe('shared application configuration', () => {
     expect(APP_CONFIG.firestore.documents.currentSchoolYear).toBe('currentSchoolYear');
     expect(APP_CONFIG.firestore.documents.gradeTerms).toBe('gradeTerms');
     expect(APP_CONFIG.firestore.documents.toggles).toBe('toggles');
-    expect(APP_CONFIG.firestore.settingsDefaults.toggles).toMatchObject({ canParentAccess: true, canPromoteStudents: false });
+    expect(APP_CONFIG.firestore.settingsDefaults.toggles).toMatchObject({ canParentAccess: true, canPromoteStudents: false, canTeacherImport: false });
     expect(APP_CONFIG.firestore.settingsDefaults.toggles.printables['outgoing-envelope'].defaultPaperSize).toBe('envelope');
     expect(APP_CONFIG.firestore.schoolDefaults.gradeTerms).toEqual({ termCount: 3, passingThreshold: 75, gradeLevels: {} });
     expect(APP_CONFIG.firestore.schoolYearDefaults).toEqual({ gradeTerms: { termCount: 3, passingThreshold: 75, gradeLevels: {} }, isCurrent: false });
@@ -395,6 +395,124 @@ describe('Parent Access setting', () => {
   });
 });
 
+describe('Imports access setting', () => {
+  it('defaults to off, validates saved values, and preserves unrelated toggle fields', async () => {
+    let saved: Record<string, unknown> = { canParentAccess: true, canPromoteStudents: true };
+    const togglesRef = {
+      get: vi.fn(async () => ({ exists: true, data: () => saved })),
+      set: vi.fn(async (value, options) => { expect(options).toEqual({ merge: true }); saved = { ...saved, ...value }; }),
+    };
+    const collectionSpy = vi.spyOn(mockDb, 'collection').mockImplementation((name) => {
+      if (name === 'settings') return { doc: vi.fn((id) => { expect(id).toBe('toggles'); return togglesRef; }) };
+      if (name === 'users') return { where: () => ({ get: async () => ({ docs: [] }) }) };
+      throw new Error(`Unexpected collection ${name}`);
+    });
+    setAppUserProfile({ role: 'School Admin', status: 'Active' });
+    try {
+      await expect(firestoreApi.fsGetImportConfiguration()).resolves.toEqual({ canTeacherImport: false, configured: false });
+      await expect(firestoreApi.fsSetCanTeacherImport(true)).resolves.toBe(true);
+      expect(saved).toEqual({ canParentAccess: true, canPromoteStudents: true, canTeacherImport: true });
+      await expect(firestoreApi.fsGetImportConfiguration()).resolves.toEqual({ canTeacherImport: true, configured: true });
+      await expect(firestoreApi.fsSetCanTeacherImport('false')).rejects.toThrow('must be enabled or disabled');
+      saved.canTeacherImport = 'true';
+      await expect(firestoreApi.fsGetImportConfiguration()).rejects.toThrow('must be true or false');
+      setAppUserProfile({ role: 'Teacher', status: 'Active' });
+      await expect(firestoreApi.fsSetCanTeacherImport(false)).rejects.toThrow('Only a School Admin');
+      expect(togglesRef.set).toHaveBeenCalledTimes(1);
+    } finally {
+      collectionSpy.mockRestore();
+      setAppUserProfile(null);
+    }
+  });
+
+  it('backfills canonical and legacy teaching assignments before enabling imports', async () => {
+    const profile = (id: string, data: Record<string, unknown>) => ({ id, ref: { path: `users/${id}` }, data: () => data });
+    const canonical = profile('canonical', { teacherAssignments: [
+      { schoolYear: '2026-2027', gradeLevel: '6', section: 'A' },
+      { schoolYear: '2026-2027', gradeLevel: 'Grade 6', section: 'A' },
+    ] });
+    const legacy = profile('legacy', { teacherAssignment: { schoolYear: '2026-2027', gradeLevel: '5', section: 'POMELO' } });
+    const current = profile('current', {
+      teacherAssignments: [{ schoolYear: '2026-2027', gradeLevel: 'Grade 1', section: 'B' }],
+      teacherAssignmentSecurityKeys: ['2026-2027::Grade 1::B'],
+    });
+    const teacherQuery = vi.fn(async () => ({ docs: [canonical, legacy, current] }));
+    const where = vi.fn(() => ({ get: teacherQuery }));
+    const togglesRef = {
+      get: vi.fn(async () => ({ exists: true, data: () => ({ canParentAccess: true, canTeacherImport: false }) })),
+      set: vi.fn().mockResolvedValue(undefined),
+    };
+    const collectionSpy = vi.spyOn(mockDb, 'collection').mockImplementation((name) => {
+      if (name === 'users') return { where };
+      if (name === 'settings') return { doc: () => togglesRef };
+      throw new Error(`Unexpected collection ${name}`);
+    });
+    const batch = { update: vi.fn(), commit: vi.fn().mockResolvedValue(undefined) };
+    const batchSpy = vi.spyOn(mockDb, 'batch').mockReturnValue(batch);
+    setAppUserProfile({ role: 'School Admin', status: 'Active' });
+    try {
+      await expect(firestoreApi.fsSetCanTeacherImport(true)).resolves.toBe(true);
+      expect(where).toHaveBeenCalledWith('role', '==', 'Teacher');
+      expect(batch.update.mock.calls).toEqual([
+        [canonical.ref, { teacherAssignmentSecurityKeys: ['2026-2027::Grade 6::A'] }],
+        [legacy.ref, { teacherAssignmentSecurityKeys: ['2026-2027::Grade 5::POMELO'] }],
+      ]);
+      expect(batch.commit).toHaveBeenCalledOnce();
+      expect(batch.commit.mock.invocationCallOrder[0]).toBeLessThan(togglesRef.set.mock.invocationCallOrder[0]);
+      expect(togglesRef.set).toHaveBeenCalledWith({ canTeacherImport: true }, { merge: true });
+    } finally {
+      collectionSpy.mockRestore(); batchSpy.mockRestore(); setAppUserProfile(null);
+    }
+  });
+
+  it('leaves imports disabled when assignment-key backfill fails, and disables without reading users', async () => {
+    const togglesRef = {
+      get: vi.fn(async () => ({ exists: true, data: () => ({ canTeacherImport: false }) })),
+      set: vi.fn().mockResolvedValue(undefined),
+    };
+    const getTeachers = vi.fn(async () => ({ docs: [{ ref: { path: 'users/teacher' }, data: () => ({
+      teacherAssignment: { schoolYear: '2026-2027', gradeLevel: 'Grade 6', section: 'A' },
+    }) }] }));
+    const collectionSpy = vi.spyOn(mockDb, 'collection').mockImplementation((name) => {
+      if (name === 'users') return { where: () => ({ get: getTeachers }) };
+      if (name === 'settings') return { doc: () => togglesRef };
+      throw new Error(`Unexpected collection ${name}`);
+    });
+    const batchSpy = vi.spyOn(mockDb, 'batch').mockReturnValue({ update: vi.fn(), commit: vi.fn().mockRejectedValue(new Error('Backfill failed')) });
+    setAppUserProfile({ role: 'School Admin', status: 'Active' });
+    try {
+      await expect(firestoreApi.fsSetCanTeacherImport(true)).rejects.toThrow('Backfill failed');
+      expect(togglesRef.set).not.toHaveBeenCalled();
+      collectionSpy.mockClear(); getTeachers.mockClear();
+      await expect(firestoreApi.fsSetCanTeacherImport(false)).resolves.toBe(false);
+      expect(getTeachers).not.toHaveBeenCalled();
+      expect(collectionSpy.mock.calls).toEqual([['settings']]);
+      expect(togglesRef.set).toHaveBeenCalledWith({ canTeacherImport: false }, { merge: true });
+    } finally {
+      collectionSpy.mockRestore(); batchSpy.mockRestore(); setAppUserProfile(null);
+    }
+  });
+
+  it('reports live toggle changes and invalid settings through the error callback', () => {
+    let listener: (snapshot: unknown) => void;
+    const unsubscribe = vi.fn();
+    const onSnapshot = vi.fn((next, _error) => { listener = next; return unsubscribe; });
+    const collectionSpy = vi.spyOn(mockDb, 'collection').mockReturnValue({ doc: () => ({ onSnapshot }) } as never);
+    const next = vi.fn();
+    const error = vi.fn();
+    try {
+      const stop = firestoreApi.fsSubscribeImportConfiguration(next, error);
+      listener!({ exists: false });
+      listener!({ exists: true, data: () => ({ canTeacherImport: true }) });
+      listener!({ exists: true, data: () => ({ canTeacherImport: 'true' }) });
+      expect(next.mock.calls).toEqual([[{ canTeacherImport: false, configured: false }], [{ canTeacherImport: true, configured: true }]]);
+      expect(error).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('must be true or false') }));
+      stop();
+      expect(unsubscribe).toHaveBeenCalledOnce();
+    } finally { collectionSpy.mockRestore(); }
+  });
+});
+
 describe('Promotion access setting', () => {
   it('defaults teacher promotion to disabled and reads/writes canPromoteStudents', async () => {
     const togglesRef = {
@@ -437,6 +555,7 @@ describe('Promotion access setting', () => {
       age: 7,
       eosyStatus: 'Promoted',
       guardian: 'Parent',
+      __studentImportId: 'source-enrollment-import',
       unrelatedField: 'preserved',
       teacherComments: ['Source term 1', 'Source term 2', 'Source term 3'],
       attendance: { classDays: { Aug: '22' }, daysPresent: { Aug: '20' }, daysAbsent: { Aug: '2' } },
@@ -523,6 +642,8 @@ describe('Promotion access setting', () => {
       expect(auditSpy).toHaveBeenCalledWith('LEARNER_PROMOTE', expect.anything());
       expect(sourceLearner.teacherComments).toEqual(['Source term 1', 'Source term 2', 'Source term 3']);
       expect(sourceLearner.attendance.daysPresent.Aug).toBe('20');
+      expect(transaction.set.mock.calls[0][1]).not.toHaveProperty('__studentImportId');
+      expect(sourceLearner.__studentImportId).toBe('source-enrollment-import');
       targetExists = true;
       await expect(firestoreApi.fsPromoteLearner('2030-2031', '2031-2032', sourceLearner.learnerId, {
         ...sourceLearner,
@@ -560,6 +681,7 @@ describe('Promotion access setting', () => {
         age: 8,
       }, 'retention')).rejects.toThrow('must stay in the same grade level');
       expect(transaction.set).toHaveBeenCalledTimes(2);
+      expect(transaction.set.mock.calls[1][1]).not.toHaveProperty('__studentImportId');
     } finally {
       vi.clearAllTimers();
       vi.useRealTimers();
@@ -585,6 +707,28 @@ describe('Promotion access setting', () => {
     } finally {
       setAppUserProfile(null);
       collectionSpy.mockRestore();
+    }
+  });
+});
+
+describe('learner import metadata', () => {
+  it('hides import metadata from editable schema fields without adding it to canonical learner writes', async () => {
+    const { LPSCache } = await import('./cache');
+    LPSCache.clear();
+    const collectionSpy = vi.spyOn(mockDb, 'collection').mockReturnValue({
+      doc: () => ({ collection: () => ({ get: async () => ({ docs: [{
+        id: '123456789012',
+        data: () => ({ firstName: 'Alex', __studentImportId: 'source-enrollment-import', customField: 'keep', extra: { otherField: 'keep too' } }),
+      }] }) }) }),
+    } as never);
+    setAppUserProfile({ uid: 'admin-schema-test', role: 'School Admin' });
+    try {
+      expect((await firestoreApi.fsGetLearnerSchema('2040-2041')).extraFields).toEqual(['customField', 'otherField']);
+      expect(APP_CONFIG.firestore.learnerFields).not.toContain('__studentImportId');
+    } finally {
+      setAppUserProfile(null);
+      collectionSpy.mockRestore();
+      LPSCache.clear();
     }
   });
 });
@@ -1394,6 +1538,7 @@ describe('visitor session handling', () => {
 
     it('atomically restores an archived learner and clears movement fields', async () => {
       const archivedData = {
+        __studentImportId: 'previous-import',
         learnerId: 'lrn-0003',
         firstName: 'Alex',
         gradeLevel: 'Grade 2',
@@ -1453,6 +1598,7 @@ describe('visitor session handling', () => {
           { type: 'delete', ref: archivedRef },
         ]);
         expect(batch.commit).toHaveBeenCalledOnce();
+        expect(writes[0].data).not.toHaveProperty('__studentImportId');
       } finally {
         vi.clearAllTimers();
         vi.useRealTimers();

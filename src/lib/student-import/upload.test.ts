@@ -104,6 +104,13 @@ describe('student upload', () => {
     expect(progress.mock.calls.map(([value]) => value.processed)).toEqual([25, 50, 51]);
   });
 
+  it('honors a smaller transaction limit returned by server authorization', async () => {
+    const { store, state } = createStore();
+    vi.mocked(store.authorize).mockResolvedValue({ maxBatchSize: 5 });
+    expect(await uploadStudents(store, year, Array.from({ length: 12 }, (_, index) => student(index)), 'skip')).toMatchObject({ created: 12 });
+    expect(state.transactions).toBe(3);
+  });
+
   it('reports committed progress on interruption and can safely resume by skipping saved records', async () => {
     const { store, state, documents } = createStore();
     const students = Array.from({ length: 30 }, (_, index) => student(index));

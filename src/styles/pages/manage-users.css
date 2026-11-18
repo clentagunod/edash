@@ -126,7 +126,7 @@ body.dark-mode .admin-card-inspector-canvas { background: #111; }
 .admin-nav-status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success-600); box-shadow: 0 0 0 3px rgba(32, 133, 90, .1); }
 .admin-section-content { min-width: 0; }
 .admin-section-content > .admin-section-panel > .admin-section-label:first-child { margin-top: 0; }
-.admin-section-panel[hidden] { display: none; }
+.admin-section-panel[hidden], .admin-import-access-retry[hidden] { display: none; }
 .admin-section-panel:focus { outline: none; }
 .admin-accordion { overflow: hidden; margin: 0 0 14px; border: 1px solid var(--line-200); border-radius: 14px; background: var(--bg-card); box-shadow: var(--shadow-card); }
 .admin-accordion-summary { display: flex; min-height: 76px; align-items: center; gap: 13px; padding: 14px 17px; list-style: none; cursor: pointer; transition: background .16s ease; }

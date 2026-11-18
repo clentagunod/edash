@@ -7,7 +7,7 @@ import { collectTransferSchoolInputs, ensureTransferSchoolInputs, loadTransferSc
 import { canManageLearners, confirmDiscardChanges, formSnapshot, isSchoolAdmin, isTeacher, isVisitorSession, paginationPageNumbers, storedAppProfile, teacherAssignmentsForProfile } from './app-config';
 import { escapeHtml, formatAppDate, programBadges, renderShell, showToast } from './shell';
 import { DEMO_LEARNERS, isSheetsApiConfigured } from './demo-data';
-import { fsAddLearner, fsDeleteLearner, fsDeleteLearners, fsGetCardPrintingPreferences, fsGetGradeLevelGradingConfigurations, fsGetGradeTermCount, fsGetLearner, fsGetLearnerPage, fsSubscribeLearners } from './firestore-api';
+import { fsAddLearner, fsDeleteLearner, fsDeleteLearners, fsGetCardPrintingPreferences, fsGetGradeLevelGradingConfigurations, fsGetGradeTermCount, fsGetLearner, fsGetLearnerPage, fsGetProfileEditingConfiguration, fsSubscribeLearners } from './firestore-api';
 import { PHIL_IRI_CATEGORIES } from './profile-charts';
 import { CURRICULUM_SUBJECTS, LEGACY_CURRICULUM_SUBJECT_IDS, curriculumSubjectIdsForGrade, normalizeCurriculumGrade, normalizeCurriculumSubjectPool } from './curriculum-subjects';
 import { computeNumericalFinalGrades, DEFAULT_GRADE_TERM, FINAL_GRADE_TERM, GRADE_TERMS, gradeTermsForCount, gradesForTerm, mergeGradesForTerm } from './academic-grades';
@@ -73,12 +73,56 @@ export let LL = {
   subjectsLoading: false,
   editingLearnerOriginal: {},
   gradeTerm: DEFAULT_GRADE_TERM,
+  profileEditingAllowed: true,
 };
 export let learnerModalBusy = false;
 export let learnerMutationBusy = false;
 export let learnerFormInitialSnapshot = "";
 export let learnerListUnsubscribe = null;
 let inspectReturnFocus = null;
+let learnerProfileAccessRequestId = 0;
+const LEARNER_ASSESSMENT_FIELDS = ['bosy', 'mosy', 'eosy'].flatMap(period => ['CRLA', 'PhilIRI', 'RMA'].map(instrument => `${period}${instrument}`));
+
+export function learnerProfileEditingRestricted() {
+  return !!LL.editingId && isTeacher() && !LL.profileEditingAllowed;
+}
+
+export function applyLearnerProfileAccessToPayload(learner) {
+  if (!learnerProfileEditingRestricted()) return learner;
+  const update = { ...learner };
+  for (const field of ['gradesByTerm', 'extra', ...LEARNER_ASSESSMENT_FIELDS, ...CURRICULUM_SUBJECTS.map(({ id }) => id), ...LL.curriculumSubjects.map(({ id }) => id)]) delete update[field];
+  return update;
+}
+
+export function updateLearnerProfileAccessControls() {
+  const form = document.getElementById('learnerForm');
+  if (!form) return;
+  const restricted = learnerProfileEditingRestricted();
+  let note = document.getElementById('learnerProfileAccessNote');
+  if (!note) {
+    note = document.createElement('p');
+    note.id = 'learnerProfileAccessNote';
+    note.className = 'field-hint';
+    note.setAttribute('role', 'status');
+    form.prepend(note);
+  }
+  note.hidden = !restricted;
+  note.textContent = restricted ? 'Grade, Reading, Math, and additional profile fields are read-only. Your school administrator has disabled teacher profile editing.' : '';
+  const controls = [
+    ...[...LEARNER_ASSESSMENT_FIELDS, ...LL.curriculumSubjects.map(({ id }) => id)].map(field => document.getElementById(`f_${field}`)),
+    ...form.querySelectorAll('#extraFieldsContainer input, #extraFieldsContainer select, #extraFieldsContainer textarea'),
+  ];
+  for (const input of controls) {
+    if (!input) continue;
+    if (restricted) {
+      if (!Object.prototype.hasOwnProperty.call(input.dataset, 'profileAccessDisabled')) input.dataset.profileAccessDisabled = String(input.disabled);
+      input.disabled = true;
+    } else if (Object.prototype.hasOwnProperty.call(input.dataset, 'profileAccessDisabled')) {
+      input.disabled = input.dataset.profileAccessDisabled === 'true';
+      delete input.dataset.profileAccessDisabled;
+    }
+  }
+}
 
 const LEARNER_DETAIL_GROUPS = [
   { title: "Personal information", matches: (key) => ["learnerId", "firstName", "middleName", "lastName", "suffix", "name", "birthDate", "age", "gender"].includes(key) },
@@ -368,6 +412,7 @@ export async function renderExtraFieldInputs(existingExtra) {
       </div>`
     )
     .join("");
+  updateLearnerProfileAccessControls();
 }
 
 export function collectExtraFieldValues() {
@@ -1212,11 +1257,13 @@ export function wireModal() {
   form.addEventListener("change", (event) => {
     if (event.target?.id !== "f_gradeTerm") return;
     const nextTerm = event.target.value;
-    const activeValues = collectSubjectGradeValues();
-    LL.editingLearnerOriginal = applyAutomaticFinalGrades({
-      ...LL.editingLearnerOriginal,
-      ...mergeGradesForTerm(LL.editingLearnerOriginal, LL.gradeTerm, activeValues, LL.activeSubjectIds),
-    });
+    if (!learnerProfileEditingRestricted()) {
+      const activeValues = collectSubjectGradeValues();
+      LL.editingLearnerOriginal = applyAutomaticFinalGrades({
+        ...LL.editingLearnerOriginal,
+        ...mergeGradesForTerm(LL.editingLearnerOriginal, LL.gradeTerm, activeValues, LL.activeSubjectIds),
+      });
+    }
     LL.gradeTerm = nextTerm;
     renderLearnerTermGrades(nextTerm);
   });
@@ -1250,7 +1297,10 @@ export function wireModal() {
 export async function openAddModal() {
   if (learnerModalBusy || document.getElementById("learnerModalBackdrop").classList.contains("is-open")) return;
   learnerModalBusy = true;
+  learnerProfileAccessRequestId += 1;
   LL.editingId = null;
+  LL.profileEditingAllowed = true;
+  updateLearnerProfileAccessControls();
   LL.editingLearnerOriginal = {};
   LL.gradeTerm = DEFAULT_GRADE_TERM;
   document.getElementById("learnerModalTitle").textContent = "Add Learner";
@@ -1293,6 +1343,9 @@ export async function openAddModal() {
 export async function openEditModal(learnerId) {
   if (learnerModalBusy || document.getElementById("learnerModalBackdrop").classList.contains("is-open")) return;
   learnerModalBusy = true;
+  const profileAccessRequestId = ++learnerProfileAccessRequestId;
+  LL.editingId = learnerId;
+  LL.profileEditingAllowed = !isTeacher();
   const backdrop = document.getElementById("learnerModalBackdrop");
   LL.sectionSchoolYear = getSelectedSchoolYear();
   applyTeacherLearnerScope();
@@ -1303,26 +1356,34 @@ export async function openEditModal(learnerId) {
   setLearnerModalLoading(true, "Loading learner");
   let learner;
   try {
+    const profileAccessRequest = isTeacher() ? fsGetProfileEditingConfiguration() : Promise.resolve({ canTeacherEditProfiles: true });
+    const loadLearnerAndAccess = async (tasks) => {
+      const [record, access] = await Promise.all([tasks[0], profileAccessRequest, ...tasks.slice(1)]);
+      if (profileAccessRequestId === learnerProfileAccessRequestId) LL.profileEditingAllowed = access.canTeacherEditProfiles;
+      return record;
+    };
     if (!isVisitorSession() && typeof fsGetLearner === "function" && getSelectedSchoolYear()) {
       const learnerRequest = LPSApi.getLearner(learnerId, getSelectedSchoolYear());
       const sectionRequest = loadSectionOptions(LL.sectionSchoolYear);
       const schemaRequest = renderExtraFieldInputs({});
-      [learner] = await Promise.all([learnerRequest, sectionRequest, schemaRequest]);
+      learner = await loadLearnerAndAccess([learnerRequest, sectionRequest, schemaRequest]);
     } else if (isSheetsApiConfigured()) {
       const learnerRequest = LPSApi.getLearner(learnerId, getSelectedSchoolYear());
       const sectionRequest = loadSectionOptions(LL.sectionSchoolYear);
       const schemaRequest = renderExtraFieldInputs({});
-      [learner] = await Promise.all([learnerRequest, sectionRequest, schemaRequest]);
+      learner = await loadLearnerAndAccess([learnerRequest, sectionRequest, schemaRequest]);
     } else {
-      learner = DEMO_LEARNERS.find((l) => l.learnerId === learnerId);
+      learner = await loadLearnerAndAccess([Promise.resolve(DEMO_LEARNERS.find((l) => l.learnerId === learnerId))]);
     }
   } catch (err) {
+    if (profileAccessRequestId !== learnerProfileAccessRequestId) return;
     backdrop.classList.remove("is-open");
     setLearnerModalLoading(false);
     learnerModalBusy = false;
     showToast(err.message, "error");
     return;
   }
+  if (profileAccessRequestId !== learnerProfileAccessRequestId) return;
   if (!learner) {
     backdrop.classList.remove("is-open");
     setLearnerModalLoading(false);
@@ -1406,6 +1467,7 @@ export async function openEditModal(learnerId) {
   await renderExtraFieldInputs(learner.extra || {});
   await updateSubjectInputVisibility(LL.sectionSchoolYear, true);
   await cardFieldsRequest;
+  if (profileAccessRequestId !== learnerProfileAccessRequestId) return;
   organizeLearnerForm(document.getElementById("learnerForm"));
   renderLearnerTermGrades(LL.gradeTerm);
   learnerFormInitialSnapshot = formSnapshot(document.getElementById("learnerForm"));
@@ -1503,13 +1565,14 @@ export function closeModal(force = false) {
   if (!force && (learnerModalBusy || learnerMutationBusy)) return;
   if (!force && !confirmDiscardChanges(document.getElementById("learnerForm"), learnerFormInitialSnapshot, "learner form")) return;
   learnerModalBusy = false;
+  learnerProfileAccessRequestId += 1;
   document.getElementById("learnerModalBackdrop").classList.remove("is-open");
   learnerFormInitialSnapshot = "";
 }
 
 export async function handleLearnerFormSubmit(e) {
   e.preventDefault();
-  if (learnerMutationBusy) return;
+  if (learnerModalBusy || learnerMutationBusy) return;
   const selectedGrade = normalizeCurriculumGrade(document.getElementById("f_gradeLevel")?.value);
   const selectedYear = String(getSelectedSchoolYear() || "").trim();
   if (LL.subjectConfigGrade !== selectedGrade || LL.subjectConfigYear !== selectedYear) {
@@ -1570,7 +1633,7 @@ export async function handleLearnerFormSubmit(e) {
       if (!validateSectionInput()) return;
     }
     const transferType = getLearnerFieldValue("f_transferType");
-    const learner = {
+    let learner = {
     learnerId,
     firstName: sentenceCaseName(getLearnerFieldValue("f_firstName")),
     middleName: sentenceCaseName(getLearnerFieldValue("f_middleName")),
@@ -1629,6 +1692,7 @@ export async function handleLearnerFormSubmit(e) {
     extra: collectExtraFieldValues(),
     };
     Object.assign(learner, applyAutomaticFinalGrades(learner, selectedGrade));
+    learner = applyLearnerProfileAccessToPayload(learner);
     if (!isSheetsApiConfigured() && typeof fsAddLearner !== "function") {
       throw new Error("Configure the data backend first — see SETUP_README.md. (Demo data can't be saved.)");
     }
@@ -1801,6 +1865,7 @@ export function ensureSubjectInputs() {
     input.value = value;
   });
   syncLearnerCardTerm(document.getElementById("learnerForm"), LL.gradeTerm);
+  updateLearnerProfileAccessControls();
 }
 
 export function setLearnerCurriculumSubjects(subjects) {
@@ -1846,6 +1911,7 @@ export function renderLearnerTermGrades(term = LL.gradeTerm) {
       input.disabled = autoFinal && input.tagName === "SELECT";
     }
   });
+  updateLearnerProfileAccessControls();
 }
 
 export async function loadLearnerYearGradeTerms(schoolYear) {
@@ -1879,7 +1945,7 @@ export async function loadLearnerYearGradeTerms(schoolYear) {
 }
 
 export function applyAutomaticFinalGrades(learner, gradeLevel = LL.gradingConfigGrade) {
-  if (!LL.gradingConfigReady
+  if (learnerProfileEditingRestricted() || !LL.gradingConfigReady
     || LL.gradeGrading.gradingType !== "numerical"
     || LL.gradeGrading.finalGradeMode !== "automatic"
     || gradeLevelConfigKey(gradeLevel) !== gradeLevelConfigKey(LL.gradingConfigGrade)) {

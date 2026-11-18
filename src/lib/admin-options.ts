@@ -7,12 +7,12 @@ import { Icon } from './icons';
 import { downloadFirestoreBackup, importFirestoreBackupFile, updateFirestoreBackupModeWarning } from './firestore-backup';
 import { CURRICULUM_GRADE_LEVELS, CURRICULUM_SUBJECTS, isCustomCurriculumSubjectId, normalizeCurriculumSubjectIds, normalizeCurriculumSubjectPool } from './curriculum-subjects';
 import { DEFAULT_GRADE_TERM_COUNT, MAX_GRADE_TERM_COUNT, MIN_GRADE_TERM_COUNT } from './academic-grades';
-import { fsGetCardPrintingPreferences, fsGetGradeLevelGradingConfigurations, fsGetGradeTermCount, fsGetParentAccessConfiguration, fsGetPassingThreshold, fsGetPromotionConfiguration, fsGetRoundType, fsSetCanPromoteStudents, fsSetCardPrintingPreferences, fsSetGradeLevelGradingConfiguration, fsSetGradeTermCount, fsSetParentAccessEnabled, fsSetPassingThreshold, fsSetRoundType } from './firestore-api';
+import { fsGetCardPrintingPreferences, fsGetGradeLevelGradingConfigurations, fsGetGradeTermCount, fsGetImportConfiguration, fsGetParentAccessConfiguration, fsGetPassingThreshold, fsGetProfileEditingConfiguration, fsGetPromotionConfiguration, fsGetRoundType, fsSetCanTeacherEditProfiles, fsSetCanTeacherImport, fsSetCanPromoteStudents, fsSetCardPrintingPreferences, fsSetGradeLevelGradingConfiguration, fsSetGradeTermCount, fsSetParentAccessEnabled, fsSetPassingThreshold, fsSetRoundType } from './firestore-api';
 import { DEFAULT_LETTER_GRADE_SCALE, DEFAULT_PASSING_THRESHOLD, gradeLevelConfigKey, normalizeGradeLevelGrading, normalizePassingThreshold } from './grading-config';
 
 /* Admin Console: school years and dynamic section directory. */
 
-export const ADMIN_OPTIONS = { years: [], sections: [], selectedYear: "", gradeTermCount: DEFAULT_GRADE_TERM_COUNT, passingThreshold: DEFAULT_PASSING_THRESHOLD, gradeTermsSaving: false, gradeTermsRequestId: 0, passingThresholdSaving: false, parentAccessEnabled: true, parentAccessLoaded: false, parentAccessSaving: false, parentAccessRequestId: 0, canPromoteStudents: false, promotionAccessLoaded: false, promotionAccessSaving: false, promotionAccessRequestId: 0, gradingByGrade: {}, gradingRequestId: 0, gradingSaving: false, editingSection: null, curricula: {}, curriculumDrafts: {}, curriculumSubjects: [...CURRICULUM_SUBJECTS], curriculumRequestId: 0, curriculumSaving: false, curriculumLoadError: false, addingCurriculumSubject: false, deletingCurriculumSubject: false };
+export const ADMIN_OPTIONS = { years: [], sections: [], selectedYear: "", gradeTermCount: DEFAULT_GRADE_TERM_COUNT, passingThreshold: DEFAULT_PASSING_THRESHOLD, gradeTermsSaving: false, gradeTermsRequestId: 0, passingThresholdSaving: false, parentAccessEnabled: true, parentAccessLoaded: false, parentAccessSaving: false, parentAccessRequestId: 0, canPromoteStudents: false, promotionAccessLoaded: false, promotionAccessSaving: false, promotionAccessRequestId: 0, canTeacherEditProfiles: true, profileEditingLoaded: false, profileEditingSaving: false, profileEditingRequestId: 0, canTeacherImport: false, importAccessLoaded: false, importAccessSaving: false, importAccessRequestId: 0, gradingByGrade: {}, gradingRequestId: 0, gradingSaving: false, editingSection: null, curricula: {}, curriculumDrafts: {}, curriculumSubjects: [...CURRICULUM_SUBJECTS], curriculumRequestId: 0, curriculumSaving: false, curriculumLoadError: false, addingCurriculumSubject: false, deletingCurriculumSubject: false };
 
 export function adminOptionEscape(value) {
   return typeof escapeHtml === "function" ? escapeHtml(String(value ?? "")) : String(value ?? "").replace(/[&<>\"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '\"': "&quot;" }[char]));
@@ -89,6 +89,10 @@ export async function initAdminOptions() {
   document.getElementById("savePassingThresholdBtn")?.addEventListener("click", saveAdminPassingThreshold);
   document.getElementById("adminParentAccessToggle")?.addEventListener("change", saveAdminParentAccessToggle);
   document.getElementById("adminPromotionAccessToggle")?.addEventListener("change", saveAdminPromotionAccessToggle);
+  document.getElementById("adminImportAccessToggle")?.addEventListener("change", saveAdminImportAccessToggle);
+  document.getElementById("adminImportAccessRetry")?.addEventListener("click", () => { void loadAdminImportAccess(); });
+  document.getElementById("adminProfileEditingToggle")?.addEventListener("change", saveAdminProfileEditingToggle);
+  document.getElementById("adminProfileEditingRetry")?.addEventListener("click", () => { void loadAdminProfileEditing(); });
   document.getElementById("downloadFirestoreBackupBtn")?.addEventListener("click", () => { void downloadFirestoreBackup(); });
   const importMode = document.getElementById("firestoreBackupMode");
   if (importMode) {
@@ -104,7 +108,7 @@ export async function initAdminOptions() {
     if (file) await importFirestoreBackupFile(file, importMode?.value || "replace");
     input.value = "";
   });
-  await Promise.all([loadAdminStructure(), loadAdminParentAccess(), loadAdminPromotionAccess(), loadAdminRoundType(), loadAdminCardPreferences()]);
+  await Promise.all([loadAdminStructure(), loadAdminParentAccess(), loadAdminPromotionAccess(), loadAdminImportAccess(), loadAdminProfileEditing(), loadAdminRoundType(), loadAdminCardPreferences()]);
   ensureAdminModals();
 }
 
@@ -213,6 +217,116 @@ export async function saveAdminRoundType(event) {
     await loadAdminRoundType();
   } finally {
     select.disabled = false;
+  }
+}
+
+export async function loadAdminProfileEditing() {
+  const toggle = document.getElementById("adminProfileEditingToggle");
+  const state = document.getElementById("adminProfileEditingState");
+  const retry = document.getElementById("adminProfileEditingRetry");
+  if (!toggle || !state) return;
+  const requestId = ++ADMIN_OPTIONS.profileEditingRequestId;
+  toggle.disabled = true;
+  if (retry) retry.hidden = true;
+  state.classList.remove("is-error");
+  state.textContent = "Loading profile editing setting…";
+  ADMIN_OPTIONS.profileEditingLoaded = false;
+  try {
+    const configuration = await fsGetProfileEditingConfiguration();
+    if (requestId !== ADMIN_OPTIONS.profileEditingRequestId) return;
+    ADMIN_OPTIONS.canTeacherEditProfiles = configuration.canTeacherEditProfiles;
+    ADMIN_OPTIONS.profileEditingLoaded = true;
+    toggle.checked = configuration.canTeacherEditProfiles;
+    state.textContent = configuration.configured
+      ? `Teacher profile editing is ${configuration.canTeacherEditProfiles ? "on" : "off"}.`
+      : "Teacher profile editing is on by default.";
+  } catch (error) {
+    if (requestId !== ADMIN_OPTIONS.profileEditingRequestId) return;
+    toggle.checked = false;
+    state.textContent = `Unable to load profile editing setting: ${error.message || "Unknown error"}`;
+    state.classList.add("is-error");
+    if (retry) retry.hidden = false;
+  } finally {
+    if (requestId === ADMIN_OPTIONS.profileEditingRequestId) toggle.disabled = !ADMIN_OPTIONS.profileEditingLoaded;
+  }
+}
+
+export async function saveAdminProfileEditingToggle(event) {
+  const toggle = event?.currentTarget || document.getElementById("adminProfileEditingToggle");
+  const state = document.getElementById("adminProfileEditingState");
+  if (!toggle || !state || !ADMIN_OPTIONS.profileEditingLoaded || ADMIN_OPTIONS.profileEditingSaving) return;
+  const nextValue = toggle.checked;
+  ADMIN_OPTIONS.profileEditingSaving = true;
+  toggle.disabled = true;
+  state.classList.remove("is-error");
+  state.textContent = "Saving profile editing setting…";
+  try {
+    await fsSetCanTeacherEditProfiles(nextValue);
+    ADMIN_OPTIONS.canTeacherEditProfiles = nextValue;
+    state.textContent = `Teacher profile editing is now ${nextValue ? "on" : "off"}.`;
+  } catch (error) {
+    toggle.checked = ADMIN_OPTIONS.canTeacherEditProfiles;
+    state.textContent = `Unable to save profile editing setting: ${error.message || "Unknown error"}`;
+    state.classList.add("is-error");
+    showToast(error.message || "Unable to update teacher profile editing.", "error");
+  } finally {
+    ADMIN_OPTIONS.profileEditingSaving = false;
+    toggle.disabled = false;
+  }
+}
+
+export async function loadAdminImportAccess() {
+  const toggle = document.getElementById("adminImportAccessToggle");
+  const state = document.getElementById("adminImportAccessState");
+  const retry = document.getElementById("adminImportAccessRetry");
+  if (!toggle || !state) return;
+  const requestId = ++ADMIN_OPTIONS.importAccessRequestId;
+  toggle.disabled = true;
+  if (retry) retry.hidden = true;
+  state.classList.remove("is-error");
+  state.textContent = "Loading Imports setting…";
+  ADMIN_OPTIONS.importAccessLoaded = false;
+  try {
+    const configuration = await fsGetImportConfiguration();
+    if (requestId !== ADMIN_OPTIONS.importAccessRequestId) return;
+    ADMIN_OPTIONS.canTeacherImport = configuration.canTeacherImport;
+    ADMIN_OPTIONS.importAccessLoaded = true;
+    toggle.checked = configuration.canTeacherImport;
+    state.textContent = configuration.configured
+      ? `Teacher imports are ${configuration.canTeacherImport ? "on" : "off"}.`
+      : "Teacher imports are off by default.";
+  } catch (error) {
+    if (requestId !== ADMIN_OPTIONS.importAccessRequestId) return;
+    toggle.checked = false;
+    state.textContent = `Unable to load Imports setting: ${error.message || "Unknown error"}`;
+    state.classList.add("is-error");
+    if (retry) retry.hidden = false;
+  } finally {
+    if (requestId === ADMIN_OPTIONS.importAccessRequestId) toggle.disabled = !ADMIN_OPTIONS.importAccessLoaded;
+  }
+}
+
+export async function saveAdminImportAccessToggle(event) {
+  const toggle = event?.currentTarget || document.getElementById("adminImportAccessToggle");
+  const state = document.getElementById("adminImportAccessState");
+  if (!toggle || !state || !ADMIN_OPTIONS.importAccessLoaded || ADMIN_OPTIONS.importAccessSaving) return;
+  const nextValue = toggle.checked;
+  ADMIN_OPTIONS.importAccessSaving = true;
+  toggle.disabled = true;
+  state.classList.remove("is-error");
+  state.textContent = "Saving Imports setting…";
+  try {
+    await fsSetCanTeacherImport(nextValue);
+    ADMIN_OPTIONS.canTeacherImport = nextValue;
+    state.textContent = `Teacher imports are now ${nextValue ? "on" : "off"}.`;
+  } catch (error) {
+    toggle.checked = ADMIN_OPTIONS.canTeacherImport;
+    state.textContent = `Unable to save Imports setting: ${error.message || "Unknown error"}`;
+    state.classList.add("is-error");
+    showToast(error.message || "Unable to update Imports access.", "error");
+  } finally {
+    ADMIN_OPTIONS.importAccessSaving = false;
+    toggle.disabled = false;
   }
 }
 

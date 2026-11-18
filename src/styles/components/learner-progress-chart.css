@@ -5,16 +5,17 @@
 .profile-learners-panel > .panel-header { padding: 20px 20px 12px; }
 .profile-learners-panel > .panel-header h3 { margin: 0; }
 .profile-learners-panel > .toolbar.profile-filters {
-  display: grid;
-  grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   align-items: stretch;
   gap: 10px;
   margin: 0;
   padding: 0 20px 18px;
 }
-.profile-learners-panel > .toolbar.profile-filters .search-box { width: 100%; min-width: 0; }
+.profile-learners-panel > .toolbar.profile-filters .search-box { flex: 2 1 240px; min-width: 0; }
+.profile-learners-panel > .toolbar.profile-filters > .select-filter { flex: 1 1 160px; }
 .profile-learners-panel > .toolbar.profile-filters .search-box input,
-.profile-learners-panel > .toolbar.profile-filters .select-filter { width: 100%; min-width: 0; min-height: 42px; }
+.profile-learners-panel > .toolbar.profile-filters .select-filter { min-width: 0; min-height: 42px; }
 .profile-learners-panel > .pagination { margin: 0; padding: 14px 20px 18px; }
 .profile-section-tabs { display: flex; gap: 4px; margin: 0 0 12px; padding: 4px; border: 1px solid var(--line-200); border-radius: var(--radius-lg); background: var(--bg-card); width: fit-content; }
 .profile-section-tabs button { min-height: 36px; padding: 8px 18px; border: 0; border-radius: calc(var(--radius-lg) - 4px); background: transparent; color: var(--ink-700); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
@@ -150,8 +151,7 @@
 .learner-progress-summary-insights strong { color: var(--ink-900); }
 .learner-progress-summary-insights p > span { display: inline-block; width: 8px; height: 8px; flex: 0 0 8px; align-self: center; border-radius: 50%; }
 @media (max-width: 1100px) {
-  .profile-learners-panel > .toolbar.profile-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .profile-learners-panel > .toolbar.profile-filters .search-box { grid-column: 1 / -1; }
+  .profile-learners-panel > .toolbar.profile-filters .search-box { flex-basis: 100%; }
 }
 @media (max-width: 780px) {
   .learner-progress-visuals { grid-template-columns: minmax(0, 1fr); gap: 16px; }
@@ -164,8 +164,8 @@
 }
 @media (max-width: 560px) {
   .profile-learners-panel > .panel-header { padding: 16px 16px 10px; }
-  .profile-learners-panel > .toolbar.profile-filters { grid-template-columns: minmax(0, 1fr); padding: 0 16px 16px; }
-  .profile-learners-panel > .toolbar.profile-filters .search-box { grid-column: auto; }
+  .profile-learners-panel > .toolbar.profile-filters { padding: 0 16px 16px; }
+  .profile-learners-panel > .toolbar.profile-filters > .select-filter { flex-basis: 100%; }
   .learner-progress-summary { padding: 12px; }
   .learner-progress-summary-periods { grid-template-columns: minmax(0, 1fr); }
   .nutrition-chart-grid { padding: 12px; }

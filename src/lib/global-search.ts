@@ -64,6 +64,7 @@ const CURATED = [
 
   /* ---- Learner Masterlist ---------------------------------------------- */
   E('Learner Masterlist', 'Add Learner', 'masterlist.html', '#addLearnerBtn', 'plus', 'add new learner create'),
+  E('Learner Masterlist', 'Import Students', 'masterlist.html', '#importStudentsBtn', 'upload', 'bulk import students learners excel csv sf1 json spreadsheet', 'admin'),
   E('Learner Masterlist', 'Search learners', 'masterlist.html', '#searchInput', 'search', 'search by name learner id lrn'),
   E('Learner Masterlist', 'Filter by grade level', 'masterlist.html', '#gradeFilter', 'search', 'grade filter kinder grade 1 2 3 4 5 6'),
   E('Learner Masterlist', 'Filter by program', 'masterlist.html', '#programFilter', 'search', 'program filter 4ps ip sned aral muslim'),
@@ -226,6 +227,7 @@ const CURATED = [
   /* ---- Admin Console ----------------------------------------------------- */
   E('Admin Console', 'School structure', 'manage-users.html', '#adminStructureTab', 'settings', 'years grades sections curriculum', 'admin'),
   E('Admin Console', 'Access management', 'manage-users.html', '#adminAccessTab', 'settings', 'users roles accounts', 'admin'),
+  E('Admin Console', 'Imports access', 'manage-users.html', '#adminImportsAccessAccordion', 'settings', 'imports teacher import permission toggle access', 'admin'),
   E('Admin Console', 'Database backup', 'manage-users.html', '#adminBackupTab', 'download', 'backup export data', 'admin'),
   E('Admin Console', 'Audit log', 'manage-users.html', '#adminAuditTab', 'clipboard', 'activity history', 'admin'),
   E('Admin Console', 'Add school year', 'manage-users.html', '#openYearModalBtn', 'plus', 'new school year', 'admin'),

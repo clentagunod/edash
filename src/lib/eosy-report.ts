@@ -2,14 +2,16 @@
 import { LPSApi } from './sheets-api';
 import { requireAuth } from './auth';
 import { paginationPageNumbers } from './app-config';
-import { initYearSwitcher } from './school-year';
+import { getSelectedSchoolYear, initYearSwitcher } from './school-year';
 import { escapeHtml, renderShell } from './shell';
-import { compareLearnersBySurname, formatLearnerName } from './learner-sorting';
+import { compareProfileLearners, formatLearnerName, formatProfileLearnerName } from './learner-sorting';
+import { rememberFilterControls, restoreFilterControls } from './preference-runtime';
+import { initProfileSortControls } from './profile-list-sorting';
 
 export let EOSY_REPORT_DATA = null;
 export let EOSY_REPORT_PAGE = 1;
-export let EOSY_REPORT_DESCENDING = false;
 export const EOSY_REPORT_PAGE_SIZE = 25;
+const eosyFilterIds = ['eosyStatusFilter', 'eosyGradeFilter', 'eosySearch', 'eosySort', 'eosySortDirection'];
 
 export function renderEosyPagination(total, page, onPageChange) {
   const pageCount = Math.max(1, Math.ceil(total / EOSY_REPORT_PAGE_SIZE));
@@ -24,12 +26,15 @@ export function renderEosyPagination(total, page, onPageChange) {
 
 export async function initEosyReport() {
   renderShell("eosy", "EOSY Status Report");
-  await initYearSwitcher(loadEosyReport);
   ["eosyStatusFilter", "eosyGradeFilter", "eosySearch"].forEach((id) => document.getElementById(id)?.addEventListener("input", () => { EOSY_REPORT_PAGE = 1; renderEosyReport(); }));
-  document.getElementById("eosySortDirection")?.addEventListener("click", () => { EOSY_REPORT_DESCENDING = !EOSY_REPORT_DESCENDING; renderEosyReport(); });
+  initProfileSortControls('eosy', () => { EOSY_REPORT_PAGE = 1; renderEosyReport(); });
+  await initYearSwitcher(loadEosyReport);
 }
 
 export async function loadEosyReport(schoolYear) {
+  restoreFilterControls(`eosy:${schoolYear}`, eosyFilterIds);
+  initProfileSortControls('eosy', () => { EOSY_REPORT_PAGE = 1; renderEosyReport(); });
+  EOSY_REPORT_PAGE = 1;
   const body = document.getElementById("eosyStatusTableBody");
   body.innerHTML = `<tr><td colspan="5" class="state-row">Loading EOSY report...</td></tr>`;
   try {
@@ -42,20 +47,22 @@ export async function loadEosyReport(schoolYear) {
 }
 
 export function renderEosyReport() {
+  rememberFilterControls(`eosy:${getSelectedSchoolYear()}`, eosyFilterIds);
   const data = EOSY_REPORT_DATA || { learners: [] };
   const query = document.getElementById("eosySearch")?.value.trim().toLowerCase() || "";
   const status = document.getElementById("eosyStatusFilter")?.value || "";
   const grade = document.getElementById("eosyGradeFilter")?.value || "";
+  const sortField = document.getElementById('eosySort')?.value || 'name';
+  const sortDirection = document.getElementById('eosySortDirection')?.value || 'asc';
   const rows = data.learners.filter((learner) => {
     const name = formatLearnerName(learner);
-    const haystack = `${name} ${learner.learnerId || ""} ${learner.section || ""}`.toLowerCase();
+    const haystack = `${name} ${formatProfileLearnerName(learner)} ${learner.name || ""} ${learner.learnerId || ""} ${learner.section || ""}`.toLowerCase();
     return learner.eosyStatus && (!status || learner.eosyStatus === status) && (!grade || learner.gradeLevel === grade) && (!query || haystack.includes(query));
-  }).sort((a, b) => compareLearnersBySurname(a, b) * (EOSY_REPORT_DESCENDING ? -1 : 1));
+  }).sort((a, b) => compareProfileLearners(a, b, sortField, sortDirection));
   const pageCount = Math.max(1, Math.ceil(rows.length / EOSY_REPORT_PAGE_SIZE));
   EOSY_REPORT_PAGE = Math.min(EOSY_REPORT_PAGE, pageCount);
   const visible = rows.slice((EOSY_REPORT_PAGE - 1) * EOSY_REPORT_PAGE_SIZE, EOSY_REPORT_PAGE * EOSY_REPORT_PAGE_SIZE);
   document.getElementById("eosyResultCount").textContent = `${rows.length} learner${rows.length === 1 ? "" : "s"}`;
-  document.getElementById("eosyStatusTableBody").innerHTML = visible.length ? visible.map((learner) => `<tr><td>${escapeHtml(learner.learnerId || "—")}</td><td class="cell-name">${escapeHtml(formatLearnerName(learner))}</td><td>${escapeHtml(learner.gradeLevel || "—")}</td><td>${escapeHtml(learner.section || "—")}</td><td><strong>${escapeHtml(learner.eosyStatus)}</strong></td></tr>`).join("") : `<tr><td colspan="5" class="state-row">No EOSY statuses recorded.</td></tr>`;
-  document.getElementById("eosySortDirection").textContent = EOSY_REPORT_DESCENDING ? "Z-A" : "A-Z";
+  document.getElementById("eosyStatusTableBody").innerHTML = visible.length ? visible.map((learner) => `<tr><td>${escapeHtml(learner.learnerId || "—")}</td><td class="cell-name">${escapeHtml(formatProfileLearnerName(learner, "—"))}</td><td>${escapeHtml(learner.gradeLevel || "—")}</td><td>${escapeHtml(learner.section || "—")}</td><td><strong>${escapeHtml(learner.eosyStatus)}</strong></td></tr>`).join("") : `<tr><td colspan="5" class="state-row">No EOSY statuses recorded.</td></tr>`;
   renderEosyPagination(rows.length, EOSY_REPORT_PAGE, (page) => { EOSY_REPORT_PAGE = page; renderEosyReport(); });
 }

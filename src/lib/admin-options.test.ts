@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockCreateSchoolYear, mockGetParentAccess, mockSetParentAccess, mockGetPromotion, mockSetPromotion, mockGetCardPreferences, mockSetCardPreferences } = vi.hoisted(() => ({
+const { mockCreateSchoolYear, mockGetParentAccess, mockSetParentAccess, mockGetPromotion, mockSetPromotion, mockGetImports, mockSetImports, mockGetProfileEditing, mockSetProfileEditing, mockGetCardPreferences, mockSetCardPreferences } = vi.hoisted(() => ({
   mockCreateSchoolYear: vi.fn(),
   mockGetParentAccess: vi.fn(),
   mockSetParentAccess: vi.fn(),
   mockGetPromotion: vi.fn(),
   mockSetPromotion: vi.fn(),
+  mockGetImports: vi.fn(),
+  mockSetImports: vi.fn(),
+  mockGetProfileEditing: vi.fn(),
+  mockSetProfileEditing: vi.fn(),
   mockGetCardPreferences: vi.fn(),
   mockSetCardPreferences: vi.fn(),
 }));
@@ -45,11 +49,15 @@ vi.mock("./firestore-api", () => ({
   fsGetGradeTermCount: vi.fn(),
   fsGetParentAccessConfiguration: mockGetParentAccess,
   fsGetPromotionConfiguration: mockGetPromotion,
+  fsGetImportConfiguration: mockGetImports,
+  fsGetProfileEditingConfiguration: mockGetProfileEditing,
   fsGetPassingThreshold: vi.fn(),
   fsSetGradeLevelGradingConfiguration: vi.fn(),
   fsSetGradeTermCount: vi.fn(),
   fsSetParentAccessEnabled: mockSetParentAccess,
   fsSetCanPromoteStudents: mockSetPromotion,
+  fsSetCanTeacherImport: mockSetImports,
+  fsSetCanTeacherEditProfiles: mockSetProfileEditing,
   fsSetPassingThreshold: vi.fn(),
   fsGetCardPrintingPreferences: mockGetCardPreferences,
   fsSetCardPrintingPreferences: mockSetCardPreferences,
@@ -62,7 +70,7 @@ vi.mock("./grading-config", () => ({
   normalizePassingThreshold: vi.fn(),
 }));
 
-import { ADMIN_OPTIONS, createAdminYear, initializeSheetsBackupLink, loadAdminCardPreferences, loadAdminParentAccess, loadAdminPromotionAccess, saveAdminCardPreferences, saveAdminParentAccessToggle, saveAdminPromotionAccessToggle } from "./admin-options";
+import { ADMIN_OPTIONS, createAdminYear, initializeSheetsBackupLink, loadAdminCardPreferences, loadAdminImportAccess, loadAdminProfileEditing, loadAdminParentAccess, loadAdminPromotionAccess, saveAdminCardPreferences, saveAdminImportAccessToggle, saveAdminProfileEditingToggle, saveAdminParentAccessToggle, saveAdminPromotionAccessToggle } from "./admin-options";
 import { APP_CONFIG } from "./app-config";
 
 describe("Google Sheets backup link", () => {
@@ -145,6 +153,118 @@ describe("Promotion access toggle", () => {
     await saveAdminPromotionAccessToggle({ currentTarget: toggle });
     expect(mockSetPromotion).toHaveBeenCalledWith(true);
     expect(document.getElementById("adminPromotionAccessState")?.textContent).toContain("now on");
+  });
+});
+
+describe("Imports access toggle", () => {
+  beforeEach(() => {
+    document.body.innerHTML = `
+      <input id="adminImportAccessToggle" type="checkbox" />
+      <p id="adminImportAccessState" role="status"></p>
+      <button id="adminImportAccessRetry" hidden>Retry</button>
+    `;
+    ADMIN_OPTIONS.importAccessLoaded = false;
+    ADMIN_OPTIONS.importAccessSaving = false;
+    ADMIN_OPTIONS.canTeacherImport = false;
+    mockGetImports.mockReset().mockResolvedValue({ canTeacherImport: false, configured: false });
+    mockSetImports.mockReset().mockResolvedValue(true);
+  });
+
+  it("starts disabled by default and persists teacher import access", async () => {
+    const toggle = document.getElementById("adminImportAccessToggle") as HTMLInputElement;
+    await loadAdminImportAccess();
+    expect(toggle.checked).toBe(false);
+    expect(toggle.disabled).toBe(false);
+    expect(document.getElementById("adminImportAccessState")?.textContent).toContain("off by default");
+    toggle.checked = true;
+    await saveAdminImportAccessToggle({ currentTarget: toggle });
+    expect(mockSetImports).toHaveBeenCalledWith(true);
+    expect(ADMIN_OPTIONS.canTeacherImport).toBe(true);
+    expect(document.getElementById("adminImportAccessState")?.textContent).toContain("now on");
+  });
+
+  it("rolls the switch back to the saved state after a failed write", async () => {
+    mockGetImports.mockResolvedValue({ canTeacherImport: true, configured: true });
+    await loadAdminImportAccess();
+    const toggle = document.getElementById("adminImportAccessToggle") as HTMLInputElement;
+    toggle.checked = false;
+    mockSetImports.mockRejectedValue(new Error("Permission denied"));
+    await saveAdminImportAccessToggle({ currentTarget: toggle });
+    expect(toggle.checked).toBe(true);
+    expect(toggle.disabled).toBe(false);
+    expect(ADMIN_OPTIONS.canTeacherImport).toBe(true);
+    expect(document.getElementById("adminImportAccessState")?.textContent).toContain("Permission denied");
+  });
+
+  it("keeps the switch unavailable on load failure and permits a retry", async () => {
+    mockGetImports.mockRejectedValueOnce(new Error("Offline"));
+    const toggle = document.getElementById("adminImportAccessToggle") as HTMLInputElement;
+    await loadAdminImportAccess();
+    expect(toggle.disabled).toBe(true);
+    expect(document.getElementById("adminImportAccessRetry")?.hidden).toBe(false);
+    toggle.checked = true;
+    await saveAdminImportAccessToggle({ currentTarget: toggle });
+    expect(mockSetImports).not.toHaveBeenCalled();
+    await loadAdminImportAccess();
+    expect(toggle.checked).toBe(false);
+    expect(toggle.disabled).toBe(false);
+    expect(document.getElementById("adminImportAccessRetry")?.hidden).toBe(true);
+  });
+});
+
+describe("Teacher profile editing toggle", () => {
+  beforeEach(() => {
+    document.body.innerHTML = `
+      <input id="adminProfileEditingToggle" type="checkbox" />
+      <p id="adminProfileEditingState" role="status"></p>
+      <button id="adminProfileEditingRetry" hidden>Retry</button>
+    `;
+    ADMIN_OPTIONS.profileEditingLoaded = false;
+    ADMIN_OPTIONS.profileEditingSaving = false;
+    ADMIN_OPTIONS.canTeacherEditProfiles = true;
+    mockGetProfileEditing.mockReset().mockResolvedValue({ canTeacherEditProfiles: true, configured: false });
+    mockSetProfileEditing.mockReset().mockResolvedValue(true);
+  });
+
+  it("starts enabled by default and persists teacher profile editing access", async () => {
+    const toggle = document.getElementById("adminProfileEditingToggle") as HTMLInputElement;
+    await loadAdminProfileEditing();
+    expect(toggle.checked).toBe(true);
+    expect(toggle.disabled).toBe(false);
+    expect(document.getElementById("adminProfileEditingState")?.textContent).toContain("on by default");
+    toggle.checked = false;
+    await saveAdminProfileEditingToggle({ currentTarget: toggle });
+    expect(mockSetProfileEditing).toHaveBeenCalledWith(false);
+    expect(ADMIN_OPTIONS.canTeacherEditProfiles).toBe(false);
+    expect(document.getElementById("adminProfileEditingState")?.textContent).toContain("now off");
+  });
+
+  it("rolls the switch back to the saved state after a failed write", async () => {
+    mockGetProfileEditing.mockResolvedValue({ canTeacherEditProfiles: true, configured: true });
+    await loadAdminProfileEditing();
+    const toggle = document.getElementById("adminProfileEditingToggle") as HTMLInputElement;
+    toggle.checked = false;
+    mockSetProfileEditing.mockRejectedValue(new Error("Permission denied"));
+    await saveAdminProfileEditingToggle({ currentTarget: toggle });
+    expect(toggle.checked).toBe(true);
+    expect(toggle.disabled).toBe(false);
+    expect(ADMIN_OPTIONS.canTeacherEditProfiles).toBe(true);
+    expect(document.getElementById("adminProfileEditingState")?.textContent).toContain("Permission denied");
+  });
+
+  it("keeps the switch unavailable on load failure and permits a retry", async () => {
+    mockGetProfileEditing.mockRejectedValueOnce(new Error("Offline"));
+    const toggle = document.getElementById("adminProfileEditingToggle") as HTMLInputElement;
+    await loadAdminProfileEditing();
+    expect(toggle.disabled).toBe(true);
+    expect(document.getElementById("adminProfileEditingRetry")?.hidden).toBe(false);
+    toggle.checked = true;
+    await saveAdminProfileEditingToggle({ currentTarget: toggle });
+    expect(mockSetProfileEditing).not.toHaveBeenCalled();
+    await loadAdminProfileEditing();
+    expect(toggle.checked).toBe(true);
+    expect(toggle.disabled).toBe(false);
+    expect(document.getElementById("adminProfileEditingRetry")?.hidden).toBe(true);
   });
 });
 
