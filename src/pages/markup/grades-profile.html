@@ -1,11 +1,12 @@
 <div class="app-shell"><div id="sidebarMount"></div><div class="main-area"><div id="topbarMount"></div><main class="page">
   <div class="page-header"><div><h1>Grades Profile</h1><p class="desc">Learner subject grades and average by school year</p></div><div class="grades-header-actions"><button class="btn btn-primary" id="exportGradesBtn" style="width:auto;">Export Excel</button></div></div>
   <div id="yearSwitcherMount"></div>
-  <div class="grades-filter-toolbar profile-list-toolbar">
-    <div class="search-box"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="gradesSearch" type="search" placeholder="Search by name or Learner ID..." /></div>
-    <select class="select-filter" id="gradesGradeFilter"><option value="">All Grade Levels</option><option>Kinder</option><option>Grade 1</option><option>Grade 2</option><option>Grade 3</option><option>Grade 4</option><option>Grade 5</option><option>Grade 6</option></select>
-    <select class="select-filter" id="gradesProgramFilter"><option value="">All Programs</option><option value="4Ps">4Ps Beneficiaries</option><option value="IP">IP Learners</option><option value="SNED">SNED Learners</option><option value="ARAL">ARAL Tagged</option><option value="Muslim">Muslim Learners</option></select>
-    <select class="select-filter" id="gradesGenderFilter"><option value="">All Genders</option><option>Male</option><option>Female</option></select>
+  <div class="grades-filter-toolbar profile-list-toolbar profile-section-toolbar">
+    <div class="search-box"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg><input id="gradesSearch" type="search" placeholder="Search by name or Learner ID..." aria-label="Search learners by name or Learner ID" /></div>
+    <select class="select-filter" id="gradesGradeFilter" aria-label="Filter by grade level"><option value="">All Grade Levels</option><option>Kinder</option><option>Grade 1</option><option>Grade 2</option><option>Grade 3</option><option>Grade 4</option><option>Grade 5</option><option>Grade 6</option></select>
+    <select class="select-filter" id="gradesSectionFilter" aria-label="Filter by section"><option value="">All Sections</option></select>
+    <select class="select-filter" id="gradesProgramFilter" aria-label="Filter by program"><option value="">All Programs</option><option value="4Ps">4Ps Beneficiaries</option><option value="IP">IP Learners</option><option value="SNED">SNED Learners</option><option value="ARAL">ARAL Tagged</option><option value="Muslim">Muslim Learners</option></select>
+    <select class="select-filter" id="gradesGenderFilter" aria-label="Filter by gender"><option value="">All Genders</option><option>Male</option><option>Female</option></select>
     <div class="profile-sort-controls"><label for="gradesSort">Sort by</label><select id="gradesSort"><option value="name">Surname</option><option value="learnerId">Learner ID</option><option value="gradeLevel">Grade level</option><option value="section">Section</option><option value="average">Average</option></select><select id="gradesSortDirection" aria-label="Sort direction"><option value="asc">A-Z</option><option value="desc">Z-A</option></select></div>
   </div>
   <div class="stat-pill-row" id="gradesSummary"></div>

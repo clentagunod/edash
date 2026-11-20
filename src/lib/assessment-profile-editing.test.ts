@@ -27,6 +27,7 @@ import mathMarkup from '../pages/markup/math-profile.html?raw';
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(restoreFilterControls).mockReset();
   mocks.tablePageSize = 10;
   mocks.reading.cell.mockReturnValue('');
   mocks.math.cell.mockReturnValue('');
@@ -125,6 +126,90 @@ describe.each([
       click.mockRestore();
       dispose();
     }
+  });
+});
+
+describe.each([
+  ['reading', readingMarkup, initReadingProfiles, loadReadingProfiles, mocks.getReadingProfiles],
+  ['math', mathMarkup, initMathProfiles, loadMathProfiles, mocks.getMathProfiles],
+] as const)('%s profile section filters', (prefix, markup, initialize, load, getRecords) => {
+  const records = [
+    { learnerId: '1', firstName: 'Ana', lastName: 'Alpha', gradeLevel: 'Grade 1', section: 'A', gender: 'Female', bosy: 'Proficient' },
+    { learnerId: '2', firstName: 'Ben', lastName: 'Bravo', gradeLevel: 'Grade 1', section: ' B ', gender: 'Male', bosy: 'Proficient' },
+    { learnerId: '3', firstName: 'Cara', lastName: 'Charlie', gradeLevel: 'Grade 1', section: 'b', gender: 'Female', bosy: '' },
+    { learnerId: '4', firstName: 'Dan', lastName: 'Delta', gradeLevel: 'Grade 2', section: 'C', gender: 'Male', bosy: 'Proficient' },
+  ];
+  const control = (suffix: string) => document.getElementById(`${prefix}${suffix}`) as HTMLSelectElement;
+  function select(suffix: string, value: string) {
+    control(suffix).value = value;
+    control(suffix).dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  function names() {
+    return [...document.querySelectorAll(`#${prefix}TableBody .cell-name`)].map(node => node.textContent);
+  }
+  function mount() {
+    const parsed = new DOMParser().parseFromString(markup, 'text/html');
+    const toolbar = parsed.querySelector('.profile-filters')!;
+    expect(toolbar.querySelector(`#${prefix}GradeFilter`)?.nextElementSibling?.id).toBe(`${prefix}SectionFilter`);
+    document.body.innerHTML = `<button id="export${prefix === 'reading' ? 'Reading' : 'Math'}Btn"></button>${toolbar.outerHTML}<table><tbody id="${prefix}TableBody"></tbody></table><span id="${prefix}PageInfo"></span><div id="${prefix}PagerBtns"></div>`;
+    getRecords.mockResolvedValue(records.map(record => ({ ...record })));
+  }
+
+  it('filters the full list by section, resets pagination, and combines with grade and assessment filters', async () => {
+    mocks.tablePageSize = 1;
+    mount();
+    const dispose = await initialize();
+    try {
+      await load('2026-2027');
+      expect([...control('SectionFilter').options].map(option => option.value)).toEqual(['', 'A', 'B', 'C']);
+      document.querySelector<HTMLButtonElement>(`#${prefix}PagerBtns button:last-child`)!.click();
+      expect(names()).toEqual(['Bravo, Ben']);
+      select('SectionFilter', 'B');
+      expect(names()).toEqual(['Bravo, Ben']);
+      expect(document.getElementById(`${prefix}PageInfo`)?.textContent).toBe('1-1 of 2');
+      select('PeriodFilter', 'bosy');
+      expect(document.getElementById(`${prefix}PageInfo`)?.textContent).toBe('1-1 of 1');
+      expect([...control('SectionFilter').options].map(option => option.value)).toEqual(['', 'A', 'B', 'C']);
+      select('GradeFilter', 'Grade 2');
+      expect(control('SectionFilter').value).toBe('');
+      expect([...control('SectionFilter').options].map(option => option.value)).toEqual(['', 'C']);
+      expect(names()).toEqual(['Delta, Dan']);
+      expect(rememberFilterControls).toHaveBeenLastCalledWith(`${prefix}:2026-2027`, expect.arrayContaining([`${prefix}SectionFilter`]));
+    } finally { dispose(); }
+  });
+
+  it('restores a saved section after the selected year and grade have supplied its options', async () => {
+    mount();
+    vi.mocked(restoreFilterControls).mockImplementation((_key, ids) => {
+      if (ids.includes(`${prefix}GradeFilter`)) control('GradeFilter').value = 'Grade 1';
+      if (ids.includes(`${prefix}SectionFilter`)) control('SectionFilter').value = 'B';
+    });
+    const dispose = await initialize();
+    try {
+      await load('2026-2027');
+      expect(control('SectionFilter').value).toBe('B');
+      expect(names()).toEqual(['Bravo, Ben', 'Charlie, Cara']);
+      expect(restoreFilterControls).toHaveBeenCalledWith(`${prefix}:2026-2027`, [`${prefix}SectionFilter`]);
+      getRecords.mockResolvedValue([{ ...records[3] }]);
+      await load('2025-2026');
+      expect(control('SectionFilter').value).toBe('');
+      expect([...control('SectionFilter').options].map(option => option.value)).toEqual(['']);
+    } finally { dispose(); }
+  });
+
+  it('keeps the current section while refreshing after an assessment edit', async () => {
+    mount();
+    const dispose = await initialize();
+    try {
+      await load('2026-2027');
+      select('SectionFilter', 'B');
+      vi.mocked(restoreFilterControls).mockImplementation((_key, ids) => {
+        if (ids.includes(`${prefix}SectionFilter`)) control('SectionFilter').value = 'A';
+      });
+      await load('2026-2027', true);
+      expect(control('SectionFilter').value).toBe('B');
+      expect(names()).toEqual(['Bravo, Ben', 'Charlie, Cara']);
+    } finally { dispose(); }
   });
 });
 

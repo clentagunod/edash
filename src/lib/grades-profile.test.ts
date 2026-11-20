@@ -1,13 +1,15 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const sectionMocks = vi.hoisted(() => ({ getRecords: vi.fn(), pageSize: 10 }));
 
 vi.mock('./enrollment-data', () => ({ enrollmentGradeLabel: (grade: string) => grade }));
-vi.mock('./sheets-api', () => ({ LPSApi: {} }));
+vi.mock('./sheets-api', () => ({ LPSApi: { getGradesProfiles: sectionMocks.getRecords } }));
 vi.mock('./auth', () => ({ requireAuth: vi.fn() }));
 vi.mock('./school-year', () => ({ getSelectedSchoolYear: vi.fn(), initYearSwitcher: vi.fn() }));
 const shellMocks = vi.hoisted(() => ({ showToast: vi.fn() }));
 const editorMocks = vi.hoisted(() => ({ cell: vi.fn(), initialize: vi.fn(), reset: vi.fn(), dispose: vi.fn() }));
 vi.mock('./profile-editor', () => ({ createProfileEditor: () => editorMocks }));
-vi.mock('./preference-runtime', () => ({ currentUserPreferences: () => ({ tablePageSize: 10 }), restoreFilterControls: vi.fn(), rememberFilterControls: vi.fn(), readRememberedView: () => ({}) }));
+vi.mock('./preference-runtime', () => ({ currentUserPreferences: () => ({ tablePageSize: sectionMocks.pageSize }), restoreFilterControls: vi.fn(), rememberFilterControls: vi.fn(), readRememberedView: () => ({}) }));
 vi.mock('./shell', () => ({
   escapeHtml: (value: unknown) => String(value ?? ''),
   renderShell: vi.fn(),
@@ -16,7 +18,7 @@ vi.mock('./shell', () => ({
 }));
 vi.mock('./app-config', () => ({ paginationPageNumbers: vi.fn(() => []) }));
 vi.mock('./firestore-api', () => ({
-  fsGetGradeLevelGradingConfigurations: vi.fn(),
+  fsGetGradeLevelGradingConfigurations: vi.fn().mockResolvedValue({ gradeLevels: {} }),
   fsGetGradeTermCount: vi.fn().mockResolvedValue(3),
 }));
 
@@ -29,9 +31,12 @@ import {
   initGradesProfile,
   selectGradesTerm,
   compareGradeProfiles,
+  gradesFilteredProfiles,
+  loadGradesProfiles,
 } from './grades-profile';
-import { fsGetGradeTermCount } from './firestore-api';
-import { initYearSwitcher } from './school-year';
+import { fsGetGradeLevelGradingConfigurations, fsGetGradeTermCount } from './firestore-api';
+import { getSelectedSchoolYear, initYearSwitcher } from './school-year';
+import { rememberFilterControls, restoreFilterControls } from './preference-runtime';
 import gradesMarkup from '../pages/markup/grades-profile.html?raw';
 
 afterEach(() => {
@@ -213,5 +218,113 @@ describe('grade profile names and sorting', () => {
     expect(descending.indexOf('low')).toBe(2);
     expect(descending.indexOf('alpha')).toBeLessThan(descending.indexOf('zulu'));
     cleanup();
+  });
+});
+
+describe('grade profile section filters', () => {
+  const records = [
+    { learnerId: 'zulu', firstName: 'Ana', lastName: 'Zulu', gradeLevel: 'Grade 4', section: 'A', gender: 'Female', math: '90' },
+    { learnerId: 'alpha', firstName: 'Ben', lastName: 'Alpha', gradeLevel: 'Grade 4', section: 'B', gender: 'Male', math: '80' },
+    { learnerId: 'bravo', firstName: 'Cara', lastName: 'Bravo', gradeLevel: 'Grade 5', section: 'A', gender: 'Female', math: '70' },
+    { learnerId: 'charlie', firstName: 'Dan', lastName: 'Charlie', gradeLevel: 'Grade 4', section: ' a ', gender: 'Male', math: '85' },
+    { learnerId: 'delta', firstName: 'Eva', lastName: 'Delta', gradeLevel: 'Grade 5', section: 'C', gender: 'Female', math: '95' },
+  ];
+  let cleanup: (() => void) | undefined;
+  let saved: Record<string, Record<string, string>>;
+
+  function select(id: string, value: string) {
+    const control = document.getElementById(id) as HTMLSelectElement;
+    control.value = value;
+    control.dispatchEvent(new Event('change'));
+  }
+  const sectionControl = () => document.getElementById('gradesSectionFilter') as HTMLSelectElement;
+  const ids = () => gradesFilteredProfiles.map(record => record.learnerId).sort();
+
+  beforeEach(async () => {
+    document.body.innerHTML = gradesMarkup;
+    saved = {};
+    sectionMocks.pageSize = 2;
+    sectionMocks.getRecords.mockResolvedValue(records);
+    vi.mocked(fsGetGradeLevelGradingConfigurations).mockResolvedValue({ gradeLevels: {} } as never);
+    vi.mocked(fsGetGradeTermCount).mockResolvedValue(3);
+    vi.mocked(getSelectedSchoolYear).mockReturnValue('2026-2027');
+    vi.mocked(restoreFilterControls).mockImplementation((key, controls) => {
+      for (const id of controls) {
+        const control = document.getElementById(id) as HTMLInputElement | HTMLSelectElement | null;
+        if (!control) continue;
+        const fallback = control instanceof HTMLSelectElement ? control.options[0]?.value || '' : control.defaultValue;
+        const value = saved[key]?.[id] ?? fallback;
+        control.value = control instanceof HTMLSelectElement && ![...control.options].some(option => option.value === value) ? fallback : value;
+      }
+    });
+    cleanup = await initGradesProfile();
+  });
+
+  afterEach(() => {
+    cleanup?.();
+    cleanup = undefined;
+    sectionMocks.pageSize = 10;
+    sectionMocks.getRecords.mockReset();
+    vi.mocked(restoreFilterControls).mockReset();
+    vi.mocked(getSelectedSchoolYear).mockReset();
+  });
+
+  it('combines section, grade, gender and search filters and updates summary totals', async () => {
+    await loadGradesProfiles('2026-2027', true);
+    expect([...sectionControl().options].map(option => option.value)).toEqual(['', 'A', 'B', 'C']);
+    select('gradesSectionFilter', 'A');
+    expect(ids()).toEqual(['bravo', 'charlie', 'zulu']);
+    select('gradesGradeFilter', 'Grade 4');
+    expect(ids()).toEqual(['charlie', 'zulu']);
+    expect(document.querySelector('#gradesSummary strong')?.textContent).toBe('2');
+    expect([...sectionControl().options].map(option => option.value)).toEqual(['', 'A', 'B']);
+    select('gradesGenderFilter', 'Female');
+    expect(ids()).toEqual(['zulu']);
+    const search = document.getElementById('gradesSearch') as HTMLInputElement;
+    search.value = 'Ben';
+    search.dispatchEvent(new Event('input'));
+    expect(ids()).toEqual([]);
+    expect(rememberFilterControls).toHaveBeenLastCalledWith('grades:2026-2027', expect.arrayContaining(['gradesSectionFilter']), expect.any(Object));
+  });
+
+  it('returns to the first page when section changes and clears invalid sections on grade changes', async () => {
+    await loadGradesProfiles('2026-2027');
+    document.querySelector<HTMLButtonElement>('#gradesPagerBtns button:last-child')!.click();
+    expect(document.getElementById('gradesPageInfo')?.textContent).toBe('3-4 of 5');
+    select('gradesSectionFilter', 'A');
+    expect(document.getElementById('gradesPageInfo')?.textContent).toBe('1-2 of 3');
+    select('gradesSectionFilter', 'B');
+    expect(ids()).toEqual(['alpha']);
+    select('gradesGradeFilter', 'Grade 5');
+    expect(sectionControl().value).toBe('');
+    expect([...sectionControl().options].map(option => option.value)).toEqual(['', 'A', 'C']);
+    expect(ids()).toEqual(['bravo', 'delta']);
+  });
+
+  it('restores a saved section after loading its options and resets it for a different school year', async () => {
+    saved['grades:2026-2027'] = { gradesGradeFilter: 'Grade 4', gradesSectionFilter: 'B' };
+    await loadGradesProfiles('2026-2027');
+    expect(sectionControl().value).toBe('B');
+    expect(ids()).toEqual(['alpha']);
+    await loadGradesProfiles('2026-2027', true);
+    expect(sectionControl().value).toBe('B');
+    expect(ids()).toEqual(['alpha']);
+    sectionMocks.getRecords.mockResolvedValue([{ learnerId: 'new', firstName: 'New', lastName: 'Learner', gradeLevel: 'Grade 4', section: 'D' }]);
+    saved['grades:2025-2026'] = { gradesSectionFilter: 'B' };
+    await loadGradesProfiles('2025-2026');
+    expect([...sectionControl().options].map(option => option.value)).toEqual(['', 'D']);
+    expect(sectionControl().value).toBe('');
+    expect(ids()).toEqual(['new']);
+  });
+
+  it('retains the current section during an editing refresh when the saved preference differs', async () => {
+    saved['grades:2026-2027'] = { gradesGradeFilter: 'Grade 4', gradesSectionFilter: 'A' };
+    await loadGradesProfiles('2026-2027');
+    expect(sectionControl().value).toBe('A');
+    select('gradesSectionFilter', 'B');
+    expect(ids()).toEqual(['alpha']);
+    await loadGradesProfiles('2026-2027', true);
+    expect(sectionControl().value).toBe('B');
+    expect(ids()).toEqual(['alpha']);
   });
 });

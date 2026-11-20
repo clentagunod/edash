@@ -48,3 +48,76 @@
   min-width: 110px;
   width: auto;
 }
+
+/* Section filters need a second row instead of hiding controls off screen. */
+.toolbar.profile-list-toolbar.profile-section-toolbar,
+.grades-filter-toolbar.profile-list-toolbar.profile-section-toolbar,
+.profile-learners-panel > .toolbar.profile-filters.profile-section-toolbar {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: center;
+  gap: 12px;
+  overflow: visible;
+}
+.grades-filter-toolbar.profile-list-toolbar.profile-section-toolbar {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.profile-section-toolbar > .search-box,
+.grades-filter-toolbar.profile-section-toolbar > .search-box,
+.profile-learners-panel > .toolbar.profile-filters.profile-section-toolbar > .search-box {
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+}
+.profile-section-toolbar > .select-filter,
+.grades-filter-toolbar.profile-section-toolbar > .select-filter,
+.profile-learners-panel > .toolbar.profile-filters.profile-section-toolbar > .select-filter {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+}
+.profile-section-toolbar > .search-box input {
+  min-height: 42px;
+}
+.profile-section-toolbar > .profile-sort-controls,
+.profile-learners-panel > .toolbar.profile-filters.profile-section-toolbar > .profile-sort-controls {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  width: 100%;
+  min-width: 0;
+  margin-left: 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-200);
+}
+@media (max-width: 1180px) {
+  .toolbar.profile-list-toolbar.profile-section-toolbar,
+  .grades-filter-toolbar.profile-list-toolbar.profile-section-toolbar,
+  .profile-learners-panel > .toolbar.profile-filters.profile-section-toolbar {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 780px) {
+  .toolbar.profile-list-toolbar.profile-section-toolbar,
+  .grades-filter-toolbar.profile-list-toolbar.profile-section-toolbar,
+  .profile-learners-panel > .toolbar.profile-filters.profile-section-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .toolbar.profile-list-toolbar.profile-section-toolbar,
+  .grades-filter-toolbar.profile-list-toolbar.profile-section-toolbar,
+  .profile-learners-panel > .toolbar.profile-filters.profile-section-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .profile-section-toolbar > .profile-sort-controls,
+  .profile-learners-panel > .toolbar.profile-filters.profile-section-toolbar > .profile-sort-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .profile-section-toolbar > .profile-sort-controls label { grid-column: 1 / -1; }
+  .profile-section-toolbar > .profile-sort-controls select,
+  .profile-learners-panel > .toolbar.profile-filters.profile-section-toolbar > .profile-sort-controls select {
+    width: 100%;
+    min-width: 0;
+  }
+}

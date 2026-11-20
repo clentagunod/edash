@@ -10,6 +10,7 @@ import { CRLA_CATEGORIES, initProfileSectionTabs, matchesProfileAssessmentFilter
 import { initGraphEnhancements } from './graph-enhancements';
 import { compareProfileLearners, formatLearnerName, formatProfileLearnerName } from './learner-sorting';
 import { initProfileSortControls } from './profile-list-sorting';
+import { matchesProfileSection, updateProfileSectionFilter } from './profile-section-filter';
 import { createProfileEditor } from './profile-editor';
 
 export let readingProfiles = [];
@@ -17,7 +18,7 @@ export let readingPage = 1;
 export let readingSearch = "";
 export let readingGrade = "";
 export const READING_PAGE_SIZE = 10;
-const readingFilterIds = ["readingPeriodFilter", "readingGradeFilter", "readingSexFilter", "readingStatusFilter", "readingSearch", "readingSort", "readingSortDirection"];
+const readingFilterIds = ["readingPeriodFilter", "readingGradeFilter", "readingSectionFilter", "readingSexFilter", "readingStatusFilter", "readingSearch", "readingSort", "readingSortDirection"];
 let readingRequestId = 0;
 let readingInitId = 0;
 const readingEditor = createProfileEditor({
@@ -50,7 +51,7 @@ export async function initReadingProfiles() {
   initProfileSectionTabs("reading");
   document.getElementById("exportReadingBtn").addEventListener("click", exportReadingExcel);
   updateReadingClassificationOptions();
-  ["readingPeriodFilter", "readingGradeFilter", "readingSexFilter", "readingStatusFilter"].forEach((id) => document.getElementById(id)?.addEventListener("change", (event) => { if (id === "readingGradeFilter") { readingGrade = event.target.value; updateReadingClassificationOptions(); } readingPage = 1; renderFilteredReading(); }));
+  ["readingPeriodFilter", "readingGradeFilter", "readingSectionFilter", "readingSexFilter", "readingStatusFilter"].forEach((id) => document.getElementById(id)?.addEventListener("change", (event) => { if (id === "readingGradeFilter") { readingGrade = event.target.value; updateReadingClassificationOptions(); } readingPage = 1; renderFilteredReading(); }));
   document.getElementById("readingSearch")?.addEventListener("input", debounce((event) => { readingSearch = event.target.value.trim().toLowerCase(); readingPage = 1; renderFilteredReading(); }, 200));
   initProfileSortControls('reading', () => { readingPage = 1; renderFilteredReading(); });
   await readingEditor.initialize();
@@ -67,7 +68,7 @@ export async function initReadingProfiles() {
 export async function loadReadingProfiles(schoolYear, preserveEdit = false) {
   if (!preserveEdit) readingEditor.reset();
   const requestId = ++readingRequestId;
-  restoreFilterControls(`reading:${schoolYear}`, readingFilterIds);
+  restoreFilterControls(`reading:${schoolYear}`, readingFilterIds.filter(id => id !== "readingSectionFilter"));
   initProfileSortControls('reading', () => { readingPage = 1; renderFilteredReading(); });
   readingSearch = document.getElementById("readingSearch")?.value.trim().toLowerCase() || "";
   if (!preserveEdit) readingPage = 1;
@@ -82,10 +83,13 @@ export async function loadReadingProfiles(schoolYear, preserveEdit = false) {
     const records = await LPSApi.getReadingProfiles(schoolYear);
     if (requestId !== readingRequestId) return;
     readingProfiles = records.sort(compareReadingProfiles);
+    updateProfileSectionFilter('reading', readingProfiles);
+    if (!preserveEdit) restoreFilterControls(`reading:${schoolYear}`, ["readingSectionFilter"]);
     renderFilteredReading();
   } catch (error) {
     if (requestId !== readingRequestId) return;
     readingProfiles = [];
+    updateProfileSectionFilter('reading', readingProfiles);
     const summary = document.getElementById("readingSummary");
     if (summary) summary.innerHTML = "";
     if (body) {
@@ -96,13 +100,14 @@ export async function loadReadingProfiles(schoolYear, preserveEdit = false) {
 }
 
 export function renderFilteredReading() {
+  const section = updateProfileSectionFilter('reading', readingProfiles);
   rememberFilterControls(`reading:${getSelectedSchoolYear()}`, readingFilterIds);
   const period = document.getElementById("readingPeriodFilter")?.value || "";
   const grade = document.getElementById("readingGradeFilter")?.value || "";
   const sex = document.getElementById("readingSexFilter")?.value || "";
   const status = document.getElementById("readingStatusFilter")?.value || "";
   const chartCohort = readingProfiles.filter((record) => { const text = `${record.name || ""} ${formatLearnerName(record)} ${formatProfileLearnerName(record)} ${record.learnerId || ""} ${record.gradeLevel || ""}`.toLowerCase(); return (!readingSearch || text.includes(readingSearch)) && (!sex || normalizeProfileGender(record.gender) === normalizeProfileGender(sex)); });
-  const cohort = chartCohort.filter((record) => !grade || normalizeProfileGrade(record.gradeLevel) === normalizeProfileGrade(grade));
+  const cohort = chartCohort.filter((record) => (!grade || normalizeProfileGrade(record.gradeLevel) === normalizeProfileGrade(grade)) && matchesProfileSection(record, section));
   const records = cohort.filter((record) => matchesProfileAssessmentFilters(record, period, status));
   renderReadingCharts(records);
   renderReadingSummary(records);

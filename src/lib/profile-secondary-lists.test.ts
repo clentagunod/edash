@@ -2,13 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   nutrition: vi.fn(), reports: vi.fn(), charts: vi.fn(), remember: vi.fn(), restore: vi.fn(),
+  teacher: false,
   indicator: { update: vi.fn(), finish: vi.fn(), close: vi.fn(), cancelled: false },
 }));
 vi.mock('./sheets-api', () => ({ LPSApi: { getNutritionStatus: mocks.nutrition, getReportsData: mocks.reports } }));
 vi.mock('./auth', () => ({ requireAuth: vi.fn() }));
 vi.mock('./app-config', () => ({
   APP_CONFIG: { branding: { schoolName: 'Sample School' } }, appSchoolFilePrefix: () => 'sample-school',
-  isTeacher: () => false, paginationPageNumbers: (count: number) => Array.from({ length: count }, (_, i) => i + 1),
+  isTeacher: () => mocks.teacher, paginationPageNumbers: (count: number) => Array.from({ length: count }, (_, i) => i + 1),
 }));
 vi.mock('./school-year', () => ({
   getSelectedSchoolYear: () => '2026-2027',
@@ -57,6 +58,7 @@ function blobText(blob: Blob) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.teacher = false;
   mocks.nutrition.mockResolvedValue(records.map(record => ({ ...record })));
   mocks.reports.mockResolvedValue({ learners: records.map(record => ({ ...record })) });
   mocks.restore.mockReset();
@@ -109,6 +111,67 @@ describe('nutrition learner names and sorting', () => {
     expect(workbook.indexOf('Zulu, Ana M. L.')).toBeLessThan(workbook.indexOf('Bravo, Cara'));
     expect(workbook.indexOf('Bravo, Cara')).toBeLessThan(workbook.indexOf('Alpha, Ben P.'));
     expect(mocks.indicator.finish).toHaveBeenCalled();
+  });
+});
+
+describe('nutrition section filters', () => {
+  it('filters the table, summary, and graphs by section and returns to the first page', async () => {
+    document.body.innerHTML = nutritionMarkup;
+    await initNutritionPage();
+    const section = document.getElementById('nutritionSectionFilter') as HTMLSelectElement;
+    expect([...section.options].map(option => option.value)).toEqual(['', 'A', 'B']);
+    document.querySelector<HTMLButtonElement>('#nutritionPagerBtns button:last-child')!.click();
+    select('nutritionSectionFilter', 'A');
+    expect(names('nutrition')).toEqual(['Alpha, Ben P.', 'Bravo, Cara']);
+    expect(document.getElementById('nutritionPageInfo')?.textContent).toBe('1-2 of 2');
+    expect(document.querySelector('#nutritionSummary strong')?.textContent).toBe('2');
+    expect(mocks.charts).toHaveBeenLastCalledWith(expect.arrayContaining([records[1], records[2]]));
+    expect(mocks.charts.mock.lastCall?.[0]).toHaveLength(2);
+    expect(mocks.remember).toHaveBeenLastCalledWith('nutrition:2026-2027', expect.arrayContaining(['nutritionSectionFilter']));
+  });
+
+  it('combines section, grade, and status filters and clears sections unavailable in another grade', async () => {
+    document.body.innerHTML = nutritionMarkup;
+    await initNutritionPage();
+    select('nutritionSectionFilter', 'A');
+    select('nutritionGradeFilter', 'Grade 1');
+    select('nutritionStatusFilter', 'Wasted');
+    expect(names('nutrition')).toEqual(['Alpha, Ben P.']);
+    select('nutritionStatusFilter', 'Normal');
+    expect(names('nutrition')).toEqual([]);
+    select('nutritionGradeFilter', 'Grade 3');
+    const section = document.getElementById('nutritionSectionFilter') as HTMLSelectElement;
+    expect(section.value).toBe('');
+    expect([...section.options].map(option => option.value)).toEqual(['', 'B']);
+    expect(names('nutrition')).toEqual(['Zulu, Ana M. L.']);
+  });
+
+  it('restores a saved section after loading its options and clears stale sections for another year', async () => {
+    document.body.innerHTML = nutritionMarkup;
+    mocks.restore.mockImplementation((key: string, ids: string[]) => {
+      if (key === 'nutrition:2026-2027' && ids.includes('nutritionSectionFilter')) {
+        const section = document.getElementById('nutritionSectionFilter') as HTMLSelectElement;
+        expect([...section.options].map(option => option.value)).toContain('B');
+        section.value = 'B';
+      }
+    });
+    await loadNutritionStatus('2026-2027');
+    expect(names('nutrition')).toEqual(['Zulu, Ana M. L.']);
+    mocks.nutrition.mockResolvedValue([{ ...records[1], section: 'C' }]);
+    await loadNutritionStatus('2025-2026');
+    const section = document.getElementById('nutritionSectionFilter') as HTMLSelectElement;
+    expect(section.value).toBe('');
+    expect([...section.options].map(option => option.value)).toEqual(['', 'C']);
+    expect(names('nutrition')).toEqual(['Alpha, Ben P.']);
+  });
+
+  it('keeps section filtering usable for teachers when the grade filter is removed', async () => {
+    mocks.teacher = true;
+    document.body.innerHTML = nutritionMarkup;
+    await initNutritionPage();
+    expect(document.getElementById('nutritionGradeFilter')).toBeNull();
+    select('nutritionSectionFilter', 'B');
+    expect(names('nutrition')).toEqual(['Zulu, Ana M. L.']);
   });
 });
 

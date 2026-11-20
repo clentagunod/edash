@@ -12,12 +12,13 @@ import { renderNutritionCharts } from './nutrition-charts';
 import { initGraphEnhancements } from './graph-enhancements';
 import { compareProfileLearners, formatLearnerName, formatProfileLearnerName } from './learner-sorting';
 import { initProfileSortControls } from './profile-list-sorting';
+import { matchesProfileSection, updateProfileSectionFilter } from './profile-section-filter';
 
 export let nutritionRecords = [];
 export let nutritionPage = 1;
 export let nutritionSearch = "";
 export const PROFILE_PAGE_SIZE = 10;
-const nutritionFilterIds = ["nutritionPeriodFilter", "nutritionGradeFilter", "nutritionSexFilter", "nutritionStatusFilter", "nutritionSearch", "nutritionSort", "nutritionSortDirection"];
+const nutritionFilterIds = ["nutritionPeriodFilter", "nutritionGradeFilter", "nutritionSectionFilter", "nutritionSexFilter", "nutritionStatusFilter", "nutritionSearch", "nutritionSort", "nutritionSortDirection"];
 
 export async function initNutritionPage() {
   renderShell("nutrition", "Nutritional Status");
@@ -29,14 +30,14 @@ export async function initNutritionPage() {
   document.getElementById("exportNutritionBtn").addEventListener("click", exportNutritionExcel);
   const gradeFilter = document.getElementById("nutritionGradeFilter");
   if (isTeacher()) gradeFilter?.remove();
-  ["nutritionPeriodFilter", "nutritionSexFilter", "nutritionStatusFilter", "nutritionGradeFilter"].forEach((id) => document.getElementById(id)?.addEventListener("change", () => { nutritionPage = 1; renderFilteredNutrition(); }));
+  ["nutritionPeriodFilter", "nutritionSexFilter", "nutritionStatusFilter", "nutritionGradeFilter", "nutritionSectionFilter"].forEach((id) => document.getElementById(id)?.addEventListener("change", () => { nutritionPage = 1; renderFilteredNutrition(); }));
   document.getElementById("nutritionSearch")?.addEventListener("input", debounce((event) => { nutritionSearch = event.target.value.trim().toLowerCase(); nutritionPage = 1; renderFilteredNutrition(); }, 200));
   initProfileSortControls('nutrition', () => { nutritionPage = 1; renderFilteredNutrition(); });
   await initYearSwitcher(loadNutritionStatus);
 }
 
 export async function loadNutritionStatus(schoolYear) {
-  restoreFilterControls(`nutrition:${schoolYear}`, nutritionFilterIds);
+  restoreFilterControls(`nutrition:${schoolYear}`, nutritionFilterIds.filter(id => id !== 'nutritionSectionFilter'));
   initProfileSortControls('nutrition', () => { nutritionPage = 1; renderFilteredNutrition(); });
   nutritionSearch = document.getElementById('nutritionSearch')?.value.trim().toLowerCase() || '';
   nutritionPage = 1;
@@ -46,9 +47,12 @@ export async function loadNutritionStatus(schoolYear) {
   try {
     const records = await LPSApi.getNutritionStatus(schoolYear);
     nutritionRecords = records;
+    updateProfileSectionFilter('nutrition', nutritionRecords);
+    restoreFilterControls(`nutrition:${schoolYear}`, ['nutritionSectionFilter']);
     renderFilteredNutrition();
   } catch (error) {
     nutritionRecords = [];
+    updateProfileSectionFilter('nutrition', nutritionRecords);
     summary.innerHTML = "";
     renderNutritionCharts([]);
     table.innerHTML = `<tr><td colspan="6" class="state-row error">${escapeHtml(error.message)}<br><small>Add the nutritional headers to the selected Learners school-year tab.</small></td></tr>`;
@@ -56,6 +60,7 @@ export async function loadNutritionStatus(schoolYear) {
 }
 
 export function renderFilteredNutrition() {
+  const section = updateProfileSectionFilter('nutrition', nutritionRecords);
   rememberFilterControls(`nutrition:${getSelectedSchoolYear()}`, nutritionFilterIds);
   const period = document.getElementById("nutritionPeriodFilter")?.value || "";
   const sex = document.getElementById("nutritionSexFilter")?.value || "";
@@ -66,7 +71,7 @@ export function renderFilteredNutrition() {
     const hasSelectedStatus = !status || (period
       ? record[period + "NutritionalStatus"] === status
       : ["bosy", "mosy", "eosy"].some((key) => record[key + "NutritionalStatus"] === status));
-    return (!nutritionSearch || text.includes(nutritionSearch)) && (!grade || record.gradeLevel === grade) && (!sex || record.gender === sex) && (!period || record[period + "NutritionalStatus"]) && hasSelectedStatus;
+    return (!nutritionSearch || text.includes(nutritionSearch)) && (!grade || record.gradeLevel === grade) && matchesProfileSection(record, section) && (!sex || record.gender === sex) && (!period || record[period + "NutritionalStatus"]) && hasSelectedStatus;
   });
   sortNutritionRecords(records);
   nutritionPage = Math.min(nutritionPage, Math.max(1, Math.ceil(records.length / currentUserPreferences().tablePageSize)));

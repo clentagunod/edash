@@ -12,6 +12,7 @@ import { fsGetGradeLevelGradingConfigurations, fsGetGradeTermCount } from './fir
 import { gradeLevelConfigKey, normalizeGradeLevelGrading } from './grading-config';
 import { compareProfileLearners, formatLearnerName, formatProfileLearnerName } from './learner-sorting';
 import { initProfileSortControls } from './profile-list-sorting';
+import { matchesProfileSection, updateProfileSectionFilter } from './profile-section-filter';
 import { createProfileEditor } from './profile-editor';
 
 export let gradesProfiles = [];
@@ -24,7 +25,7 @@ export let gradesSortDirection = "asc";
 export let gradesFilteredProfiles = [];
 export let gradesPage = 1;
 export const GRADES_PAGE_SIZE = 10;
-const gradesFilterIds = ["gradesSearch", "gradesGradeFilter", "gradesProgramFilter", "gradesGenderFilter", "gradesSort", "gradesSortDirection"];
+const gradesFilterIds = ["gradesSearch", "gradesGradeFilter", "gradesSectionFilter", "gradesProgramFilter", "gradesGenderFilter", "gradesSort", "gradesSortDirection"];
 export let gradesCurriculumAssignments = {};
 export let gradesCurriculumAvailable = false;
 export let gradesCurriculumSubjects = [...CURRICULUM_SUBJECTS];
@@ -47,8 +48,8 @@ export async function initGradesProfile() {
   document.getElementById("gradesSort").value = gradesSortField;
   document.getElementById("gradesSortDirection").value = gradesSortDirection;
   initProfileSortControls('grades', applyGradesSort);
-  ["gradesSearch", "gradesGradeFilter", "gradesProgramFilter", "gradesGenderFilter"].forEach((id) => document.getElementById(id).addEventListener("input", () => { gradesPage = 1; filterGradesProfiles(); }));
-  ["gradesGradeFilter", "gradesProgramFilter", "gradesGenderFilter"].forEach((id) => document.getElementById(id).addEventListener("change", () => { gradesPage = 1; filterGradesProfiles(); }));
+  ["gradesSearch", "gradesGradeFilter", "gradesSectionFilter", "gradesProgramFilter", "gradesGenderFilter"].forEach((id) => document.getElementById(id)?.addEventListener("input", () => { gradesPage = 1; filterGradesProfiles(); }));
+  ["gradesGradeFilter", "gradesSectionFilter", "gradesProgramFilter", "gradesGenderFilter"].forEach((id) => document.getElementById(id)?.addEventListener("change", () => { gradesPage = 1; filterGradesProfiles(); }));
   document.getElementById("gradesTermNavigation")?.addEventListener("click", (event) => {
     const button = event.target.closest("[data-grade-term]");
     if (button) selectGradesTerm(button.dataset.gradeTerm);
@@ -73,7 +74,7 @@ export function renderGradesTermNavigation() {
 
 export async function loadGradesProfiles(schoolYear, preserveEdit = false) {
   if (!preserveEdit) gradesEditor.reset();
-  restoreFilterControls(`grades:${schoolYear}`, gradesFilterIds);
+  restoreFilterControls(`grades:${schoolYear}`, gradesFilterIds.filter(id => id !== 'gradesSectionFilter'));
   const rememberedTerm = readRememberedView(`grades:${schoolYear}`).selectedTerm;
   if (!preserveEdit) gradesSelectedTerm = gradesTerms.some(term => term.id === rememberedTerm) ? rememberedTerm : FINAL_GRADE_TERM;
   renderGradesTermNavigation();
@@ -111,6 +112,8 @@ export async function loadGradesProfiles(schoolYear, preserveEdit = false) {
       gradesSelectedTerm,
       gradesGradingByGrade[gradeLevelConfigKey(record.gradeLevel)]?.gradingType || "numerical",
     ));
+    updateProfileSectionFilter('grades', gradesProfiles);
+    if (!preserveEdit) restoreFilterControls(`grades:${schoolYear}`, ['gradesSectionFilter']);
     updateGradesCurriculumState();
     filterGradesProfiles();
   } catch (error) {
@@ -118,6 +121,7 @@ export async function loadGradesProfiles(schoolYear, preserveEdit = false) {
     gradesProfiles = [];
     gradesLearnerRecords = [];
     gradesFilteredProfiles = [];
+    updateProfileSectionFilter('grades', []);
     document.getElementById("gradesSummary").innerHTML = "";
     body.innerHTML = `<tr><td colspan="${4 + getVisibleGradeSubjects().length}" class="state-row error">${escapeHtml(error.message || "Unable to load grades.")}</td></tr>`;
     if (preserveEdit) throw error;
@@ -244,9 +248,10 @@ export function filterGradesProfiles() {
   const grade = document.getElementById("gradesGradeFilter").value;
   const program = document.getElementById("gradesProgramFilter").value;
   const gender = document.getElementById("gradesGenderFilter").value;
+  const section = updateProfileSectionFilter('grades', gradesProfiles);
   gradesFilteredProfiles = gradesProfiles.filter((record) => {
     const searchable = `${record.name || ""} ${record.searchName || ""} ${record.learnerId || ""}`.toLowerCase();
-    return (!search || searchable.includes(search)) && (!grade || enrollmentGradeLabel(record.gradeLevel) === enrollmentGradeLabel(grade)) && (!gender || record.gender === gender) && (!program || record[{ "4Ps": "is4Ps", IP: "isIP", SNED: "isSNED", ARAL: "isARAL", Muslim: "isMuslim" }[program]]);
+    return (!search || searchable.includes(search)) && (!grade || enrollmentGradeLabel(record.gradeLevel) === enrollmentGradeLabel(grade)) && matchesProfileSection(record, section) && (!gender || record.gender === gender) && (!program || record[{ "4Ps": "is4Ps", IP: "isIP", SNED: "isSNED", ARAL: "isARAL", Muslim: "isMuslim" }[program]]);
   });
   renderGradesSummary(gradesFilteredProfiles);
   updateGradesCurriculumState();

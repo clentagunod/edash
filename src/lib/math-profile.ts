@@ -11,13 +11,14 @@ import { initProfileSectionTabs, matchesProfileAssessmentFilters, normalizeProfi
 import { initGraphEnhancements } from './graph-enhancements';
 import { compareProfileLearners, formatLearnerName, formatProfileLearnerName } from './learner-sorting';
 import { initProfileSortControls } from './profile-list-sorting';
+import { matchesProfileSection, updateProfileSectionFilter } from './profile-section-filter';
 import { createProfileEditor } from './profile-editor';
 
 export let mathProfiles = [];
 export let mathPage = 1;
 export let mathSearch = "";
 export const MATH_PAGE_SIZE = 10;
-const mathFilterIds = ["mathPeriodFilter", "mathSexFilter", "mathStatusFilter", "mathGradeFilter", "mathSearch", "mathSort", "mathSortDirection"];
+const mathFilterIds = ["mathPeriodFilter", "mathSexFilter", "mathStatusFilter", "mathGradeFilter", "mathSectionFilter", "mathSearch", "mathSort", "mathSortDirection"];
 let mathRequestId = 0;
 let mathInitId = 0;
 const mathEditor = createProfileEditor({
@@ -34,7 +35,7 @@ export async function initMathProfiles() {
   document.getElementById("exportMathBtn").addEventListener("click", exportMathExcel);
   const gradeFilter = document.getElementById("mathGradeFilter");
   if (isTeacher()) gradeFilter?.remove();
-  ["mathPeriodFilter", "mathSexFilter", "mathStatusFilter", "mathGradeFilter"].forEach((id) => document.getElementById(id)?.addEventListener("change", () => { mathPage = 1; renderFilteredMath(); }));
+  ["mathPeriodFilter", "mathSexFilter", "mathStatusFilter", "mathGradeFilter", "mathSectionFilter"].forEach((id) => document.getElementById(id)?.addEventListener("change", () => { mathPage = 1; renderFilteredMath(); }));
   document.getElementById("mathSearch")?.addEventListener("input", debounce((event) => { mathSearch = event.target.value.trim().toLowerCase(); mathPage = 1; renderFilteredMath(); }, 200));
   initProfileSortControls('math', () => { mathPage = 1; renderFilteredMath(); });
   await mathEditor.initialize();
@@ -51,7 +52,7 @@ export async function initMathProfiles() {
 export async function loadMathProfiles(schoolYear, preserveEdit = false) {
   if (!preserveEdit) mathEditor.reset();
   const requestId = ++mathRequestId;
-  restoreFilterControls(`math:${schoolYear}`, mathFilterIds);
+  restoreFilterControls(`math:${schoolYear}`, mathFilterIds.filter(id => id !== "mathSectionFilter"));
   initProfileSortControls('math', () => { mathPage = 1; renderFilteredMath(); });
   mathSearch = document.getElementById("mathSearch")?.value.trim().toLowerCase() || "";
   if (!preserveEdit) mathPage = 1;
@@ -63,10 +64,13 @@ export async function loadMathProfiles(schoolYear, preserveEdit = false) {
     const records = await LPSApi.getMathProfiles(schoolYear);
     if (requestId !== mathRequestId) return;
     mathProfiles = records.sort(compareMathProfiles);
+    updateProfileSectionFilter('math', mathProfiles);
+    if (!preserveEdit) restoreFilterControls(`math:${schoolYear}`, ["mathSectionFilter"]);
     renderFilteredMath();
   } catch (error) {
     if (requestId !== mathRequestId) return;
     mathProfiles = [];
+    updateProfileSectionFilter('math', mathProfiles);
     const summary = document.getElementById("mathSummary");
     if (summary) summary.innerHTML = "";
     if (body) {
@@ -77,13 +81,14 @@ export async function loadMathProfiles(schoolYear, preserveEdit = false) {
 }
 
 export function renderFilteredMath() {
+  const section = updateProfileSectionFilter('math', mathProfiles);
   rememberFilterControls(`math:${getSelectedSchoolYear()}`, mathFilterIds);
   const period = document.getElementById("mathPeriodFilter")?.value || "";
   const sex = document.getElementById("mathSexFilter")?.value || "";
   const status = document.getElementById("mathStatusFilter")?.value || "";
   const grade = document.getElementById("mathGradeFilter")?.value || "";
   const chartCohort = mathProfiles.filter((record) => { const text = `${record.name || ""} ${formatLearnerName(record)} ${formatProfileLearnerName(record)} ${record.learnerId || ""} ${record.gradeLevel || ""}`.toLowerCase(); return (!mathSearch || text.includes(mathSearch)) && (!sex || normalizeProfileGender(record.gender) === normalizeProfileGender(sex)); });
-  const cohort = chartCohort.filter((record) => !grade || normalizeProfileGrade(record.gradeLevel) === normalizeProfileGrade(grade));
+  const cohort = chartCohort.filter((record) => (!grade || normalizeProfileGrade(record.gradeLevel) === normalizeProfileGrade(grade)) && matchesProfileSection(record, section));
   const records = cohort.filter((record) => matchesProfileAssessmentFilters(record, period, status));
   renderMathCharts(records);
   renderMathSummary(records);

@@ -15,12 +15,13 @@
       </div>
       <section class="panel profile-learners-panel" id="nutritionLearnersPanel" role="tabpanel" aria-labelledby="nutritionLearnersTab">
         <div class="panel-header"><h3>Nutrition Progress by Learner</h3></div>
-        <div class="toolbar profile-filters profile-list-toolbar">
-          <div class="search-box"><input id="nutritionSearch" type="search" placeholder="Search learner or LRN..." /></div>
+        <div class="toolbar profile-filters profile-list-toolbar profile-section-toolbar">
+          <div class="search-box"><input id="nutritionSearch" type="search" placeholder="Search learner or LRN..." aria-label="Search learners by name or LRN" /></div>
+          <select class="select-filter" id="nutritionGradeFilter" aria-label="Filter by grade level"><option value="">All Grade Levels</option><option>Kinder</option><option>Grade 1</option><option>Grade 2</option><option>Grade 3</option><option>Grade 4</option><option>Grade 5</option><option>Grade 6</option></select>
+          <select class="select-filter" id="nutritionSectionFilter" aria-label="Filter by section"><option value="">All Sections</option></select>
           <select class="select-filter" id="nutritionPeriodFilter" aria-label="With results in assessment period"><option value="">With results in: Any period</option><option value="bosy">With results in: Baseline</option><option value="mosy">With results in: Midline</option><option value="eosy">With results in: Endline</option></select>
-          <select class="select-filter" id="nutritionSexFilter"><option value="">All Sex</option><option>Male</option><option>Female</option></select>
-          <select class="select-filter" id="nutritionGradeFilter"><option value="">All Grade Levels</option><option>Kinder</option><option>Grade 1</option><option>Grade 2</option><option>Grade 3</option><option>Grade 4</option><option>Grade 5</option><option>Grade 6</option></select>
-          <select class="select-filter" id="nutritionStatusFilter"><option value="">All Nutritional Statuses</option><option>Normal</option><option>Wasted</option><option>Severely Wasted</option><option>Overweight</option><option>Obese</option></select>
+          <select class="select-filter" id="nutritionSexFilter" aria-label="Filter by sex"><option value="">All Sex</option><option>Male</option><option>Female</option></select>
+          <select class="select-filter" id="nutritionStatusFilter" aria-label="Filter by nutritional status"><option value="">All Nutritional Statuses</option><option>Normal</option><option>Wasted</option><option>Severely Wasted</option><option>Overweight</option><option>Obese</option></select>
           <div class="profile-sort-controls">
             <label for="nutritionSort">Sort by</label>
             <select class="select-filter" id="nutritionSort"><option value="name">Surname</option><option value="gradeLevel">Grade level</option><option value="learnerId">LRN</option><option value="gender">Gender</option></select>
