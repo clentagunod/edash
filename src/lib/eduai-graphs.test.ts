@@ -36,7 +36,7 @@ describe('EduAI chart context', () => {
     expect(graphs.find(({ title }) => title.includes('enrollment by grade'))?.points)
       .toEqual([{ label: 'Grade 1', count: 2 }, { label: 'Grade 4', count: 1 }]);
     expect(graphs.find(({ title }) => title.includes('program-tag distribution'))?.points)
-      .toContainEqual({ label: '4Ps Beneficiaries', count: 1, percent: 33.3 });
+      .toContainEqual({ label: '4Ps Beneficiaries', count: 1, percent: 33.33 });
     const reading = graphs.find(({ title }) => title.includes('CRLA distribution'));
     expect(reading?.points).toContainEqual({
       label: 'Grade 1 · BOSY · Grade Ready',
@@ -61,5 +61,19 @@ describe('EduAI chart context', () => {
       .toContainEqual({ label: 'Not Tagged', count: 0, percent: 0 });
     expect(graphs.find(({ title }) => title.includes('latest status mix'))?.points)
       .toContainEqual({ label: 'Normal', count: 0 });
+  });
+
+  it('uses total learners as the denominator when program groups overlap', () => {
+    const graphs = buildEduAiGraphs([
+      { gradeLevel: 'Grade 1', is4Ps: true, isARAL: true, isMuslim: true },
+      { gradeLevel: 'Grade 1', isARAL: true },
+    ]);
+    const programMix = graphs.find(({ title }) => title.includes('program-tag distribution'));
+
+    expect(programMix?.points).toContainEqual({ label: '4Ps Beneficiaries', count: 1, percent: 50 });
+    expect(programMix?.points).toContainEqual({ label: 'ARAL Tagged', count: 2, percent: 100 });
+    expect(programMix?.points).toContainEqual({ label: 'Muslim Learners', count: 1, percent: 50 });
+    expect(programMix?.points).toContainEqual({ label: 'Not Tagged', count: 0, percent: 0 });
+    expect(programMix?.description).toContain('percentages of total learners');
   });
 });

@@ -7,6 +7,7 @@ import {
   normalizeProfileGrade,
 } from './profile-charts';
 import { buildNutritionGraphData, NUTRITION_STATUS_CATEGORIES } from './nutrition-charts';
+import { programDistributionData } from './program-distribution';
 
 export interface EduAiGraphPoint {
   label: string;
@@ -80,28 +81,18 @@ export function buildEduAiGraphs(learners: Array<Record<string, unknown>>): EduA
     })),
   };
 
-  const programEntries: Array<[string, (learner: Record<string, unknown>) => boolean]> = [
-    ['Not Tagged', (learner) => !learner.is4Ps && !learner.isIP && !learner.isSNED && !learner.isARAL && !learner.isMuslim],
-    ['4Ps Beneficiaries', (learner) => learner.is4Ps === true],
-    ['IP Learners', (learner) => learner.isIP === true],
-    ['SNED Learners', (learner) => learner.isSNED === true],
-    ['ARAL Tagged', (learner) => learner.isARAL === true],
-    ['Muslim Learners', (learner) => learner.isMuslim === true],
-  ];
   const programMix: EduAiGraph = {
     title: 'Dashboard: program-tag distribution',
-    description: 'Counts and shares shown in the Dashboard and Reports donut. Program tags can overlap; percentages are shares of all displayed segments, not shares of total enrollment.',
-    points: (() => {
-      const values = programEntries.map(([label, predicate]) => ({
-        label,
-        count: learners.filter(predicate).length,
-      }));
-      const segmentTotal = values.reduce((sum, point) => sum + point.count, 0) || 1;
-      return values.map((point) => ({
-        ...point,
-        percent: Math.round((point.count / segmentTotal) * 1000) / 10,
-      }));
-    })(),
+    description: 'Counts and percentages of total learners shown in the Dashboard and Reports donut legends. Donut slice sizes compare group counts, normalized across all displayed groups. Learners may belong to multiple groups, so enrollment percentages may add up to more than 100%.',
+    points: programDistributionData({
+      totalLearners: learners.length,
+      notTaggedCount: learners.filter((learner) => !learner.is4Ps && !learner.isIP && !learner.isSNED && !learner.isARAL && !learner.isMuslim).length,
+      fourPsCount: learners.filter((learner) => learner.is4Ps === true).length,
+      ipCount: learners.filter((learner) => learner.isIP === true).length,
+      snedCount: learners.filter((learner) => learner.isSNED === true).length,
+      aralCount: learners.filter((learner) => learner.isARAL === true).length,
+      muslimCount: learners.filter((learner) => learner.isMuslim === true).length,
+    }).map(({ label, value, percent }) => ({ label, count: value, percent: Number(percent.toFixed(2)) })),
   };
 
   const coverage = (title: string, fields: string[]): EduAiGraph => ({

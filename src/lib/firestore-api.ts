@@ -1186,6 +1186,7 @@ export function fsSchedulePublicStatsRefresh_() {
 }
 
 export function fsPublicActive_(learner) {
+  if (!learner || typeof learner !== "object" || !Object.keys(learner).length) return false;
   const enrollmentStatus = String(learner?.enrollmentStatus || "ACTIVE").toUpperCase().replace(/[ -]+/g, "_");
   const eosyStatus = String(learner?.eosyStatus || "").toLowerCase().replace(/[_-]+/g, " ");
   return enrollmentStatus !== "TRANSFERRED_OUT" && enrollmentStatus !== "DROPPED_OUT" && eosyStatus !== "dropped out" && !learner?.transferOut;
@@ -1197,7 +1198,9 @@ export function fsPublicMetricDelta_(before, after, field) {
 
 export async function fsUpdatePublicStatsForChange_(schoolYear, before, after) {
   const ref = db.collection(FS_PUBLIC_STATS).doc(FS_DOCUMENTS.publicStatsSummary);
+  let refreshUntaggedCount = false;
   await db.runTransaction(async (transaction) => {
+    refreshUntaggedCount = false;
     const snapshot = await transaction.get(ref);
     if (!snapshot.exists) return;
     const stats = snapshot.data();
@@ -1209,7 +1212,15 @@ export async function fsUpdatePublicStatsForChange_(schoolYear, before, after) {
     update.maleCount = Number(stats.maleCount || 0) + (fsPublicActive_(after) && after?.gender === "Male" ? 1 : 0) - (fsPublicActive_(before) && before?.gender === "Male" ? 1 : 0);
     update.femaleCount = Number(stats.femaleCount || 0) + (fsPublicActive_(after) && after?.gender === "Female" ? 1 : 0) - (fsPublicActive_(before) && before?.gender === "Female" ? 1 : 0);
     fields.forEach(([field, countField]) => { update[countField] = Number(stats[countField] || 0) + fsPublicMetricDelta_(before, after, field); });
-    update.notTaggedCount = Math.max(0, update.totalLearners - fields.reduce((count, [, countField]) => count + Number(update[countField] || 0), 0));
+    const previousNotTaggedCount = Number(stats.notTaggedCount);
+    if (stats.notTaggedCount != null && String(stats.notTaggedCount).trim() !== "" && Number.isFinite(previousNotTaggedCount)) {
+      const untaggedActive = (learner) => Number(fsPublicActive_(learner) && !fields.some(([field]) => learner[field]));
+      // Program memberships overlap, so update unique untagged learners directly.
+      update.notTaggedCount = Math.max(0, Math.min(update.totalLearners, previousNotTaggedCount + untaggedActive(after) - untaggedActive(before)));
+    } else {
+      // Marginal program counts cannot recover the unique count; recount learners.
+      refreshUntaggedCount = true;
+    }
     const gradeCounts = Object.fromEntries((stats.gradeLevels || []).map((item) => [item.label, Number(item.value || 0)]));
     if (fsPublicActive_(before) && before?.gradeLevel) gradeCounts[before.gradeLevel] = Math.max(0, (gradeCounts[before.gradeLevel] || 0) - 1);
     if (fsPublicActive_(after) && after?.gradeLevel) gradeCounts[after.gradeLevel] = (gradeCounts[after.gradeLevel] || 0) + 1;
@@ -1232,6 +1243,7 @@ export async function fsUpdatePublicStatsForChange_(schoolYear, before, after) {
     transaction.set(ref, update, { merge: true });
   });
   if (typeof LPSCache !== "undefined") LPSCache.remove("firestore_public_stats");
+  if (refreshUntaggedCount) fsSchedulePublicStatsRefresh_();
 }
 
 export function fsSchoolYearSortValue_(value) {

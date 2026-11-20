@@ -3,6 +3,7 @@ import html from './markup/dashboard.html?raw';
 import { requireAuth } from '../lib/auth';
 import { initDashboard, dashboardLearnerUnsubscribe, dashboardPublicStatsUnsubscribe, dashboardRecentLearnersUnsubscribe } from '../lib/dashboard';
 import DashboardModes from '../components/DashboardModes';
+import '../styles/pages/dashboard.css';
 
 export default function DashboardPage() {
   return (

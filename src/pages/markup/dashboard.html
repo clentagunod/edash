@@ -33,13 +33,31 @@
 
       <div id="yearSwitcherMount"></div>
 
-      <div class="stat-grid" id="statGrid">
-        <div class="stat-card"><div class="skeleton" style="height:80px;"></div></div>
-        <div class="stat-card"><div class="skeleton" style="height:80px;"></div></div>
-        <div class="stat-card"><div class="skeleton" style="height:80px;"></div></div>
-        <div class="stat-card"><div class="skeleton" style="height:80px;"></div></div>
-        <div class="stat-card"><div class="skeleton" style="height:80px;"></div></div>
-      </div>
+      <section class="dashboard-stat-section" aria-labelledby="dashboardLearnerTotalsHeading">
+        <div class="dashboard-stat-heading">
+          <h2 id="dashboardLearnerTotalsHeading">Learner totals</h2>
+          <p>Enrollment counts and gender distribution.</p>
+        </div>
+        <div class="stat-grid dashboard-learner-stats" id="statGrid">
+          <div class="stat-card"><div class="skeleton" style="height:80px;"></div></div>
+          <div class="stat-card"><div class="skeleton" style="height:80px;"></div></div>
+          <div class="stat-card"><div class="skeleton" style="height:80px;"></div></div>
+        </div>
+      </section>
+
+      <section class="dashboard-stat-section" aria-labelledby="dashboardProgramTotalsHeading">
+        <div class="dashboard-stat-heading">
+          <h2 id="dashboardProgramTotalsHeading">Programs and learner groups</h2>
+          <p>Learners may appear in more than one program or group.</p>
+        </div>
+        <div class="stat-grid dashboard-program-stats" id="programStatGrid">
+          <div class="stat-card"><div class="skeleton" style="height:80px;"></div></div>
+          <div class="stat-card"><div class="skeleton" style="height:80px;"></div></div>
+          <div class="stat-card"><div class="skeleton" style="height:80px;"></div></div>
+          <div class="stat-card"><div class="skeleton" style="height:80px;"></div></div>
+          <div class="stat-card"><div class="skeleton" style="height:80px;"></div></div>
+        </div>
+      </section>
 
       <div class="two-col">
         <section class="panel">
@@ -50,7 +68,7 @@
               <div class="legend-list" id="donutLegend"></div>
             </div>
           </div>
-          <div class="panel-note">Note: Learners may belong to more than one program.</div>
+          <div class="panel-note">Percentages show each group's share of total learners. Circle slices compare group counts; learners may belong to multiple groups.</div>
         </section>
 
         <section class="panel">

@@ -8,6 +8,7 @@ import { APP_CONFIG, appSchoolFilePrefix, paginationPageNumbers } from './app-co
 import { fsGetReportsData, fsSubscribeLearners } from './firestore-api';
 import { initGraphEnhancements } from './graph-enhancements';
 import { compareGradeLevelLabels } from './grade-level-order';
+import { programDistributionMarkup } from './program-distribution';
 
 export let REPORTS_DATA = null;
 export let EOSY_SORT_DESCENDING = false;
@@ -169,32 +170,9 @@ export function renderProfileGraphs(data) {
 }
 
 export function renderDonut(s) {
-  const segments = [
-    { label: "Not Tagged", value: s.notTaggedCount, color: "#2f6fed" },
-    { label: "4Ps Beneficiaries", value: s.fourPsCount, color: "#d94f70" },
-    { label: "IP Learners", value: s.ipCount, color: "#1e8e5a" },
-    { label: "SNED Learners", value: s.snedCount, color: "#7c5cd1" },
-    { label: "ARAL Tagged", value: s.aralCount, color: "#e08a2b" },
-    { label: "Muslim Learners", value: s.muslimCount || 0, color: "#31527f" },
-  ];
-  const total = segments.reduce((sum, seg) => sum + seg.value, 0) || 1;
-  const radius = 70, circumference = 2 * Math.PI * radius;
-  let offset = 0;
-  const circles = segments.map((seg) => {
-    const fraction = seg.value / total;
-    const length = fraction * circumference;
-    const percent = (seg.value / total) * 100;
-    const circle = `<circle cx="90" cy="90" r="${radius}" fill="none" stroke="${seg.color}" stroke-width="26"
-      stroke-dasharray="${length} ${circumference - length}" stroke-dashoffset="${-offset}" transform="rotate(-90 90 90)" tabindex="0" aria-label="${seg.label}: ${seg.value} learners, ${percent.toFixed(1)} percent"><title>${seg.label}: ${seg.value.toLocaleString()} learners (${percent.toFixed(1)}%)</title></circle>`;
-    offset += length;
-    return circle;
-  }).join("");
-  document.getElementById("donutSvg").innerHTML = `<svg viewBox="0 0 180 180" width="190" height="190">${circles}<circle cx="90" cy="90" r="44" fill="#fff" /></svg>`;
-  document.getElementById("donutLegend").innerHTML = segments.map((seg) => `
-    <div class="legend-row">
-      <span class="legend-key"><span class="legend-dot" style="background:${seg.color}"></span>${seg.label}</span>
-      <span class="legend-val">${seg.value.toLocaleString()} (${((seg.value / total) * 100).toFixed(1)}%)</span>
-    </div>`).join("");
+  const { svg, legend } = programDistributionMarkup(s);
+  document.getElementById("donutSvg").innerHTML = svg;
+  document.getElementById("donutLegend").innerHTML = legend;
 }
 
 export function renderBreakdownTable(rows) {

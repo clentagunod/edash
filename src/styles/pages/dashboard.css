@@ -1,0 +1,63 @@
+.dashboard-stat-section {
+  margin-bottom: 24px;
+}
+
+.dashboard-stat-heading {
+  margin-bottom: 12px;
+}
+
+.dashboard-stat-heading h2 {
+  margin: 0 0 4px;
+  color: var(--ink-900);
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.dashboard-stat-heading p {
+  margin: 0;
+  color: var(--ink-500);
+  font-size: .875rem;
+  line-height: 1.5;
+}
+
+.dashboard-stat-section .stat-grid {
+  margin-bottom: 0;
+}
+
+.dashboard-stat-section .dashboard-learner-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dashboard-stat-section .dashboard-program-stats {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.dashboard-stat-section .stat-card {
+  min-width: 0;
+}
+
+.dashboard-stat-section .stat-card-top .label,
+.dashboard-stat-section .stat-foot {
+  font-size: .875rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1280px) {
+  .dashboard-stat-section .dashboard-program-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .dashboard-stat-section .dashboard-program-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .dashboard-stat-section .dashboard-learner-stats,
+  .dashboard-stat-section .dashboard-program-stats {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

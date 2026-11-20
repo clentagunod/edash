@@ -10,6 +10,7 @@ import { fsGetLearners, fsGetPublicStats, fsNormalizeSchoolYear_, fsRefreshPubli
 import { initYearSwitcher } from './school-year';
 import { initGraphEnhancements } from './graph-enhancements';
 import { compareGradeLevelLabels } from './grade-level-order';
+import { formatLearnerPercentage, programDistributionMarkup } from './program-distribution';
 
 export let dashboardLearnerUnsubscribe = null;
 export let dashboardPublicStatsUnsubscribe = null;
@@ -378,23 +379,27 @@ export function visitorFallbackSummary() {
 }
 
 export function renderStatCards(s) {
-  const pct = (n) => (s.totalLearners ? ((n / s.totalLearners) * 100).toFixed(2) + "% of total learners" : "");
+  const pct = (n) => `${formatLearnerPercentage(n, s.totalLearners)} of total learners`;
   document.getElementById("statGrid").innerHTML = `
     <div class="stat-card">
-      <div class="stat-card-top"><div class="stat-icon total">${Icon.users}</div><span class="label">Total Learners</span></div>
+      <div class="stat-card-top"><div class="stat-icon total">${Icon.learnersTotal}</div><span class="label">Total Learners</span></div>
       <div class="stat-value">${s.totalLearners.toLocaleString()}</div>
       <div class="stat-foot">All enrolled learners</div>
     </div>
     <div class="stat-card">
       <div class="stat-card-top"><div class="stat-icon male">${Icon.users}</div><span class="label">Male Learners</span></div>
       <div class="stat-value">${(s.maleCount || 0).toLocaleString()}</div>
-      <div class="stat-foot">Gender recorded as Male</div>
+      <div class="stat-foot">${pct(s.maleCount)}</div>
     </div>
     <div class="stat-card">
       <div class="stat-card-top"><div class="stat-icon female">${Icon.users}</div><span class="label">Female Learners</span></div>
       <div class="stat-value">${(s.femaleCount || 0).toLocaleString()}</div>
-      <div class="stat-foot">Gender recorded as Female</div>
+      <div class="stat-foot">${pct(s.femaleCount)}</div>
     </div>
+    `;
+  const programGrid = document.getElementById("programStatGrid");
+  if (!programGrid) return;
+  programGrid.innerHTML = `
     <div class="stat-card">
       <div class="stat-card-top"><div class="stat-icon fourps">${Icon.heart}</div><span class="label">4Ps Beneficiaries</span></div>
       <div class="stat-value">${s.fourPsCount.toLocaleString()}</div>
@@ -418,44 +423,15 @@ export function renderStatCards(s) {
     <div class="stat-card">
       <div class="stat-card-top"><div class="stat-icon muslim">${Icon.users}</div><span class="label">Muslim Learners</span></div>
       <div class="stat-value">${(s.muslimCount || 0).toLocaleString()}</div>
-      <div class="stat-foot">Identified learners</div>
+      <div class="stat-foot">${pct(s.muslimCount)}</div>
     </div>
     `;
 }
 
 export function renderDonut(s) {
-  const segments = [
-    { label: "Not Tagged", value: s.notTaggedCount, color: "#2f6fed" },
-    { label: "4Ps Beneficiaries", value: s.fourPsCount, color: "var(--tag-4ps)" },
-    { label: "IP Learners", value: s.ipCount, color: "var(--tag-ip)" },
-    { label: "SNED Learners", value: s.snedCount, color: "var(--tag-sned)" },
-    { label: "ARAL Tagged", value: s.aralCount, color: "var(--tag-aral)" },
-    { label: "Muslim Learners", value: s.muslimCount || 0, color: "var(--tag-muslim)" },
-  ];
-  const rawColors = { "Not Tagged": "#2f6fed", "4Ps Beneficiaries": "#d94f70", "IP Learners": "#1e8e5a", "SNED Learners": "#7c5cd1", "ARAL Tagged": "#e08a2b", "Muslim Learners": "#31527f" };
-  const total = segments.reduce((sum, seg) => sum + seg.value, 0) || 1;
-
-  const radius = 70, circumference = 2 * Math.PI * radius;
-  let offset = 0;
-  const circles = segments.map((seg) => {
-    const fraction = seg.value / total;
-    const length = fraction * circumference;
-    const dashArray = `${length} ${circumference - length}`;
-    const percent = (seg.value / total) * 100;
-    const circle = `<circle cx="90" cy="90" r="${radius}" fill="none" stroke="${rawColors[seg.label]}" stroke-width="26"
-      stroke-dasharray="${dashArray}" stroke-dashoffset="${-offset}" transform="rotate(-90 90 90)" tabindex="0" aria-label="${seg.label}: ${seg.value} learners, ${percent.toFixed(1)} percent"><title>${seg.label}: ${seg.value.toLocaleString()} learners (${percent.toFixed(1)}%)</title></circle>`;
-    offset += length;
-    return circle;
-  }).join("");
-
-  document.getElementById("donutSvg").innerHTML = `
-    <svg viewBox="0 0 180 180" width="190" height="190">${circles}<circle cx="90" cy="90" r="44" fill="#fff" /></svg>`;
-
-  document.getElementById("donutLegend").innerHTML = segments.map((seg) => `
-    <div class="legend-row">
-      <span class="legend-key"><span class="legend-dot" style="background:${rawColors[seg.label]}"></span>${seg.label}</span>
-      <span class="legend-val">${seg.value.toLocaleString()} (${((seg.value / total) * 100).toFixed(1)}%)</span>
-    </div>`).join("");
+  const { svg, legend } = programDistributionMarkup(s);
+  document.getElementById("donutSvg").innerHTML = svg;
+  document.getElementById("donutLegend").innerHTML = legend;
 }
 
 export function renderBarChart(s) {
@@ -502,7 +478,7 @@ export function renderProgramSummary(s) {
     { icon: "heart", cls: "fourps", title: "4Ps Beneficiaries", desc: "Learners tagged as 4Ps beneficiaries", count: s.fourPsCount, href: "program-4ps.html" },
     { icon: "leaf", cls: "ip", title: "IP Learners", desc: "Learners identified as Indigenous Peoples", count: s.ipCount, href: "program-ip.html" },
     { icon: "accessibility", cls: "sned", title: "SNED Learners", desc: "Learners with Special Educational Needs", count: s.snedCount, href: "program-sned.html" },
-    { icon: "alertTriangle", cls: "aral", title: "ARAL Tagged Learners", desc: "Learners at Risk of Dropping Out / ARAL", count: s.aralCount, href: "program-aral.html" },
+    { icon: "alertTriangle", cls: "aral", title: "ARAL Tagged Learners", desc: "Learners enrolled in the Academic Recovery and Accessible Learning (ARAL) program", count: s.aralCount, href: "program-aral.html" },
     { icon: "users", cls: "muslim", title: "Muslim Learners", desc: "Learners identified in the Muslim category", count: s.muslimCount || 0, href: "program-muslim.html" },
   ];
   document.getElementById("programSummary").innerHTML = rows.map((r) => `${isVisitorSession() ? "<div" : `<a href="${appPagePath(r.href)}"`} class="summary-row" style="text-decoration:none;color:inherit;">
