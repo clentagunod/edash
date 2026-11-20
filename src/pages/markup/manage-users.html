@@ -393,13 +393,13 @@
       <details class="admin-accordion admin-access-accordion" id="adminImportsAccessAccordion">
         <summary class="admin-accordion-summary">
           <span class="admin-accordion-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4m-4 4 4-4 4 4M4 16v4h16v-4" /></svg></span>
-          <span class="admin-accordion-copy"><strong>Imports</strong><small>Control teacher access to student imports</small></span>
+          <span class="admin-accordion-copy"><strong>Imports</strong><small>Control teacher access to SF1 student and SF2 attendance imports</small></span>
           <svg class="admin-accordion-chevron" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6" /></svg>
         </summary>
         <div class="admin-accordion-content admin-access-settings">
           <section class="panel admin-parent-access-panel" aria-labelledby="adminImportAccessTitle">
             <div class="admin-parent-access-copy">
-              <div><h3 id="adminImportAccessTitle">Allow teacher imports</h3><p id="adminImportAccessDescription">Show Import Students in the Learner Masterlist for teachers. Teachers can import only into their assigned sections. School administrators always have access.</p></div>
+              <div><h3 id="adminImportAccessTitle">Allow teacher student imports (SF1)</h3><p id="adminImportAccessDescription">Show Import Students (SF1) in the Learner Masterlist for teachers. Teachers can import only into their assigned sections. School administrators always have access.</p></div>
               <label class="admin-switch">
                 <input id="adminImportAccessToggle" type="checkbox" role="switch" aria-labelledby="adminImportAccessTitle" aria-describedby="adminImportAccessDescription" disabled />
                 <span class="admin-switch-track" aria-hidden="true"></span>
@@ -407,6 +407,17 @@
             </div>
             <p id="adminImportAccessState" class="admin-parent-access-state" role="status" aria-live="polite">Loading Imports setting…</p>
             <button id="adminImportAccessRetry" class="btn btn-secondary admin-import-access-retry" type="button" hidden>Retry loading setting</button>
+          </section>
+          <section class="panel admin-parent-access-panel" aria-labelledby="adminAttendanceImportAccessTitle">
+            <div class="admin-parent-access-copy">
+              <div><h3 id="adminAttendanceImportAccessTitle">Allow teacher attendance imports (SF2)</h3><p id="adminAttendanceImportAccessDescription">Show Import Daily Attendance Report (SF2) in the Learner Masterlist for teachers. Teachers can import only into their assigned sections. Developers, school administrators, and registrars always have access.</p></div>
+              <label class="admin-switch">
+                <input id="adminAttendanceImportAccessToggle" type="checkbox" role="switch" aria-labelledby="adminAttendanceImportAccessTitle" aria-describedby="adminAttendanceImportAccessDescription" disabled />
+                <span class="admin-switch-track" aria-hidden="true"></span>
+              </label>
+            </div>
+            <p id="adminAttendanceImportAccessState" class="admin-parent-access-state" role="status" aria-live="polite">Loading SF2 attendance import setting…</p>
+            <button id="adminAttendanceImportAccessRetry" class="btn btn-secondary admin-import-access-retry" type="button" hidden>Retry loading setting</button>
           </section>
         </div>
       </details>

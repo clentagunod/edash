@@ -179,6 +179,7 @@ describe('Card print studio', () => {
     const comments = container.querySelector<HTMLTextAreaElement>('.student-card-attendance-fields textarea')!;
     expect(comments.value).toBe('Steady progress');
     expect(container.querySelector<HTMLInputElement>('[aria-label="Class days Jun"]')!.value).toBe('21');
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Class days Jun"]')!.readOnly).toBe(true);
     expect(container.querySelector<HTMLInputElement>('[aria-label="Present Jun"]')!.value).toBe('20');
     expect(container.querySelector<HTMLInputElement>('[aria-label="Absent Jun"]')!.value).toBe('1');
     expect([...container.querySelectorAll('.sf9-comment-box p')].some((element) => element.textContent === 'Ready for next year')).toBe(true);
@@ -193,6 +194,22 @@ describe('Card print studio', () => {
       present.dispatchEvent(new Event('input', { bubbles: true }));
     });
     expect([...container.querySelectorAll('.sf9-attendance-table tr')].some((row) => row.textContent === 'Present1919')).toBe(true);
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Class days Jun"]')!.value).toBe('20');
+    const absent = container.querySelector<HTMLInputElement>('[aria-label="Absent Jun"]')!;
+    expect(absent.readOnly).toBe(false);
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(present, '0.1');
+      present.dispatchEvent(new Event('input', { bubbles: true }));
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(absent, '0.2');
+      absent.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Class days Jun"]')!.value).toBe('0.3');
+    expect([...container.querySelectorAll('.sf9-attendance-table tr')].some((row) => row.textContent === 'Class days0.30.3')).toBe(true);
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(absent, '');
+      absent.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Class days Jun"]')!.value).toBe('');
     expect(learner.teacherComments[0]).toBe('Steady progress');
     expect(learner.attendance.daysPresent.Jun).toBe('20');
     // Switching paper sizes invalidates history from the previous paper geometry.

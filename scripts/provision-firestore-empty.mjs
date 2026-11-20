@@ -90,6 +90,9 @@ async function seedSchoolStructure(db, schoolYear) {
   if (!togglesSnapshot.exists || togglesSnapshot.data()?.canTeacherImport === undefined) {
     await ensureDoc(togglesRef, { canTeacherImport: false });
   }
+  if (!togglesSnapshot.exists || togglesSnapshot.data()?.canTeacherImportAttendance === undefined) {
+    await ensureDoc(togglesRef, { canTeacherImportAttendance: false });
+  }
   if (!togglesSnapshot.exists || togglesSnapshot.data()?.canTeacherEditProfiles === undefined) {
     await ensureDoc(togglesRef, { canTeacherEditProfiles: true });
   }

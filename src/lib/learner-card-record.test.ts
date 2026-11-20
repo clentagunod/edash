@@ -67,7 +67,7 @@ describe('persistent learner card records', () => {
     const host = form();
     const learner = {
       teacherComments: ['Good progress', 'Keep reading', 'Ready for next year'],
-      attendance: { classDays: { Aug: '20', Sep: '20' }, daysPresent: { Jun: '18', Aug: '20' }, daysAbsent: { Aug: '0' } },
+      attendance: { classDays: { Jun: '20', Aug: '20', Sep: '20' }, daysPresent: { Jun: '18', Aug: '20' }, daysAbsent: { Aug: '0', Sep: '1' } },
     };
     renderLearnerCardFields(host, learner, preferences);
     organizeLearnerForm(host);
@@ -84,6 +84,7 @@ describe('persistent learner card records', () => {
     expect(saved.attendance.daysPresent).toEqual({ Jun: '18', Aug: '20', Sep: '19' });
     expect(saved.attendance.daysAbsent.Aug).toBe('0');
     expect(saved.attendance.daysAbsent.Sep).toBe('1');
+    expect(saved.attendance.classDays).toEqual({ Jun: '20', Aug: '20', Sep: '20' });
     expect(learner.attendance.daysPresent).toEqual({ Jun: '18', Aug: '20' });
   });
 
@@ -93,40 +94,47 @@ describe('persistent learner card records', () => {
     renderLearnerCardFields(host, {}, preferences);
     expect(host.querySelector<HTMLTextAreaElement>('[data-teacher-comment]')!.value).toBe('');
     const input = host.querySelector<HTMLInputElement>('[data-attendance-row="daysPresent"]')!;
-    host.querySelector<HTMLInputElement>('[data-attendance-row="classDays"]')!.value = '10';
+    host.querySelector<HTMLInputElement>('[data-attendance-row="daysAbsent"]')!.value = '7.5';
     input.value = '-1';
     expect(host.checkValidity()).toBe(false);
     expect(() => collectLearnerCardFields(host)).toThrow('non-negative number');
     input.value = '2.5';
+    expect(collectLearnerCardFields(host).attendance.classDays.Aug).toBe('10');
     expect(collectLearnerCardFields(host).attendance.daysAbsent.Aug).toBe('7.5');
     input.value = '0';
     expect(host.checkValidity()).toBe(true);
   });
 
-  it('calculates readonly absences exactly, updates totals, handles cleared values and rejects present above class days', () => {
+  it('calculates readonly class totals exactly from editable present and absent counts and ignores tampered totals', () => {
     const host = form();
     renderLearnerCardFields(host, {}, preferences);
     const days = host.querySelector<HTMLInputElement>('[data-attendance-row="classDays"][data-attendance-month="Aug"]')!;
     const present = host.querySelector<HTMLInputElement>('[data-attendance-row="daysPresent"][data-attendance-month="Aug"]')!;
     const absent = host.querySelector<HTMLInputElement>('[data-attendance-row="daysAbsent"][data-attendance-month="Aug"]')!;
-    expect(absent.readOnly).toBe(true);
-    days.value = '0.3';
+    expect(days.readOnly).toBe(true);
+    expect(present.readOnly).toBe(false);
+    expect(absent.readOnly).toBe(false);
     present.value = '0.1';
-    present.dispatchEvent(new Event('input', { bubbles: true }));
-    expect(absent.value).toBe('0.2');
-    expect(absent.closest('tr')!.lastElementChild!.textContent).toBe('0.2');
-    absent.value = '99';
-    expect(collectLearnerCardFields(host).attendance.daysAbsent.Aug).toBe('0.2');
+    absent.value = '0.2';
+    absent.dispatchEvent(new Event('input', { bubbles: true }));
+    expect(days.value).toBe('0.3');
+    expect(days.closest('tr')!.lastElementChild!.textContent).toBe('0.3');
+    days.value = '99';
+    expect(collectLearnerCardFields(host).attendance.classDays.Aug).toBe('0.3');
     present.value = '0.4';
     present.dispatchEvent(new Event('input', { bubbles: true }));
-    expect(host.checkValidity()).toBe(false);
-    expect(absent.value).toBe('');
-    expect(() => collectLearnerCardFields(host)).toThrow('cannot exceed');
+    expect(host.checkValidity()).toBe(true);
+    expect(days.value).toBe('0.6');
+    expect(absent.value).toBe('0.2');
     present.value = '';
     present.dispatchEvent(new Event('input', { bubbles: true }));
-    expect(absent.value).toBe('');
+    expect(days.value).toBe('');
+    expect(absent.value).toBe('0.2');
     expect(host.checkValidity()).toBe(true);
-    expect(collectLearnerCardFields(host).attendance.daysAbsent.Aug).toBe('');
+    expect(collectLearnerCardFields(host).attendance.classDays.Aug).toBe('');
+    absent.value = '-1';
+    expect(host.checkValidity()).toBe(false);
+    expect(() => collectLearnerCardFields(host)).toThrow('non-negative number');
   });
 
   it('blocks saving if preferences fail, and prevents an older load from replacing another learner', async () => {

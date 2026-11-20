@@ -1,4 +1,4 @@
-/** Day counts allow decimals; integer arithmetic avoids 0.3 - 0.1 artifacts. */
+/** Day counts allow decimals; integer arithmetic avoids floating point artifacts. */
 export function isAttendanceCount(value: string): boolean {
   return /^(?:\d+(?:\.\d*)?|\.\d+)$/.test(value)
     && Number.isFinite(Number(value)) && Number(value) <= Number.MAX_SAFE_INTEGER;
@@ -16,11 +16,10 @@ function decimalString(digits: bigint, scale: number): string {
   return `${negative ? '-' : ''}${result}`;
 }
 
-export function attendanceAbsent(classDays: string, present: string): string {
-  if (!isAttendanceCount(classDays) || !isAttendanceCount(present)) return '';
-  const left = parts(classDays), right = parts(present);
-  const scale = Math.max(left.scale, right.scale);
-  return decimalString(left.digits * 10n ** BigInt(scale - left.scale) - right.digits * 10n ** BigInt(scale - right.scale), scale);
+/** Incomplete monthly records remain blank until present and absent are entered. */
+export function attendanceClassDays(present: string, absent: string): string {
+  if (!isAttendanceCount(present) || !isAttendanceCount(absent)) return '';
+  return attendanceTotal([present, absent]);
 }
 
 export function attendanceTotal(values: readonly string[]): string {

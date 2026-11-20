@@ -1,5 +1,12 @@
 .masterlist-header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .masterlist-header-actions .btn { width: auto; }
+#masterlistImportRoot { display: flex; flex-wrap: wrap; gap: 10px; }
+#masterlistImportRoot > .btn { justify-content: center; white-space: normal; }
+.student-import-dialog .btn,
+#masterlistImportRoot > .btn { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 10px 16px; border: 1px solid var(--line-200); border-radius: 8px; background: var(--bg-card); color: var(--ink-700); font: inherit; font-size: 14px; font-weight: 600; line-height: 1.4; cursor: pointer; }
+.student-import-dialog .btn-primary { border-color: var(--blue-600); background: var(--blue-600); color: #fff; }
+.student-import-dialog .btn:hover:not(:disabled),
+#masterlistImportRoot > .btn:hover:not(:disabled) { filter: brightness(.96); }
 .student-import-dialog { width: min(1120px, calc(100vw - 32px)); max-height: calc(100vh - 40px); max-height: calc(100dvh - 40px); padding: 0; border: 1px solid var(--line-200); border-radius: 18px; background: var(--bg-card); color: var(--ink-900); box-shadow: 0 24px 80px rgb(0 0 0 / 24%); overflow: auto; overscroll-behavior: contain; scroll-padding-top: 140px; }
 .student-import-dialog::backdrop { background: rgb(10 22 40 / 55%); backdrop-filter: blur(3px); }
 .student-import-dialog-heading { position: sticky; top: 0; z-index: 3; display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 24px 28px 20px; border-bottom: 1px solid var(--line-200); background: var(--bg-card); }
@@ -16,6 +23,8 @@
 @media (max-width: 600px) {
   .masterlist-header-actions { width: 100%; }
   .masterlist-header-actions .btn { flex: 1; justify-content: center; }
+  #masterlistImportRoot { width: 100%; }
+  #masterlistImportRoot > .btn { flex: 1 1 100%; }
   .student-import-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); border-radius: 12px; }
   .student-import-dialog-heading { padding: 18px; gap: 12px; }
   .student-import-dialog-heading h2 { font-size: 21px; }

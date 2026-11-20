@@ -32,7 +32,9 @@ describe('Admin Console collapsible sections', () => {
     expect(accordion.querySelector('#firestoreBackupReview')?.hidden).toBe(true);
     expect(accordion.querySelector('#confirmFirestoreBackupBtn')).not.toBeNull();
     expect(accordion.querySelector('#downloadFirestoreBackupBtn')).not.toBeNull();
-    expect(document.querySelector('#adminStudentImportRoot')?.closest('details')).toBeNull();
+    expect(accordion.querySelector('#importStudentsBtn')).toBeNull();
+    expect(accordion.querySelector('#importAttendanceBtn')).toBeNull();
+    expect(accordion.textContent).toContain('Learner Masterlist');
   });
   it('groups Card Preferences controls into three collapsed accordions', () => {
     const document = new DOMParser().parseFromString(markup, 'text/html');
@@ -52,13 +54,19 @@ describe('Admin Console collapsible sections', () => {
   it('separates access configurations from user management and keeps Add User in its section', () => {
     const document = new DOMParser().parseFromString(markup, 'text/html');
     const accessAccordions = [...document.querySelectorAll('#adminAccessPanel > .admin-access-accordion')];
-    const [settingsAccordion, usersAccordion] = accessAccordions;
+    const [settingsAccordion, importsAccordion, usersAccordion] = accessAccordions;
 
-    expect(accessAccordions).toHaveLength(2);
+    expect(accessAccordions).toHaveLength(3);
     expect(settingsAccordion.querySelector('#adminParentAccessToggle')).not.toBeNull();
     expect(settingsAccordion.querySelector('#adminParentPortalLinkRoot')?.closest('section')?.getAttribute('aria-labelledby')).toBe('adminParentAccessTitle');
     expect(settingsAccordion.querySelector('#adminPromotionAccessToggle')).not.toBeNull();
     expect(settingsAccordion.querySelector('#adminTrashRetentionSelect')).not.toBeNull();
+    expect(importsAccordion.id).toBe('adminImportsAccessAccordion');
+    expect(importsAccordion.querySelector('#adminImportAccessToggle')).not.toBeNull();
+    const sf2Toggle = importsAccordion.querySelector<HTMLInputElement>('#adminAttendanceImportAccessToggle')!;
+    expect(sf2Toggle.disabled).toBe(true);
+    expect(sf2Toggle.getAttribute('aria-labelledby')).toBe('adminAttendanceImportAccessTitle');
+    expect(importsAccordion.querySelector('#adminAttendanceImportAccessDescription')?.textContent).toContain('assigned sections');
     expect(usersAccordion.querySelector('#addUserBtn')).not.toBeNull();
     expect(usersAccordion.querySelector('#searchInput')).not.toBeNull();
     expect(usersAccordion.querySelector('#usersTableBody')).not.toBeNull();

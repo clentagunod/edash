@@ -396,6 +396,31 @@ describe('Parent Access setting', () => {
 });
 
 describe('Imports access setting', () => {
+  it('controls SF2 teacher access independently and defaults to off without overwriting SF1', async () => {
+    let saved: Record<string, unknown> = { canTeacherImport: true, canParentAccess: true };
+    const togglesRef = {
+      get: vi.fn(async () => ({ exists: true, data: () => saved })),
+      set: vi.fn(async (value, options) => { expect(options).toEqual({ merge: true }); saved = { ...saved, ...value }; }),
+    };
+    const collectionSpy = vi.spyOn(mockDb, 'collection').mockImplementation((name) => {
+      if (name === 'settings') return { doc: () => togglesRef };
+      if (name === 'users') return { where: () => ({ get: async () => ({ docs: [] }) }) };
+      throw new Error(`Unexpected collection ${name}`);
+    });
+    setAppUserProfile({ role: 'School Admin', status: 'Active' });
+    try {
+      await expect(firestoreApi.fsGetAttendanceImportConfiguration()).resolves.toEqual({ canTeacherImportAttendance: false, configured: false });
+      await expect(firestoreApi.fsSetCanTeacherImportAttendance(true)).resolves.toBe(true);
+      expect(saved).toEqual({ canTeacherImport: true, canParentAccess: true, canTeacherImportAttendance: true });
+      await expect(firestoreApi.fsGetAttendanceImportConfiguration()).resolves.toEqual({ canTeacherImportAttendance: true, configured: true });
+      await expect(firestoreApi.fsSetCanTeacherImportAttendance('false')).rejects.toThrow('must be enabled or disabled');
+      saved.canTeacherImportAttendance = 'true';
+      await expect(firestoreApi.fsGetAttendanceImportConfiguration()).rejects.toThrow('must be true or false');
+      setAppUserProfile({ role: 'Registrar', status: 'Active' });
+      await expect(firestoreApi.fsSetCanTeacherImportAttendance(false)).rejects.toThrow('Only a School Admin');
+    } finally { collectionSpy.mockRestore(); setAppUserProfile(null); }
+  });
+
   it('defaults to off, validates saved values, and preserves unrelated toggle fields', async () => {
     let saved: Record<string, unknown> = { canParentAccess: true, canPromoteStudents: true };
     const togglesRef = {
@@ -556,6 +581,7 @@ describe('Promotion access setting', () => {
       eosyStatus: 'Promoted',
       guardian: 'Parent',
       __studentImportId: 'source-enrollment-import',
+      __attendanceImportId: 'source-attendance-import',
       unrelatedField: 'preserved',
       teacherComments: ['Source term 1', 'Source term 2', 'Source term 3'],
       attendance: { classDays: { Aug: '22' }, daysPresent: { Aug: '20' }, daysAbsent: { Aug: '2' } },
@@ -643,7 +669,9 @@ describe('Promotion access setting', () => {
       expect(sourceLearner.teacherComments).toEqual(['Source term 1', 'Source term 2', 'Source term 3']);
       expect(sourceLearner.attendance.daysPresent.Aug).toBe('20');
       expect(transaction.set.mock.calls[0][1]).not.toHaveProperty('__studentImportId');
+      expect(transaction.set.mock.calls[0][1]).not.toHaveProperty('__attendanceImportId');
       expect(sourceLearner.__studentImportId).toBe('source-enrollment-import');
+      expect(sourceLearner.__attendanceImportId).toBe('source-attendance-import');
       targetExists = true;
       await expect(firestoreApi.fsPromoteLearner('2030-2031', '2031-2032', sourceLearner.learnerId, {
         ...sourceLearner,
@@ -682,6 +710,7 @@ describe('Promotion access setting', () => {
       }, 'retention')).rejects.toThrow('must stay in the same grade level');
       expect(transaction.set).toHaveBeenCalledTimes(2);
       expect(transaction.set.mock.calls[1][1]).not.toHaveProperty('__studentImportId');
+      expect(transaction.set.mock.calls[1][1]).not.toHaveProperty('__attendanceImportId');
     } finally {
       vi.clearAllTimers();
       vi.useRealTimers();
@@ -718,13 +747,14 @@ describe('learner import metadata', () => {
     const collectionSpy = vi.spyOn(mockDb, 'collection').mockReturnValue({
       doc: () => ({ collection: () => ({ get: async () => ({ docs: [{
         id: '123456789012',
-        data: () => ({ firstName: 'Alex', __studentImportId: 'source-enrollment-import', customField: 'keep', extra: { otherField: 'keep too' } }),
+        data: () => ({ firstName: 'Alex', __studentImportId: 'source-enrollment-import', __attendanceImportId: 'source-attendance-import', customField: 'keep', extra: { otherField: 'keep too' } }),
       }] }) }) }),
     } as never);
     setAppUserProfile({ uid: 'admin-schema-test', role: 'School Admin' });
     try {
       expect((await firestoreApi.fsGetLearnerSchema('2040-2041')).extraFields).toEqual(['customField', 'otherField']);
       expect(APP_CONFIG.firestore.learnerFields).not.toContain('__studentImportId');
+      expect(APP_CONFIG.firestore.learnerFields).not.toContain('__attendanceImportId');
     } finally {
       setAppUserProfile(null);
       collectionSpy.mockRestore();
@@ -1539,6 +1569,7 @@ describe('visitor session handling', () => {
     it('atomically restores an archived learner and clears movement fields', async () => {
       const archivedData = {
         __studentImportId: 'previous-import',
+        __attendanceImportId: 'previous-attendance-import',
         learnerId: 'lrn-0003',
         firstName: 'Alex',
         gradeLevel: 'Grade 2',
@@ -1599,6 +1630,7 @@ describe('visitor session handling', () => {
         ]);
         expect(batch.commit).toHaveBeenCalledOnce();
         expect(writes[0].data).not.toHaveProperty('__studentImportId');
+        expect(writes[0].data).not.toHaveProperty('__attendanceImportId');
       } finally {
         vi.clearAllTimers();
         vi.useRealTimers();

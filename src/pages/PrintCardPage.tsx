@@ -24,7 +24,7 @@ import { getRegisteredSchools, getStoredSchool } from '../lib/school-registry';
 import type { RegisteredSchool, SchoolInfo } from '../lib/school-registry';
 import { isLetterGradedLevel } from '../lib/student-card';
 import { learnerCardRecord } from '../lib/learner-card-record';
-import { attendanceTotal } from '../lib/attendance';
+import { attendanceClassDays, attendanceTotal } from '../lib/attendance';
 import { applySavedTheme } from '../lib/shell';
 import { formatLearnerName } from '../lib/learner-sorting';
 import {
@@ -49,7 +49,7 @@ import { usePrintableSignature, type SignatureController } from '../components/P
 
 const DEFAULT_MONTHS = ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr'];
 const DEFAULT_ATTENDANCE_ROWS = [
-  { id: 'classDays', label: 'Class days' },
+  { id: 'classDays', label: 'Total Classes' },
   { id: 'daysPresent', label: 'Present' },
   { id: 'daysAbsent', label: 'Absent' },
 ] as const;
@@ -127,9 +127,13 @@ function makeManualFields(
   schoolInfo: Partial<SchoolInfo> = {},
   learner?: LearnerRecord | null,
   adviser = '',
+  attendanceMonths = DEFAULT_MONTHS,
 ): ManualCardFields {
   const birthDate = asText(learner?.birthDate || learner?.dateOfBirth);
   const cardRecord = learnerCardRecord(learner || {});
+  attendanceMonths.forEach((month) => {
+    cardRecord.attendance.classDays[month] = attendanceClassDays(cardRecord.attendance.daysPresent[month] || '', cardRecord.attendance.daysAbsent[month] || '');
+  });
   return {
     studentName: learner ? learnerName(learner) : '',
     learnerId: asText(learner?.learnerId || learner?.lrn),
@@ -899,6 +903,7 @@ export default function PrintCardPage() {
     school?.schoolInfo,
     selectedLearner,
     sectionAdviser,
+    cardPreferences.attendanceMonths,
   );
   const gradeTerms = gradeTermsForCount(gradeTermCount);
   const termColumns = gradeTerms.filter(({ id }) => id !== 'final');
@@ -935,10 +940,11 @@ export default function PrintCardPage() {
           school?.schoolInfo,
           selectedLearner,
           sectionAdviser,
+          cardPreferences.attendanceMonths,
         ),
       },
     }));
-  }, [selectedLearner, studentKey, selectedYear, school?.name, schoolHeadName, sectionAdviser, manualByStudent]);
+  }, [selectedLearner, studentKey, selectedYear, school?.name, schoolHeadName, sectionAdviser, cardPreferences.attendanceMonths, manualByStudent]);
 
   useEffect(() => {
     const container = previewRef.current;
@@ -978,17 +984,22 @@ export default function PrintCardPage() {
   }
 
   function updateAttendance(row: keyof ManualCardFields['attendance'], month: string, value: string) {
-    if (!studentKey) return;
+    if (!studentKey || row === 'classDays') return;
     setManualByStudent((previous) => {
       const current = previous[studentKey] || manual;
+      const attendance = {
+        ...current.attendance,
+        [row]: { ...current.attendance[row], [month]: value },
+      };
+      attendance.classDays = {
+        ...attendance.classDays,
+        [month]: attendanceClassDays(attendance.daysPresent[month] || '', attendance.daysAbsent[month] || ''),
+      };
       return {
         ...previous,
         [studentKey]: {
           ...current,
-          attendance: {
-            ...current.attendance,
-            [row]: { ...current.attendance[row], [month]: value },
-          },
+          attendance,
         },
       };
     });
@@ -1219,6 +1230,7 @@ export default function PrintCardPage() {
         school?.schoolInfo,
         learner,
         adviser,
+        cardPreferences.attendanceMonths,
       ),
       subjects: curriculumSubjectIdsForGrade(assignments, learner.gradeLevel, false, Object.values(subjectsById))
         .map((subjectId) => subjectsById[subjectId])
@@ -1411,7 +1423,13 @@ export default function PrintCardPage() {
                           <input
                             key={month}
                             aria-label={`${label} ${month}`}
-                            inputMode="numeric"
+                            type="number"
+                            min="0"
+                            max={Number.MAX_SAFE_INTEGER}
+                            step="any"
+                            inputMode="decimal"
+                            readOnly={row === 'classDays'}
+                            aria-description={row === 'classDays' ? 'Calculated automatically as present plus absent.' : undefined}
                             value={manual.attendance[row]?.[month] || ''}
                             onChange={(event) => updateAttendance(row, month, getInputValue(event))}
                           />

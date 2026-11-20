@@ -169,6 +169,34 @@ describe("tenant learner creation rules", { timeout: 30000 }, () => {
     method: "PATCH", auth: token(uid), body: { fields: fields(data) },
   });
 
+  for (const toggle of [undefined, false, 'true']) {
+    it(`denies SF2 Teacher imports when attendance access is ${toggle ?? 'missing'}`, async () => {
+      await seed(targetPath, learner);
+      if (toggle !== undefined) await seed('settings/toggles', { canTeacherImportAttendance: toggle });
+      denied(await updateImport({ ...learner, attendance: { daysPresent: { Oct: '20' }, daysAbsent: { Oct: '2' }, classDays: { Oct: '22' } }, __attendanceImportId: 'sf2-import' }));
+    });
+  }
+
+  it('allows enabled SF2 imports only into the assigned section and only for attendance fields', async () => {
+    await seed(targetPath, learner);
+    await seed('settings/toggles', { canTeacherImportAttendance: true, canTeacherEditProfiles: false });
+    const imported = { ...learner, attendance: { daysPresent: { Oct: '20' }, daysAbsent: { Oct: '2' }, classDays: { Oct: '22' } }, __attendanceImportId: 'sf2-import' };
+    denied(await updateImport(imported, 'otherTeacher'));
+    denied(await updateImport({ ...imported, firstName: 'Changed' }));
+    allowed(await updateImport(imported));
+    await seed('settings/toggles', { canTeacherImportAttendance: false });
+    denied(await updateImport({ ...imported, __attendanceImportId: 'next-sf2-import' }));
+    allowed(await updateImport({ ...imported, firstName: 'Manual edit' }));
+  });
+
+  for (const uid of ['admin', 'registrar', 'developer']) {
+    it(`allows ${uid} SF2 attendance imports independently of the teacher toggle`, async () => {
+      await seed(targetPath, learner);
+      await seed('settings/toggles', { canTeacherImportAttendance: false });
+      allowed(await updateImport({ ...learner, attendance: { daysPresent: { Oct: '20' }, daysAbsent: { Oct: '2' }, classDays: { Oct: '22' } }, __attendanceImportId: 'sf2-import' }, uid));
+    });
+  }
+
   for (const toggle of [undefined, true]) {
     it(`allows assigned teacher profile updates with setting ${toggle ?? "missing (on by default)"}`, async () => {
       await seed(targetPath, learner);

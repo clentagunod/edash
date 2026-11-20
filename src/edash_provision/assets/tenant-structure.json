@@ -62,6 +62,7 @@
         "canParentAccess": true,
         "canPromoteStudents": false,
         "canTeacherImport": false,
+        "canTeacherImportAttendance": false,
         "canTeacherEditProfiles": true,
         "trashConfg": "30",
         "roundType": "nearest_integer",
@@ -121,7 +122,7 @@
         "attendanceRows": [
           {
             "id": "classDays",
-            "label": "Class days"
+            "label": "Total Classes"
           },
           {
             "id": "daysPresent",
@@ -233,6 +234,11 @@
         "default": false,
         "description": "Allow teachers to import student files into their assigned sections from Learner Masterlist. Only school administrators can change this setting."
       },
+      "canTeacherImportAttendance": {
+        "type": "boolean",
+        "default": false,
+        "description": "Allow teachers to import SF2 monthly attendance into their assigned sections from Learner Masterlist. Missing settings default to disabled. Only school administrators can change this setting."
+      },
       "printables": {
         "type": "map",
         "default": {
@@ -306,7 +312,7 @@
           "daysPresent": {},
           "daysAbsent": {}
         },
-        "description": "Monthly non-negative decimal day counts (or empty strings), keyed by Card Preferences month labels. Add/edit forms calculate daysAbsent as classDays minus daysPresent; daysAbsent is read-only. Stored per learner and school year and retained in archives."
+        "description": "Monthly non-negative decimal day counts (or empty strings), keyed by Card Preferences month labels. Present and Absent are editable; add/edit forms calculate read-only classDays as daysPresent plus daysAbsent. Incomplete pairs leave Total Classes blank. Stored per learner and school year and retained in archives."
       },
       "anecdotalRecords": {
         "type": "string",

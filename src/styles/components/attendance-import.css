@@ -1,0 +1,17 @@
+.attendance-import-intro { margin: 0; color: var(--ink-700); font-size: 14px; line-height: 1.7; }
+.attendance-import-worksheet { margin: 18px 0 0; }
+.attendance-import-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.attendance-import-confirm { display: grid; gap: 16px; margin: 0; padding: 0; border: 0; }
+.attendance-import-confirm label { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; font-weight: 400; line-height: 1.6; }
+.attendance-import-confirm input { flex-shrink: 0; width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--blue-600); }
+.attendance-import-panel .student-import-file-row { margin-top: 18px; }
+.attendance-import-panel .student-import-review { margin-top: 0; }
+.attendance-import-panel .student-import-table-wrap table { font-size: 13px; }
+.attendance-import-panel :is(.student-import-status, .student-import-hint, .student-import-stage-heading > span, .student-import-options label, .student-import-summary) { font-size: 14px; }
+.attendance-import-panel .student-import-stage-heading h3 { font-size: 16px; }
+.attendance-import-panel details { font-size: 14px; }
+.attendance-import-panel h3:focus-visible { outline: 2px solid var(--blue-600); outline-offset: 4px; }
+@media (max-width: 800px) {
+  .attendance-import-panel .student-import-options { grid-template-columns: minmax(0, 1fr); }
+  .attendance-import-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

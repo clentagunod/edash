@@ -495,6 +495,7 @@ async function main() {
   const existingToggles = await togglesRef.get();
   const toggleDefaults = {};
   if (!existingToggles.exists || typeof existingToggles.data()?.canTeacherImport !== "boolean") toggleDefaults.canTeacherImport = false;
+  if (!existingToggles.exists || typeof existingToggles.data()?.canTeacherImportAttendance !== "boolean") toggleDefaults.canTeacherImportAttendance = false;
   if (!existingToggles.exists || typeof existingToggles.data()?.canTeacherEditProfiles !== "boolean") toggleDefaults.canTeacherEditProfiles = true;
   if (!existingToggles.exists || typeof existingToggles.data()?.trashConfg !== "string") toggleDefaults.trashConfg = "30";
   if (!existingToggles.exists || typeof existingToggles.data()?.roundType !== "string") toggleDefaults.roundType = "nearest_integer";
@@ -507,7 +508,7 @@ async function main() {
       gradeTemplates: { kinder: "sf9", grade1: "sf9", grade2: "sf9", grade3: "sf9", grade4: "sf9", grade5: "sf9", grade6: "sf9" },
       attendanceMonths: ["Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr"],
       attendanceRows: [
-        { id: "classDays", label: "Class days" },
+        { id: "classDays", label: "Total Classes" },
         { id: "daysPresent", label: "Present" },
         { id: "daysAbsent", label: "Absent" },
       ],

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockCreateSchoolYear, mockGetParentAccess, mockSetParentAccess, mockGetPromotion, mockSetPromotion, mockGetImports, mockSetImports, mockGetProfileEditing, mockSetProfileEditing, mockGetCardPreferences, mockSetCardPreferences } = vi.hoisted(() => ({
+const { mockCreateSchoolYear, mockGetParentAccess, mockSetParentAccess, mockGetPromotion, mockSetPromotion, mockGetImports, mockSetImports, mockGetAttendanceImports, mockSetAttendanceImports, mockGetProfileEditing, mockSetProfileEditing, mockGetCardPreferences, mockSetCardPreferences } = vi.hoisted(() => ({
   mockCreateSchoolYear: vi.fn(),
   mockGetParentAccess: vi.fn(),
   mockSetParentAccess: vi.fn(),
@@ -8,6 +8,8 @@ const { mockCreateSchoolYear, mockGetParentAccess, mockSetParentAccess, mockGetP
   mockSetPromotion: vi.fn(),
   mockGetImports: vi.fn(),
   mockSetImports: vi.fn(),
+  mockGetAttendanceImports: vi.fn(),
+  mockSetAttendanceImports: vi.fn(),
   mockGetProfileEditing: vi.fn(),
   mockSetProfileEditing: vi.fn(),
   mockGetCardPreferences: vi.fn(),
@@ -50,6 +52,7 @@ vi.mock("./firestore-api", () => ({
   fsGetParentAccessConfiguration: mockGetParentAccess,
   fsGetPromotionConfiguration: mockGetPromotion,
   fsGetImportConfiguration: mockGetImports,
+  fsGetAttendanceImportConfiguration: mockGetAttendanceImports,
   fsGetProfileEditingConfiguration: mockGetProfileEditing,
   fsGetPassingThreshold: vi.fn(),
   fsSetGradeLevelGradingConfiguration: vi.fn(),
@@ -57,6 +60,7 @@ vi.mock("./firestore-api", () => ({
   fsSetParentAccessEnabled: mockSetParentAccess,
   fsSetCanPromoteStudents: mockSetPromotion,
   fsSetCanTeacherImport: mockSetImports,
+  fsSetCanTeacherImportAttendance: mockSetAttendanceImports,
   fsSetCanTeacherEditProfiles: mockSetProfileEditing,
   fsSetPassingThreshold: vi.fn(),
   fsGetCardPrintingPreferences: mockGetCardPreferences,
@@ -70,7 +74,7 @@ vi.mock("./grading-config", () => ({
   normalizePassingThreshold: vi.fn(),
 }));
 
-import { ADMIN_OPTIONS, createAdminYear, initializeSheetsBackupLink, loadAdminCardPreferences, loadAdminImportAccess, loadAdminProfileEditing, loadAdminParentAccess, loadAdminPromotionAccess, saveAdminCardPreferences, saveAdminImportAccessToggle, saveAdminProfileEditingToggle, saveAdminParentAccessToggle, saveAdminPromotionAccessToggle } from "./admin-options";
+import { ADMIN_OPTIONS, createAdminYear, initializeSheetsBackupLink, loadAdminAttendanceImportAccess, loadAdminCardPreferences, loadAdminImportAccess, loadAdminProfileEditing, loadAdminParentAccess, loadAdminPromotionAccess, saveAdminAttendanceImportAccessToggle, saveAdminCardPreferences, saveAdminImportAccessToggle, saveAdminProfileEditingToggle, saveAdminParentAccessToggle, saveAdminPromotionAccessToggle } from "./admin-options";
 import { APP_CONFIG } from "./app-config";
 
 describe("Google Sheets backup link", () => {
@@ -153,6 +157,38 @@ describe("Promotion access toggle", () => {
     await saveAdminPromotionAccessToggle({ currentTarget: toggle });
     expect(mockSetPromotion).toHaveBeenCalledWith(true);
     expect(document.getElementById("adminPromotionAccessState")?.textContent).toContain("now on");
+  });
+});
+
+describe('SF2 attendance import access toggle', () => {
+  beforeEach(() => {
+    document.body.innerHTML = '<input id="adminAttendanceImportAccessToggle" type="checkbox"><p id="adminAttendanceImportAccessState"></p><button id="adminAttendanceImportAccessRetry" hidden>Retry</button>';
+    mockGetAttendanceImports.mockReset().mockResolvedValue({ canTeacherImportAttendance: false, configured: false });
+    mockSetAttendanceImports.mockReset().mockResolvedValue(true);
+  });
+  it('loads and saves the independent SF2 setting without changing SF1 access', async () => {
+    const toggle = document.getElementById('adminAttendanceImportAccessToggle') as HTMLInputElement;
+    await loadAdminAttendanceImportAccess();
+    expect(toggle.checked).toBe(false);
+    expect(toggle.disabled).toBe(false);
+    toggle.checked = true;
+    await saveAdminAttendanceImportAccessToggle({ currentTarget: toggle });
+    expect(mockSetAttendanceImports).toHaveBeenCalledWith(true);
+    expect(document.getElementById('adminAttendanceImportAccessState')?.textContent).toContain('now on');
+  });
+  it('fails closed on loading errors and restores the saved value after a rejected write', async () => {
+    const toggle = document.getElementById('adminAttendanceImportAccessToggle') as HTMLInputElement;
+    mockGetAttendanceImports.mockRejectedValueOnce(new Error('Offline'));
+    await loadAdminAttendanceImportAccess();
+    expect(toggle.disabled).toBe(true);
+    expect(toggle.checked).toBe(false);
+    expect((document.getElementById('adminAttendanceImportAccessRetry') as HTMLButtonElement).hidden).toBe(false);
+    await loadAdminAttendanceImportAccess();
+    mockSetAttendanceImports.mockRejectedValueOnce(new Error('Denied'));
+    toggle.checked = true;
+    await saveAdminAttendanceImportAccessToggle({ currentTarget: toggle });
+    expect(toggle.checked).toBe(false);
+    expect(toggle.disabled).toBe(false);
   });
 });
 

@@ -64,7 +64,8 @@ const CURATED = [
 
   /* ---- Learner Masterlist ---------------------------------------------- */
   E('Learner Masterlist', 'Add Learner', 'masterlist.html', '#addLearnerBtn', 'plus', 'add new learner create'),
-  E('Learner Masterlist', 'Import Students', 'masterlist.html', '#importStudentsBtn', 'upload', 'bulk import students learners excel csv sf1 json spreadsheet', 'admin'),
+  E('Learner Masterlist', 'Import Students (SF1)', 'masterlist.html', '#importStudentsBtn', 'upload', 'bulk import students learners excel csv sf1 json spreadsheet', 'admin'),
+  E('Learner Masterlist', 'Import Daily Attendance Report (SF2)', 'masterlist.html', '#importAttendanceBtn', 'upload', 'import attendance present absent monthly sf2 excel', 'admin'),
   E('Learner Masterlist', 'Search learners', 'masterlist.html', '#searchInput', 'search', 'search by name learner id lrn'),
   E('Learner Masterlist', 'Filter by grade level', 'masterlist.html', '#gradeFilter', 'search', 'grade filter kinder grade 1 2 3 4 5 6'),
   E('Learner Masterlist', 'Filter by program', 'masterlist.html', '#programFilter', 'search', 'program filter 4ps ip sned aral muslim'),

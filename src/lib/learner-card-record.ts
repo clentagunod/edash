@@ -1,5 +1,5 @@
 import { gradeTermsForCount, MAX_GRADE_TERM_COUNT } from './academic-grades';
-import { attendanceAbsent, attendanceTotal, isAttendanceCount } from './attendance';
+import { attendanceClassDays, attendanceTotal, isAttendanceCount } from './attendance';
 
 export const TEACHER_COMMENT_TERMS = ['1st Term', '2nd Term', '3rd Term'] as const;
 export const ATTENDANCE_ROW_IDS = ['classDays', 'daysPresent', 'daysAbsent'] as const;
@@ -166,8 +166,8 @@ export function renderLearnerCardFields(host: HTMLElement, learner: Record<strin
       input.step = 'any';
       input.max = String(Number.MAX_SAFE_INTEGER);
       input.inputMode = 'decimal';
-      input.readOnly = id === 'daysAbsent';
-      if (input.readOnly) input.setAttribute('aria-description', 'Calculated automatically as class days minus present.');
+      input.readOnly = id === 'classDays';
+      if (input.readOnly) input.setAttribute('aria-description', 'Calculated automatically as present plus absent.');
       input.name = `attendance_${id}_${index}`;
       input.dataset.attendanceRow = id;
       input.dataset.attendanceMonth = month;
@@ -184,10 +184,7 @@ export function renderLearnerCardFields(host: HTMLElement, learner: Record<strin
       const days = attendanceInputs.get('classDays')?.get(month);
       const present = attendanceInputs.get('daysPresent')?.get(month);
       const absent = attendanceInputs.get('daysAbsent')?.get(month);
-      const calculated = attendanceAbsent(days?.value || '', present?.value || '');
-      const invalid = calculated.startsWith('-');
-      if (present) present.setCustomValidity(invalid ? 'Present days cannot exceed class days.' : '');
-      if (absent) absent.value = invalid ? '' : calculated;
+      if (days) days.value = attendanceClassDays(present?.value || '', absent?.value || '');
     });
     attendanceInputs.forEach((inputs, id) => {
       rowTotals.get(id)!.textContent = attendanceTotal([...inputs.values()].map((input) => input.value));
@@ -217,11 +214,10 @@ export function collectLearnerCardFields(host: HTMLElement): LearnerCardRecord {
     result.attendance[row] = { ...result.attendance[row], [month]: input.value };
   });
   // Recompute during collection too; a stale or modified readonly value is never saved.
-  host.querySelectorAll<HTMLInputElement>('[data-attendance-row="daysAbsent"]').forEach((input) => {
+  host.querySelectorAll<HTMLInputElement>('[data-attendance-row="classDays"]').forEach((input) => {
     const month = input.dataset.attendanceMonth!;
-    const value = attendanceAbsent(result.attendance.classDays[month] || '', result.attendance.daysPresent[month] || '');
-    if (value.startsWith('-')) throw new Error(`Present days cannot exceed class days for ${month}.`);
-    result.attendance.daysAbsent = { ...result.attendance.daysAbsent, [month]: value };
+    const value = attendanceClassDays(result.attendance.daysPresent[month] || '', result.attendance.daysAbsent[month] || '');
+    result.attendance.classDays = { ...result.attendance.classDays, [month]: value };
   });
   return learnerCardRecord(result, true);
 }

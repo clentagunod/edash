@@ -1896,8 +1896,8 @@ export async function fsCancelLearnerMovement(archive, schoolYear, learnerId) {
       };
       // Cancelling movement is not a new import. Retain only the active
       // record's marker when one already exists, without replaying an old one.
-      if (!activeSnapshot.exists || !Object.prototype.hasOwnProperty.call(activeSnapshot.data(), '__studentImportId')) {
-        delete restoredLearner.__studentImportId;
+      for (const marker of ['__studentImportId', '__attendanceImportId']) {
+        if (!activeSnapshot.exists || !Object.prototype.hasOwnProperty.call(activeSnapshot.data(), marker)) delete restoredLearner[marker];
       }
       const batch = db.batch();
       batch.set(learnerRef, restoredLearner);
@@ -2000,6 +2000,33 @@ function fsImportConfiguration_(snapshot) {
 
 export async function fsGetImportConfiguration() {
   return fsImportConfiguration_(await db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles).get());
+}
+
+function fsAttendanceImportConfiguration_(snapshot) {
+  const value = snapshot.exists ? snapshot.data()?.canTeacherImportAttendance : undefined;
+  if (value !== undefined && typeof value !== 'boolean') throw new Error('Invalid SF2 import setting. The canTeacherImportAttendance value must be true or false.');
+  return { canTeacherImportAttendance: value ?? false, configured: typeof value === 'boolean' };
+}
+
+export async function fsGetAttendanceImportConfiguration() {
+  return fsAttendanceImportConfiguration_(await db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles).get());
+}
+
+export function fsSubscribeAttendanceImportConfiguration(next, error) {
+  return db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles).onSnapshot(snapshot => {
+    try { next(fsAttendanceImportConfiguration_(snapshot)); }
+    catch (failure) { error(failure); }
+  }, error);
+}
+
+export async function fsSetCanTeacherImportAttendance(enabled) {
+  if (typeof enabled !== 'boolean') throw new Error('Teacher attendance import access must be enabled or disabled.');
+  if (!isSchoolAdmin()) throw new Error('Only a School Admin can change SF2 import access.');
+  try {
+    if (enabled) await fsEnsureTeacherTrashAccessKeys_();
+    await fsWriteAuditedSettings_(db.collection(FS_SETTINGS).doc(FS_DOCUMENTS.toggles), { canTeacherImportAttendance: enabled });
+    return enabled;
+  } catch (error) { throw fsError_('Update SF2 import access', error); }
 }
 
 function fsProfileEditingConfiguration_(snapshot) {
@@ -2147,7 +2174,7 @@ const DEFAULT_CARD_PRINTING_PREFERENCES = {
   gradeTemplates: { kinder: "sf9", grade1: "sf9", grade2: "sf9", grade3: "sf9", grade4: "sf9", grade5: "sf9", grade6: "sf9" },
   attendanceMonths: ["Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr"],
   attendanceRows: [
-    { id: "classDays", label: "Class days" },
+    { id: "classDays", label: "Total Classes" },
     { id: "daysPresent", label: "Present" },
     { id: "daysAbsent", label: "Absent" },
   ],
@@ -2346,6 +2373,7 @@ export async function fsPromoteLearner(sourceSchoolYear, targetSchoolYear, learn
       delete promotedRecord.sf10Email;
       // Import markers describe the source enrollment, not this progression.
       delete promotedRecord.__studentImportId;
+      delete promotedRecord.__attendanceImportId;
       transaction.set(targetRef, promotedRecord);
       return { ...promotedRecord, previousYearLearner: sourceLearner };
     });
@@ -2740,7 +2768,7 @@ export async function fsGetLearnerSchema(schoolYear) {
   const knownFields = new Set([
     "learnerId", "firstName", "middleName", "lastName", "suffix", "birthDate", "age", "gradeLevel", "section", "gender",
     "enrollmentStatus", "eosyStatus", "guardian", "contact", "dateAdded", "is4Ps", "isIP", "isSNED", "isARAL", "isMuslim",
-    "anecdotalRecords", "teacherComments", "attendance", ...DOCUMENT_STATUS_FIELDS, "extra", "__studentImportId",
+    "anecdotalRecords", "teacherComments", "attendance", ...DOCUMENT_STATUS_FIELDS, "extra", "__studentImportId", "__attendanceImportId",
     ...FS_DYNAMIC_CURRICULUM_SUBJECT_IDS,
   ]);
   const extraFields = new Set();

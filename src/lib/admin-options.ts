@@ -9,6 +9,7 @@ import { CURRICULUM_GRADE_LEVELS, CURRICULUM_SUBJECTS, isCustomCurriculumSubject
 import { DEFAULT_GRADE_TERM_COUNT, MAX_GRADE_TERM_COUNT, MIN_GRADE_TERM_COUNT } from './academic-grades';
 import { fsGetCardPrintingPreferences, fsGetGradeLevelGradingConfigurations, fsGetGradeTermCount, fsGetImportConfiguration, fsGetParentAccessConfiguration, fsGetPassingThreshold, fsGetProfileEditingConfiguration, fsGetPromotionConfiguration, fsGetRoundType, fsSetCanTeacherEditProfiles, fsSetCanTeacherImport, fsSetCanPromoteStudents, fsSetCardPrintingPreferences, fsSetGradeLevelGradingConfiguration, fsSetGradeTermCount, fsSetParentAccessEnabled, fsSetPassingThreshold, fsSetRoundType } from './firestore-api';
 import { DEFAULT_LETTER_GRADE_SCALE, DEFAULT_PASSING_THRESHOLD, gradeLevelConfigKey, normalizeGradeLevelGrading, normalizePassingThreshold } from './grading-config';
+import { fsGetAttendanceImportConfiguration, fsSetCanTeacherImportAttendance } from './firestore-api';
 
 /* Admin Console: school years and dynamic section directory. */
 
@@ -91,6 +92,8 @@ export async function initAdminOptions() {
   document.getElementById("adminPromotionAccessToggle")?.addEventListener("change", saveAdminPromotionAccessToggle);
   document.getElementById("adminImportAccessToggle")?.addEventListener("change", saveAdminImportAccessToggle);
   document.getElementById("adminImportAccessRetry")?.addEventListener("click", () => { void loadAdminImportAccess(); });
+  document.getElementById("adminAttendanceImportAccessToggle")?.addEventListener("change", saveAdminAttendanceImportAccessToggle);
+  document.getElementById("adminAttendanceImportAccessRetry")?.addEventListener("click", () => { void loadAdminAttendanceImportAccess(); });
   document.getElementById("adminProfileEditingToggle")?.addEventListener("change", saveAdminProfileEditingToggle);
   document.getElementById("adminProfileEditingRetry")?.addEventListener("click", () => { void loadAdminProfileEditing(); });
   document.getElementById("downloadFirestoreBackupBtn")?.addEventListener("click", () => { void downloadFirestoreBackup(); });
@@ -108,7 +111,7 @@ export async function initAdminOptions() {
     if (file) await importFirestoreBackupFile(file, importMode?.value || "replace");
     input.value = "";
   });
-  await Promise.all([loadAdminStructure(), loadAdminParentAccess(), loadAdminPromotionAccess(), loadAdminImportAccess(), loadAdminProfileEditing(), loadAdminRoundType(), loadAdminCardPreferences()]);
+  await Promise.all([loadAdminStructure(), loadAdminParentAccess(), loadAdminPromotionAccess(), loadAdminImportAccess(), loadAdminAttendanceImportAccess(), loadAdminProfileEditing(), loadAdminRoundType(), loadAdminCardPreferences()]);
   ensureAdminModals();
 }
 
@@ -326,6 +329,63 @@ export async function saveAdminImportAccessToggle(event) {
     showToast(error.message || "Unable to update Imports access.", "error");
   } finally {
     ADMIN_OPTIONS.importAccessSaving = false;
+    toggle.disabled = false;
+  }
+}
+
+const attendanceImportAccess = { enabled: false, loaded: false, saving: false, requestId: 0 };
+
+export async function loadAdminAttendanceImportAccess() {
+  const toggle = document.getElementById('adminAttendanceImportAccessToggle');
+  const state = document.getElementById('adminAttendanceImportAccessState');
+  const retry = document.getElementById('adminAttendanceImportAccessRetry');
+  if (!toggle || !state) return;
+  const requestId = ++attendanceImportAccess.requestId;
+  attendanceImportAccess.loaded = false;
+  toggle.disabled = true;
+  if (retry) retry.hidden = true;
+  state.classList.remove('is-error');
+  state.textContent = 'Loading SF2 attendance import setting…';
+  try {
+    const configuration = await fsGetAttendanceImportConfiguration();
+    if (requestId !== attendanceImportAccess.requestId) return;
+    attendanceImportAccess.enabled = configuration.canTeacherImportAttendance;
+    attendanceImportAccess.loaded = true;
+    toggle.checked = configuration.canTeacherImportAttendance;
+    state.textContent = configuration.configured
+      ? `Teacher attendance imports are ${configuration.canTeacherImportAttendance ? 'on' : 'off'}.`
+      : 'Teacher attendance imports are off by default.';
+  } catch (error) {
+    if (requestId !== attendanceImportAccess.requestId) return;
+    toggle.checked = false;
+    state.textContent = `Unable to load SF2 attendance import setting: ${error.message || 'Unknown error'}`;
+    state.classList.add('is-error');
+    if (retry) retry.hidden = false;
+  } finally {
+    if (requestId === attendanceImportAccess.requestId) toggle.disabled = !attendanceImportAccess.loaded;
+  }
+}
+
+export async function saveAdminAttendanceImportAccessToggle(event) {
+  const toggle = event?.currentTarget || document.getElementById('adminAttendanceImportAccessToggle');
+  const state = document.getElementById('adminAttendanceImportAccessState');
+  if (!toggle || !state || !attendanceImportAccess.loaded || attendanceImportAccess.saving) return;
+  const enabled = toggle.checked;
+  attendanceImportAccess.saving = true;
+  toggle.disabled = true;
+  state.classList.remove('is-error');
+  state.textContent = 'Saving SF2 attendance import setting…';
+  try {
+    await fsSetCanTeacherImportAttendance(enabled);
+    attendanceImportAccess.enabled = enabled;
+    state.textContent = `Teacher attendance imports are now ${enabled ? 'on' : 'off'}.`;
+  } catch (error) {
+    toggle.checked = attendanceImportAccess.enabled;
+    state.textContent = `Unable to save SF2 attendance import setting: ${error.message || 'Unknown error'}`;
+    state.classList.add('is-error');
+    showToast(error.message || 'Unable to update SF2 attendance import access.', 'error');
+  } finally {
+    attendanceImportAccess.saving = false;
     toggle.disabled = false;
   }
 }

@@ -83,6 +83,19 @@ service cloud.firestore {
       return exists(togglesPath)
         && get(togglesPath).data.get("canTeacherImport", false) == true;
     }
+    function teacherAttendanceImportEnabled() {
+      let togglesPath = /databases/$(database)/documents/settings/toggles;
+      return exists(togglesPath)
+        && get(togglesPath).data.get("canTeacherImportAttendance", false) == true;
+    }
+    function teacherAttendanceImportAllowed(yearId) {
+      let marker = request.resource.data.get("__attendanceImportId", "");
+      return isTeacher() && teacherAttendanceImportEnabled()
+        && marker is string && marker.size() > 0 && marker.size() <= 100
+        && teacherImportPlacement(resource.data, yearId)
+        && importLearnerIsActive(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["attendance", "__attendanceImportId"]);
+    }
     function teacherProfileEditingEnabled() {
       let togglesPath = /databases/$(database)/documents/settings/toggles;
       return !exists(togglesPath)
@@ -98,7 +111,7 @@ service cloud.firestore {
         "bosyHeight", "bosyWeight", "bosyNutritionalStatus", "mosyHeight", "mosyWeight", "mosyNutritionalStatus", "eosyHeight", "eosyWeight", "eosyNutritionalStatus",
         "transferType", "transferIn", "transferOut", "transferSchoolId", "transferSchool", "transferSchoolAddress", "transferSchoolZipCode", "transferDate", "transferReason", "transferNotes",
         "documentStatus", "documentStatusCustom", "documentStatusDates", "sf10Email", "anecdotalRecords", "teacherComments", "attendance",
-        "progressionSourceSchoolYear", "progressionType", "__studentImportId", "__trashRestoreId"
+        "progressionSourceSchoolYear", "progressionType", "__studentImportId", "__attendanceImportId", "__trashRestoreId"
       ]);
       return !isTeacher() || onlyOtherFields
         || (teacherProfileEditingEnabled()
@@ -308,7 +321,9 @@ service cloud.firestore {
               && importLearnerIsActive(resource.data)
               && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
                 "__trashRestoreId", "progressionSourceSchoolYear", "progressionType"
-              ])));
+              ])))
+          && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(["__attendanceImportId"])
+            || isAdmin() || isRegistrar() || teacherAttendanceImportAllowed(yearId));
         allow delete: if isStaff();
         allow get: if isAnonymous()
           && parentAccessEnabled()

@@ -80,6 +80,13 @@ describe('EduAI product guidance', () => {
     expect(guide).not.toContain('Database backup → Import students');
   });
 
+  it.each(['School Admin', 'Registrar', 'Teacher'])('explains SF2 attendance separately from SF1 for %s', role => {
+    const guide = buildEduAiProductGuide('How do I import SF2 monthly attendance and choose the month?', role);
+    expect(guide).toContain('Import Daily Attendance Report (SF2)');
+    expect(guide).toContain('canTeacherImportAttendance');
+    expect(guide).toContain('Present and Absent directly');
+  });
+
   it('guides teacher imports conditionally without exposing administrator configuration steps', () => {
     const entries = selectEduAiGuideEntries('How do I import students from an SF1 Excel file?', 'Teacher');
     expect(entries.slice(0, 3).some(entry => entry.id === 'teacher-student-import')).toBe(true);
