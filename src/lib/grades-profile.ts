@@ -5,7 +5,7 @@ import { LPSApi } from './sheets-api';
 import { requireAuth } from './auth';
 import { getSelectedSchoolYear, initYearSwitcher } from './school-year';
 import { escapeHtml, renderShell, showToast, startExportIndicator } from './shell';
-import { APP_CONFIG, appSchoolFilePrefix, paginationPageNumbers } from './app-config';
+import { APP_CONFIG, APP_USER_PROFILE, appSchoolFilePrefix, isTeacher, paginationPageNumbers, storedAppProfile, teacherAssignmentsForSchoolYear } from './app-config';
 import { CURRICULUM_GRADE_LEVELS, CURRICULUM_SUBJECTS, LEGACY_CURRICULUM_SUBJECT_IDS, curriculumSubjectIdsForGrade, normalizeCurriculumGrade, normalizeCurriculumSubjectPool } from './curriculum-subjects';
 import { DEFAULT_GRADE_TERMS, FINAL_GRADE_TERM, gradeTermsForCount, gradeForTerm } from './academic-grades';
 import { fsGetGradeLevelGradingConfigurations, fsGetGradeTermCount } from './firestore-api';
@@ -146,23 +146,37 @@ export function getGradeSubjectIds(gradeLevel) {
   return gradeSubjectIdsFor(gradeLevel, gradesCurriculumAssignments, gradesCurriculumAvailable, gradesCurriculumSubjects);
 }
 
-export function gradeSubjectsForFilter(gradeLevel, assignments, curriculumAvailable) {
-  const visibleIds = gradeLevel
-    ? gradeSubjectIdsFor(gradeLevel, assignments, curriculumAvailable, gradesCurriculumSubjects)
-    : CURRICULUM_GRADE_LEVELS.flatMap((grade) => gradeSubjectIdsFor(grade, assignments, curriculumAvailable, gradesCurriculumSubjects));
+export function gradeSubjectsForFilter(gradeLevel, assignments, curriculumAvailable, gradeLevels = CURRICULUM_GRADE_LEVELS) {
+  const selectedGrade = normalizeCurriculumGrade(gradeLevel);
+  const visibleIds = gradeLevels
+    .filter((grade) => !selectedGrade || normalizeCurriculumGrade(grade) === selectedGrade)
+    .flatMap((grade) => gradeSubjectIdsFor(grade, assignments, curriculumAvailable, gradesCurriculumSubjects));
   const visible = new Set(visibleIds);
   return gradesCurriculumSubjects.filter(({ id }) => visible.has(id));
 }
 
 export function getVisibleGradeSubjects() {
   const selectedGrade = document.getElementById("gradesGradeFilter")?.value || "";
-  return gradeSubjectsForFilter(selectedGrade, gradesCurriculumAssignments, gradesCurriculumAvailable);
+  if (!isTeacher()) return gradeSubjectsForFilter(selectedGrade, gradesCurriculumAssignments, gradesCurriculumAvailable);
+  const selectedSection = document.getElementById("gradesSectionFilter")?.value || "";
+  // Use assignment coverage so columns remain stable for empty sections and searches.
+  const assignments = teacherAssignmentsForSchoolYear(APP_USER_PROFILE || storedAppProfile(), getSelectedSchoolYear());
+  const gradeLevels = [...new Set(assignments
+    .filter((assignment) => matchesProfileSection(assignment, selectedSection))
+    .map((assignment) => normalizeCurriculumGrade(assignment.gradeLevel)))];
+  return gradeSubjectsForFilter(selectedGrade, gradesCurriculumAssignments, gradesCurriculumAvailable, gradeLevels);
 }
 
 export function updateGradesCurriculumState() {
   const state = document.getElementById("gradesCurriculumState");
   if (!state) return;
   const selectedGrade = document.getElementById("gradesGradeFilter")?.value || "";
+  if (isTeacher()) {
+    state.textContent = getVisibleGradeSubjects().length
+      ? "Showing subjects for your assigned grade levels and sections for this school year."
+      : "No subjects are configured for your assigned grade levels and sections in this selection.";
+    return;
+  }
   if (!gradesCurriculumAvailable) {
     state.textContent = "Showing the existing subject set; grade-specific curriculum assignments are available with Firestore.";
     return;

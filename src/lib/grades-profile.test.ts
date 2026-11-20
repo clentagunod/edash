@@ -1,12 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const sectionMocks = vi.hoisted(() => ({ getRecords: vi.fn(), pageSize: 10 }));
+const sectionMocks = vi.hoisted(() => ({ getRecords: vi.fn(), getCurriculum: vi.fn(), pageSize: 10 }));
+const accountMocks = vi.hoisted(() => ({ profile: { role: 'School Admin', teacherAssignments: [] as { schoolYear: string; gradeLevel: string; section: string }[] } }));
 
 vi.mock('./enrollment-data', () => ({ enrollmentGradeLabel: (grade: string) => grade }));
-vi.mock('./sheets-api', () => ({ LPSApi: { getGradesProfiles: sectionMocks.getRecords } }));
+vi.mock('./sheets-api', () => ({ LPSApi: { getGradesProfiles: sectionMocks.getRecords, getGradeSubjectAssignments: sectionMocks.getCurriculum } }));
 vi.mock('./auth', () => ({ requireAuth: vi.fn() }));
 vi.mock('./school-year', () => ({ getSelectedSchoolYear: vi.fn(), initYearSwitcher: vi.fn() }));
-const shellMocks = vi.hoisted(() => ({ showToast: vi.fn() }));
+const shellMocks = vi.hoisted(() => ({ showToast: vi.fn(), startExportIndicator: vi.fn() }));
 const editorMocks = vi.hoisted(() => ({ cell: vi.fn(), initialize: vi.fn(), reset: vi.fn(), dispose: vi.fn() }));
 vi.mock('./profile-editor', () => ({ createProfileEditor: () => editorMocks }));
 vi.mock('./preference-runtime', () => ({ currentUserPreferences: () => ({ tablePageSize: sectionMocks.pageSize }), restoreFilterControls: vi.fn(), rememberFilterControls: vi.fn(), readRememberedView: () => ({}) }));
@@ -14,9 +15,18 @@ vi.mock('./shell', () => ({
   escapeHtml: (value: unknown) => String(value ?? ''),
   renderShell: vi.fn(),
   showToast: shellMocks.showToast,
-  startExportIndicator: vi.fn(),
+  startExportIndicator: shellMocks.startExportIndicator,
 }));
-vi.mock('./app-config', () => ({ paginationPageNumbers: vi.fn(() => []) }));
+vi.mock('./app-config', async () => {
+  const actual = await vi.importActual<typeof import('./app-config')>('./app-config');
+  return {
+    ...actual,
+    get APP_USER_PROFILE() { return accountMocks.profile; },
+    storedAppProfile: () => accountMocks.profile,
+    isTeacher: () => accountMocks.profile.role === 'Teacher',
+    paginationPageNumbers: vi.fn(() => []),
+  };
+});
 vi.mock('./firestore-api', () => ({
   fsGetGradeLevelGradingConfigurations: vi.fn().mockResolvedValue({ gradeLevels: {} }),
   fsGetGradeTermCount: vi.fn().mockResolvedValue(3),
@@ -33,6 +43,8 @@ import {
   compareGradeProfiles,
   gradesFilteredProfiles,
   loadGradesProfiles,
+  getVisibleGradeSubjects,
+  exportGradesExcel,
 } from './grades-profile';
 import { fsGetGradeLevelGradingConfigurations, fsGetGradeTermCount } from './firestore-api';
 import { getSelectedSchoolYear, initYearSwitcher } from './school-year';
@@ -41,7 +53,11 @@ import gradesMarkup from '../pages/markup/grades-profile.html?raw';
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   shellMocks.showToast.mockClear();
+  shellMocks.startExportIndicator.mockReset();
+  accountMocks.profile = { role: 'School Admin', teacherAssignments: [] };
+  sectionMocks.getCurriculum.mockReset();
   editorMocks.cell.mockReset();
   Object.keys(gradesGradingByGrade).forEach(key => delete gradesGradingByGrade[key]);
   document.body.innerHTML = '';
@@ -326,5 +342,159 @@ describe('grade profile section filters', () => {
     await loadGradesProfiles('2026-2027', true);
     expect(sectionControl().value).toBe('B');
     expect(ids()).toEqual(['alpha']);
+  });
+});
+
+describe('teacher grade profile columns', () => {
+  const year = '2026-2027';
+  const learner = { learnerId: 'grade4-a', firstName: 'Ana', lastName: 'Santos', gradeLevel: 'Grade 4', section: 'A', math: '90', subjectRobotics: '95' };
+  const curricula = {
+    grades: {
+      'Grade 4': { configured: true, subjectIds: ['math', 'subjectRobotics'] },
+      'Grade 5': { configured: true, subjectIds: ['science'] },
+      'Grade 6': { configured: true, subjectIds: ['eppTle'] },
+    },
+    subjects: [{ id: 'subjectRobotics', label: 'Robotics' }],
+  };
+  let cleanup: (() => void) | undefined;
+
+  const subjects = () => getVisibleGradeSubjects().map(({ id }) => id);
+  const headers = () => [...document.querySelectorAll('#gradesTableHead th')].map(cell => cell.textContent);
+  function select(id: string, value: string) {
+    const control = document.getElementById(id) as HTMLSelectElement;
+    control.value = value;
+    control.dispatchEvent(new Event('change'));
+  }
+
+  beforeEach(async () => {
+    document.body.innerHTML = gradesMarkup;
+    accountMocks.profile = { role: 'Teacher', teacherAssignments: [{ schoolYear: year, gradeLevel: 'Grade 4', section: 'A' }] };
+    sectionMocks.getRecords.mockResolvedValue([learner]);
+    sectionMocks.getCurriculum.mockResolvedValue(curricula);
+    vi.mocked(getSelectedSchoolYear).mockReturnValue(year);
+    vi.mocked(fsGetGradeTermCount).mockResolvedValue(3);
+    vi.mocked(fsGetGradeLevelGradingConfigurations).mockResolvedValue({ gradeLevels: {} } as never);
+    cleanup = await initGradesProfile();
+  });
+
+  afterEach(() => {
+    cleanup?.();
+    cleanup = undefined;
+    sectionMocks.getRecords.mockReset();
+    vi.mocked(getSelectedSchoolYear).mockReset();
+  });
+
+  it('defaults to the teacher assigned grade curriculum, including custom subjects', async () => {
+    accountMocks.profile.teacherAssignments = [{ schoolYear: '2026 / 2027', gradeLevel: '4', section: ' A ' }];
+    await loadGradesProfiles(year);
+
+    expect((document.getElementById('gradesGradeFilter') as HTMLSelectElement).value).toBe('');
+    expect(subjects()).toEqual(['math', 'subjectRobotics']);
+    expect(headers()).toEqual(['Learner', 'Grade', 'Section', 'Math', 'Robotics', 'Average']);
+    expect(document.querySelectorAll('#gradesTableBody tr:first-child td')).toHaveLength(6);
+  });
+
+  it('unions assigned grades and narrows columns when the grade or section changes', async () => {
+    accountMocks.profile.teacherAssignments.push({ schoolYear: year, gradeLevel: 'Grade 5', section: 'B' });
+    sectionMocks.getRecords.mockResolvedValue([
+      learner,
+      { learnerId: 'grade5-b', firstName: 'Ben', lastName: 'Cruz', gradeLevel: 'Grade 5', section: 'B', science: '85' },
+    ]);
+    await loadGradesProfiles(year);
+    expect(subjects()).toEqual(['math', 'science', 'subjectRobotics']);
+
+    select('gradesSectionFilter', 'B');
+    expect(subjects()).toEqual(['science']);
+    expect(headers()).toEqual(['Learner', 'Grade', 'Section', 'Science', 'Average']);
+
+    select('gradesSectionFilter', 'A');
+    expect(subjects()).toEqual(['math', 'subjectRobotics']);
+
+    select('gradesGradeFilter', 'Grade 5');
+    expect((document.getElementById('gradesSectionFilter') as HTMLSelectElement).value).toBe('');
+    expect(subjects()).toEqual(['science']);
+
+    select('gradesGradeFilter', 'Grade 6');
+    expect(subjects()).toEqual([]);
+    expect(headers()).toEqual(['Learner', 'Grade', 'Section', 'Average']);
+  });
+
+  it('keeps matching curricula when the same section name occurs in multiple assigned grades', async () => {
+    accountMocks.profile.teacherAssignments.push({ schoolYear: year, gradeLevel: 'Grade 5', section: ' a ' });
+    sectionMocks.getRecords.mockResolvedValue([
+      learner,
+      { learnerId: 'grade5-a', firstName: 'Ben', lastName: 'Cruz', gradeLevel: 'Grade 5', section: 'A', science: '85' },
+    ]);
+    await loadGradesProfiles(year);
+    select('gradesSectionFilter', 'A');
+    expect(subjects()).toEqual(['math', 'science', 'subjectRobotics']);
+
+    select('gradesGradeFilter', 'Grade 5');
+    expect(subjects()).toEqual(['science']);
+  });
+
+  it('uses only coverage for the loaded school year and shows no subjects without coverage', async () => {
+    accountMocks.profile.teacherAssignments.push({ schoolYear: '2025-2026', gradeLevel: 'Grade 6', section: 'C' });
+    await loadGradesProfiles(year);
+    expect(subjects()).toEqual(['math', 'subjectRobotics']);
+
+    vi.mocked(getSelectedSchoolYear).mockReturnValue('2025-2026');
+    sectionMocks.getRecords.mockResolvedValue([]);
+    await loadGradesProfiles('2025-2026');
+    expect(subjects()).toEqual(['eppTle']);
+
+    vi.mocked(getSelectedSchoolYear).mockReturnValue('2024-2025');
+    await loadGradesProfiles('2024-2025');
+    expect(subjects()).toEqual([]);
+    expect(headers()).toEqual(['Learner', 'Grade', 'Section', 'Average']);
+  });
+
+  it('keeps applicable columns when a search returns no learners or the assigned class is empty', async () => {
+    await loadGradesProfiles(year);
+    const search = document.getElementById('gradesSearch') as HTMLInputElement;
+    search.value = 'missing learner';
+    search.dispatchEvent(new Event('input'));
+    expect(gradesFilteredProfiles).toEqual([]);
+    expect(subjects()).toEqual(['math', 'subjectRobotics']);
+    expect(document.querySelector('#gradesTableBody td')?.getAttribute('colspan')).toBe('6');
+
+    sectionMocks.getRecords.mockResolvedValue([]);
+    await loadGradesProfiles(year);
+    expect(subjects()).toEqual(['math', 'subjectRobotics']);
+    expect(headers()).toContain('Robotics');
+  });
+
+  it('preserves school-wide columns for school administrators', async () => {
+    accountMocks.profile = { role: 'School Admin', teacherAssignments: [] };
+    await loadGradesProfiles(year);
+    expect(subjects()).toEqual(['math', 'science', 'eppTle', 'subjectRobotics']);
+
+    select('gradesGradeFilter', 'Grade 5');
+    expect(subjects()).toEqual(['science']);
+  });
+
+  it('exports the same applicable subject columns displayed in the table', async () => {
+    await loadGradesProfiles(year);
+    let exportedBlob: Blob | undefined;
+    const NativeURL = URL;
+    vi.stubGlobal('URL', class extends NativeURL {
+      static createObjectURL = vi.fn((blob: Blob) => { exportedBlob = blob; return 'blob:grades-export'; });
+    });
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    shellMocks.startExportIndicator.mockReturnValue({ update: vi.fn(), finish: vi.fn(), close: vi.fn(), cancelled: false });
+    await exportGradesExcel();
+
+    expect(exportedBlob).toBeDefined();
+    const workbook = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(exportedBlob!);
+    });
+    const report = new DOMParser().parseFromString(workbook, 'text/html');
+    expect([...report.querySelectorAll('th')].map(cell => cell.textContent))
+      .toEqual(['Learner ID', 'Name', 'Grade Level', 'Section', ...headers().slice(3)]);
+    expect(report.querySelectorAll('td')).toHaveLength(7);
+    expect(shellMocks.showToast).toHaveBeenCalledWith('Grades profile Excel report downloaded.', 'success');
   });
 });
