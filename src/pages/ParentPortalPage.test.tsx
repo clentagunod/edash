@@ -15,6 +15,8 @@ const { auth, getCurrentSchoolYear, getGradeTermCount, getCardPreferences, getPa
   getParentLearner: vi.fn(),
 }));
 
+const schoolSelection = vi.hoisted(() => ({ active: null as null | { name: string; nickname: string; logoUrl: string } }));
+
 vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true);
 
 vi.mock('../lib/firebase', () => ({ parentAuth: auth }));
@@ -42,7 +44,7 @@ vi.mock('../lib/app-config', () => ({
   appBrandAssetUrl: (value: string) => value,
   updateSchoolFavicon: vi.fn(),
 }));
-vi.mock('../lib/school-registry', () => ({ getStoredSchool: () => null }));
+vi.mock('../lib/school-registry', () => ({ getStoredSchool: () => schoolSelection.active }));
 vi.mock('../lib/learner-sorting', () => ({ formatLearnerName: () => 'Sample Learner' }));
 
 import ParentPortalPage from './ParentPortalPage';
@@ -52,6 +54,8 @@ describe('ParentPortalPage', () => {
   let root: Root;
 
   beforeEach(() => {
+    schoolSelection.active = null;
+    window.localStorage.removeItem('parent-portal-theme');
     container = document.createElement('div');
     document.body.append(container);
     root = createRoot(container);
@@ -74,6 +78,7 @@ describe('ParentPortalPage', () => {
     await act(async () => root.unmount());
     container.remove();
     window.history.replaceState(null, '', '/');
+    window.localStorage.removeItem('parent-portal-theme');
   });
 
   beforeEach(() => {
@@ -89,6 +94,88 @@ describe('ParentPortalPage', () => {
     });
     await act(async () => container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
   }
+
+  it.each([
+    { name: 'Riverside Elementary School', nickname: 'Riverside ES', logoUrl: '/riverside.png' },
+    { name: 'Mountain View Integrated School', nickname: 'Mountain View IS', logoUrl: '/mountain-view.png' },
+  ])('uses the selected school branding throughout the shared portal ($nickname)', async school => {
+    schoolSelection.active = school;
+    window.history.replaceState(null, '', '/parent/selected-school');
+    await act(async () => root.render(createElement(ParentPortalPage)));
+
+    expect(container.querySelector('.parent-portal-brand')?.textContent).toContain(school.name);
+    expect(container.querySelector('.parent-portal-brand img')?.getAttribute('src')).toBe(school.logoUrl);
+    expect(container.querySelector('.parent-portal-intro')?.textContent).toContain(school.name);
+    expect(container.querySelector('.parent-portal-footer')?.textContent).toContain(school.name);
+    expect(document.title).toContain(school.name);
+    expect(container.querySelector('.parent-portal-back')?.getAttribute('href')).toBe('/select-school');
+  });
+
+  it('keeps search progress and a missing-record response accessible without retaining stale learner details', async () => {
+    await act(async () => root.render(createElement(ParentPortalPage)));
+    expect(container.querySelector('.parent-empty-state')).not.toBeNull();
+    await lookup();
+    expect(container.querySelector('.parent-result')).not.toBeNull();
+
+    let finishLookup!: (record: null) => void;
+    getParentLearner.mockImplementationOnce(() => new Promise(resolve => { finishLookup = resolve; }));
+    await lookup('128528250042');
+    const form = container.querySelector<HTMLFormElement>('.parent-search-card')!;
+    expect(form.getAttribute('aria-busy')).toBe('true');
+    expect(container.querySelector<HTMLInputElement>('#parentLearnerId')?.disabled).toBe(true);
+    expect(container.querySelector<HTMLButtonElement>('.parent-search-row button')?.disabled).toBe(true);
+    expect(container.querySelector('.parent-result')).toBeNull();
+    expect(container.querySelector('.parent-empty-state [role="status"]')?.textContent).toContain('retrieve the school record');
+
+    await act(async () => finishLookup(null));
+    expect(form.getAttribute('aria-busy')).toBe('false');
+    expect(container.querySelector<HTMLInputElement>('#parentLearnerId')?.disabled).toBe(false);
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain('No active learner record');
+    expect(container.querySelector('.parent-result')).toBeNull();
+  });
+
+  it('links each record navigation item to an existing section without hiding academic details', async () => {
+    await act(async () => root.render(createElement(ParentPortalPage)));
+    await lookup();
+    expect(document.activeElement).toBe(container.querySelector('#parent-learner-name'));
+    const navigation = container.querySelector('nav[aria-label="Learner record sections"]');
+    expect(navigation).not.toBeNull();
+    expect([...navigation!.querySelectorAll('a')].map(link => link.getAttribute('href')))
+      .toEqual(['#parent-profile', '#parent-learner-card', '#parent-other-records']);
+    for (const link of navigation!.querySelectorAll('a')) {
+      expect(container.querySelector(link.getAttribute('href')!)).not.toBeNull();
+    }
+    expect(container.querySelector('#parent-learner-card #parentCardTerm')).not.toBeNull();
+    expect(container.querySelector('#parent-other-records')?.lastElementChild?.classList.contains('parent-anecdotal-records')).toBe(true);
+  });
+
+  it('persists the portal theme independently and restores the staff theme when leaving', async () => {
+    const originalStaffDarkMode = document.body.classList.contains('dark-mode');
+    document.body.classList.add('dark-mode');
+    window.localStorage.setItem('parent-portal-theme', 'dark');
+    try {
+      await act(async () => root.render(createElement(ParentPortalPage)));
+      expect(document.body.classList.contains('dark-mode')).toBe(false);
+      expect(container.querySelector('.parent-portal-shell')?.classList.contains('parent-portal-dark')).toBe(true);
+      const toggle = container.querySelector<HTMLButtonElement>('.parent-portal-theme-toggle')!;
+      expect(toggle.getAttribute('aria-label')).toBe('Switch to light mode');
+      await act(async () => toggle.click());
+      expect(window.localStorage.getItem('parent-portal-theme')).toBe('light');
+      expect(toggle.getAttribute('aria-pressed')).toBe('false');
+      expect(container.querySelector('.parent-portal-shell')?.classList.contains('parent-portal-dark')).toBe(false);
+      expect(document.body.classList.contains('dark-mode')).toBe(false);
+
+      await act(async () => root.render(null));
+      expect(document.body.classList.contains('dark-mode')).toBe(true);
+      await act(async () => root.render(createElement(ParentPortalPage)));
+      expect(container.querySelector('.parent-portal-shell')?.classList.contains('parent-portal-dark')).toBe(false);
+      expect(window.localStorage.getItem('parent-portal-theme')).toBe('light');
+      await act(async () => root.render(null));
+      expect(document.body.classList.contains('dark-mode')).toBe(true);
+    } finally {
+      document.body.classList.toggle('dark-mode', originalStaffDarkMode);
+    }
+  });
 
   it('shows only selected-term grades and comments and hides all card values, including attendance totals', async () => {
     const comments = ['First comment <b>with markup</b>\nand a new line', 'Second comment', 'Third comment'];
@@ -173,7 +260,7 @@ describe('ParentPortalPage', () => {
       await act(async () => container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
     }
     await lookup('128528250041');
-    expect(container.querySelector('.parent-result')?.lastElementChild?.classList.contains('parent-anecdotal-records')).toBe(true);
+    expect(container.querySelector('#parent-other-records')?.lastElementChild?.classList.contains('parent-anecdotal-records')).toBe(true);
     expect(container.querySelector('.parent-anecdotal-text')?.textContent).toBe('Hidden');
     expect(container.textContent).not.toContain(records);
     act(() => container.querySelector<HTMLButtonElement>('.parent-visibility-toggle')!.click());
@@ -260,7 +347,7 @@ describe('ParentPortalPage', () => {
     expect(container.textContent).not.toContain('current school year could not be loaded');
   });
 
-  it('explains when anonymous Firebase sign-in is disabled', async () => {
+  it('provides a parent-facing recovery message when sign-in is unavailable', async () => {
     auth.currentUser = null;
     auth.onAuthStateChanged.mockImplementation((next: (user: null) => void) => {
       queueMicrotask(() => next(null));
@@ -272,7 +359,7 @@ describe('ParentPortalPage', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     await act(async () => root.render(createElement(ParentPortalPage)));
     await vi.waitFor(() => {
-      expect(container.textContent).toContain('Enable Anonymous sign-in in Firebase Authentication');
+      expect(container.textContent).toContain('Parent Portal is temporarily unavailable. Please contact the school office.');
     });
     const input = container.querySelector<HTMLInputElement>('#parentLearnerId')!;
     const form = container.querySelector<HTMLFormElement>('.parent-search-card')!;
@@ -283,11 +370,12 @@ describe('ParentPortalPage', () => {
     });
 
     expect(getParentLearner).not.toHaveBeenCalled();
-    expect(container.textContent).toContain('Enable Anonymous sign-in in Firebase Authentication');
+    expect(container.textContent).toContain('Parent Portal is temporarily unavailable. Please contact the school office.');
+    expect(container.textContent).not.toMatch(/Firebase|Anonymous sign-in|Firestore/);
     consoleError.mockRestore();
   });
 
-  it('explains the active-year and rules checks when Firestore denies a lookup', async () => {
+  it('offers a useful recovery action without exposing backend details when a lookup is denied', async () => {
     getParentLearner.mockRejectedValue(Object.assign(new Error('permission denied'), {
       code: 'permission-denied',
     }));
@@ -302,8 +390,8 @@ describe('ParentPortalPage', () => {
       form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
     });
 
-    expect(container.textContent).toContain('schoolYears/2026-2027/learners/128528250041');
-    expect(container.textContent).toContain('selected school project');
+    expect(container.textContent).toContain('This record is unavailable right now. Check the LRN or contact the school office for assistance.');
+    expect(container.textContent).not.toMatch(/schoolYears\/|Firestore|anonymous read|selected school project/);
     consoleError.mockRestore();
   });
 
@@ -323,7 +411,8 @@ describe('ParentPortalPage', () => {
     });
 
     expect(container.textContent).toContain('The learner record loaded');
-    expect(container.textContent).toContain('settings/gradeTerms/years/2026-2027');
+    expect(container.textContent).toContain('grade details are temporarily unavailable');
+    expect(container.textContent).not.toMatch(/settings\/gradeTerms|Firestore|selected school project/);
     expect(container.textContent).toContain('Sample Learner');
     consoleError.mockRestore();
   });

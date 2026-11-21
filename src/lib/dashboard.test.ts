@@ -56,11 +56,12 @@ describe('dashboard learner and program summaries', () => {
     expect(footer('Male Learners')).toBe('45.00% of total learners');
     expect(footer('Female Learners')).toBe('50.00% of total learners');
     expect(footer('Muslim Learners')).toBe('5.00% of total learners');
-    const muslimLegend = [...document.querySelectorAll('#donutLegend .legend-row')]
-      .find(row => row.querySelector('.legend-key')?.textContent?.trim() === 'Muslim Learners');
-    expect(muslimLegend?.querySelector('.legend-val')?.textContent).toBe('10 (5.00%)');
-    expect(document.querySelector('#donutSvg [data-program="muslimCount"]')?.getAttribute('aria-label'))
-      .toContain('5.00% of total learners');
+    expect([...document.querySelectorAll('#donutLegend .legend-key')].map(row => row.textContent?.trim()))
+      .toEqual(['Tagged', 'Not Tagged']);
+    const muslimBar = document.querySelector('#programDistributionBars [data-program="muslimCount"] [role="meter"]');
+    expect(muslimBar?.getAttribute('aria-valuenow')).toBe('5');
+    expect(muslimBar?.getAttribute('aria-valuetext')).toContain('5.00%');
+    expect(document.querySelectorAll('#programDistributionBars .program-percentage-row')).toHaveLength(5);
     expect(card('Total Learners')?.querySelector('.stat-value')?.textContent).toBe('200');
     expect(document.querySelectorAll('#programSummary .summary-row')).toHaveLength(5);
     expect(document.querySelectorAll('#programSummary a')).toHaveLength(role === 'Visitor' ? 0 : 5);
@@ -70,6 +71,25 @@ describe('dashboard learner and program summaries', () => {
     expect(aral?.querySelector('.summary-desc')?.textContent)
       .toBe('Learners enrolled in the Academic Recovery and Accessible Learning (ARAL) program');
     expect(aral?.textContent).not.toMatch(/risk|dropping out/i);
+  });
+
+  it.each(['School Admin', 'Teacher', 'Visitor'])('shows unique tagged learners and independent program shares for %s', role => {
+    session.role = role;
+    const overlapping = {
+      ...visitorFallbackSummary(), totalLearners: 100, notTaggedCount: 10,
+      fourPsCount: 70, ipCount: 40, aralCount: 20, muslimCount: 30,
+    };
+    if (role === 'Visitor') renderVisitorDashboardSummary(overlapping);
+    else renderDashboardSummary(overlapping);
+
+    const tagged = [...document.querySelectorAll('#donutLegend .legend-row')]
+      .find(row => row.querySelector('.legend-key')?.textContent?.trim() === 'Tagged');
+    expect(tagged?.textContent).toContain('90');
+    expect(tagged?.textContent).toContain('90.00%');
+    const meters = [...document.querySelectorAll('#programDistributionBars [role="meter"]')];
+    expect(meters.map(meter => Number(meter.getAttribute('aria-valuenow')))).toEqual([70, 40, 0, 20, 30]);
+    expect(document.querySelectorAll('#donutSvg .distribution-segment')).toHaveLength(2);
+    expect(document.querySelector('#programDistributionBars [data-program="notTaggedCount"]')).toBeNull();
   });
 
   it('labels the learner and program sections independently', () => {

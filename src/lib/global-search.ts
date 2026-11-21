@@ -56,7 +56,8 @@ function E(page, label, href, selector, icon, keywords = '', role = null) {
 
 const CURATED = [
   /* ---- Dashboard ------------------------------------------------------- */
-  E('Dashboard', 'Learner Distribution by Program', 'dashboard.html', '#donutSvg', 'barChart', 'donut chart program'),
+  E('Dashboard', 'Program Tagging Coverage', 'dashboard.html', '#donutSvg', 'barChart', 'donut circle tagged untagged program coverage'),
+  E('Dashboard', 'Learners by Program', 'dashboard.html', '#programDistributionBars', 'barChart', 'horizontal bars program distribution percentages'),
   E('Dashboard', 'Learners by Grade Level', 'dashboard.html', '#gradeBarChart', 'barChart', 'bar chart grade'),
   E('Dashboard', 'Recent Added Learners', 'dashboard.html', '#recentTableBody', 'users', 'recently added learners'),
   E('Dashboard', 'Program Summary', 'dashboard.html', '#programSummary', 'clipboard', 'programs summary tags'),
@@ -125,7 +126,8 @@ const CURATED = [
   /* ---- Statistics -------------------------------------------------------- */
   E('Statistics', 'Export Excel', 'reports.html', '#exportBtn', 'download', 'export report excel'),
   E('Statistics', 'Learners by Grade Level', 'reports.html', '#gradeBarChart', 'barChart', 'bar chart grade'),
-  E('Statistics', 'Program Distribution', 'reports.html', '#donutSvg', 'barChart', 'donut program'),
+  E('Statistics', 'Program Tagging Coverage', 'reports.html', '#donutSvg', 'barChart', 'donut circle tagged untagged program coverage'),
+  E('Statistics', 'Learners by Program', 'reports.html', '#programDistributionBars', 'barChart', 'horizontal bars program distribution percentages'),
   E('Statistics', 'Grade and Program Breakdown', 'reports.html', '#breakdownTableBody', 'clipboard', 'breakdown table'),
 
   /* ---- EOSY Status Report ------------------------------------------------ */

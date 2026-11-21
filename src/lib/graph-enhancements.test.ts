@@ -7,15 +7,15 @@ describe('graph fullscreen enhancements', () => {
     document.body.style.overflow = '';
   });
 
-  it('moves a graph into a fullscreen dialog and restores it on Escape', () => {
+  it.each(['bar-chart', 'program-percentage-chart'])('moves a %s into a fullscreen dialog and restores it on Escape', className => {
     document.body.innerHTML = `
       <section class="panel">
         <header class="panel-header"><h3>Learners by Grade Level</h3></header>
-        <div class="bar-chart"><div class="bar-col">Grade 1</div></div>
+        <div class="${className}"><div>Chart content</div></div>
       </section>`;
     initGraphEnhancements();
 
-    const graph = document.querySelector('.bar-chart') as HTMLElement;
+    const graph = document.querySelector(`.${className}`) as HTMLElement;
     const expandButton = document.querySelector('.graph-expand-button') as HTMLButtonElement;
     expect(expandButton.getAttribute('aria-label')).toBe('Enlarge Learners by Grade Level to full screen');
 
@@ -29,7 +29,7 @@ describe('graph fullscreen enhancements', () => {
 
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 
-    expect(document.querySelector('.bar-chart')).toBe(graph);
+    expect(document.querySelector(`.${className}`)).toBe(graph);
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(document.body.style.overflow).toBe('');
     expect(expandButton).toBe(document.activeElement);

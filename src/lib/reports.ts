@@ -8,7 +8,7 @@ import { APP_CONFIG, appSchoolFilePrefix, paginationPageNumbers } from './app-co
 import { fsGetReportsData, fsSubscribeLearners } from './firestore-api';
 import { initGraphEnhancements } from './graph-enhancements';
 import { compareGradeLevelLabels } from './grade-level-order';
-import { programDistributionMarkup } from './program-distribution';
+import { renderProgramDistribution } from './program-distribution';
 
 export let REPORTS_DATA = null;
 export let EOSY_SORT_DESCENDING = false;
@@ -170,9 +170,7 @@ export function renderProfileGraphs(data) {
 }
 
 export function renderDonut(s) {
-  const { svg, legend } = programDistributionMarkup(s);
-  document.getElementById("donutSvg").innerHTML = svg;
-  document.getElementById("donutLegend").innerHTML = legend;
+  renderProgramDistribution(s);
 }
 
 export function renderBreakdownTable(rows) {

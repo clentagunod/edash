@@ -1,4 +1,4 @@
-const GRAPH_SELECTOR = '.nutrition-chart-card, .learner-progress-chart, .bar-chart, .donut-wrap';
+const GRAPH_SELECTOR = '.nutrition-chart-card, .learner-progress-chart, .bar-chart, .donut-wrap, .program-percentage-chart';
 
 let graphObserver: MutationObserver | undefined;
 let activeGraphClose: (() => void) | undefined;

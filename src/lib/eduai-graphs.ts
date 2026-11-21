@@ -7,7 +7,7 @@ import {
   normalizeProfileGrade,
 } from './profile-charts';
 import { buildNutritionGraphData, NUTRITION_STATUS_CATEGORIES } from './nutrition-charts';
-import { programDistributionData } from './program-distribution';
+import { learnerTaggingData, programDistributionData } from './program-distribution';
 
 export interface EduAiGraphPoint {
   label: string;
@@ -81,18 +81,27 @@ export function buildEduAiGraphs(learners: Array<Record<string, unknown>>): EduA
     })),
   };
 
+  const programSummary = {
+    totalLearners: learners.length,
+    notTaggedCount: learners.filter((learner) => !learner.is4Ps && !learner.isIP && !learner.isSNED && !learner.isARAL && !learner.isMuslim).length,
+    fourPsCount: learners.filter((learner) => learner.is4Ps === true).length,
+    ipCount: learners.filter((learner) => learner.isIP === true).length,
+    snedCount: learners.filter((learner) => learner.isSNED === true).length,
+    aralCount: learners.filter((learner) => learner.isARAL === true).length,
+    muslimCount: learners.filter((learner) => learner.isMuslim === true).length,
+  };
   const programMix: EduAiGraph = {
-    title: 'Dashboard: program-tag distribution',
-    description: 'Counts and percentages of total learners shown in the Dashboard and Reports donut legends. Donut slice sizes compare group counts, normalized across all displayed groups. Learners may belong to multiple groups, so enrollment percentages may add up to more than 100%.',
-    points: programDistributionData({
-      totalLearners: learners.length,
-      notTaggedCount: learners.filter((learner) => !learner.is4Ps && !learner.isIP && !learner.isSNED && !learner.isARAL && !learner.isMuslim).length,
-      fourPsCount: learners.filter((learner) => learner.is4Ps === true).length,
-      ipCount: learners.filter((learner) => learner.isIP === true).length,
-      snedCount: learners.filter((learner) => learner.isSNED === true).length,
-      aralCount: learners.filter((learner) => learner.isARAL === true).length,
-      muslimCount: learners.filter((learner) => learner.isMuslim === true).length,
-    }).map(({ label, value, percent }) => ({ label, count: value, percent: Number(percent.toFixed(2)) })),
+    title: 'Dashboard and Reports: program-tag distribution',
+    description: 'Counts and percentages of total learners shown in the program percentage bars. Each bar uses total active enrollment as its denominator. Learners may belong to multiple groups, so program percentages may add up to more than 100%.',
+    points: programDistributionData(programSummary)
+      .filter(({ key }) => key !== 'notTaggedCount')
+      .map(({ label, value, percent }) => ({ label, count: value, percent: Number(percent.toFixed(2)) })),
+  };
+  const learnerTagging: EduAiGraph = {
+    title: 'Dashboard and Reports: tagged versus untagged learners',
+    description: 'Unique learners in the tagging coverage circle. Tagged learners have at least one program or group tag; untagged learners have none. Each learner appears once, and the two counts sum to total active enrollment.',
+    points: (learnerTaggingData(programSummary) ?? [])
+      .map(({ label, value, percent }) => ({ label, count: value, percent: Number(percent.toFixed(2)) })),
   };
 
   const coverage = (title: string, fields: string[]): EduAiGraph => ({
@@ -111,6 +120,7 @@ export function buildEduAiGraphs(learners: Array<Record<string, unknown>>): EduA
   const graphList: EduAiGraph[] = [
     enrollmentByGrade,
     programMix,
+    learnerTagging,
     coverage('Reports: reading-profile coverage by grade', ['bosyCRLA', 'mosyCRLA', 'eosyCRLA', 'bosyPhilIRI', 'mosyPhilIRI', 'eosyPhilIRI']),
     coverage('Reports: math-profile coverage by grade', ['bosyRMA', 'mosyRMA', 'eosyRMA']),
     coverage('Reports: nutritional-record coverage by grade', ['bosyNutritionalStatus', 'mosyNutritionalStatus', 'eosyNutritionalStatus']),

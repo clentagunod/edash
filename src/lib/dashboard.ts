@@ -10,7 +10,7 @@ import { fsGetLearners, fsGetPublicStats, fsNormalizeSchoolYear_, fsRefreshPubli
 import { initYearSwitcher } from './school-year';
 import { initGraphEnhancements } from './graph-enhancements';
 import { compareGradeLevelLabels } from './grade-level-order';
-import { formatLearnerPercentage, programDistributionMarkup } from './program-distribution';
+import { formatLearnerPercentage, renderProgramDistribution } from './program-distribution';
 
 export let dashboardLearnerUnsubscribe = null;
 export let dashboardPublicStatsUnsubscribe = null;
@@ -429,9 +429,7 @@ export function renderStatCards(s) {
 }
 
 export function renderDonut(s) {
-  const { svg, legend } = programDistributionMarkup(s);
-  document.getElementById("donutSvg").innerHTML = svg;
-  document.getElementById("donutLegend").innerHTML = legend;
+  renderProgramDistribution(s);
 }
 
 export function renderBarChart(s) {

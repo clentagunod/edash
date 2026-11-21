@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { buildEduAiGraphs } from './eduai-graphs';
+// Verify the server-generated context uses the same chart denominators as the UI.
+// @ts-ignore -- CommonJS gateway module is also consumed by the deployed functions.
+import serverContext from '../../functions/eduai-context.cjs';
 
 describe('EduAI chart context', () => {
   it('summarizes enrollment, overlapping program tags, and profile charts as aggregates', () => {
@@ -58,7 +61,9 @@ describe('EduAI chart context', () => {
   it('returns explicit zero-valued points for supported charts without records', () => {
     const graphs = buildEduAiGraphs([]);
     expect(graphs.find(({ title }) => title.includes('program-tag distribution'))?.points)
-      .toContainEqual({ label: 'Not Tagged', count: 0, percent: 0 });
+      .toHaveLength(5);
+    expect(graphs.find(({ title }) => title.includes('tagged versus untagged'))?.points)
+      .toEqual([{ label: 'Tagged', count: 0, percent: 0 }, { label: 'Not Tagged', count: 0, percent: 0 }]);
     expect(graphs.find(({ title }) => title.includes('latest status mix'))?.points)
       .toContainEqual({ label: 'Normal', count: 0 });
   });
@@ -73,7 +78,24 @@ describe('EduAI chart context', () => {
     expect(programMix?.points).toContainEqual({ label: '4Ps Beneficiaries', count: 1, percent: 50 });
     expect(programMix?.points).toContainEqual({ label: 'ARAL Tagged', count: 2, percent: 100 });
     expect(programMix?.points).toContainEqual({ label: 'Muslim Learners', count: 1, percent: 50 });
-    expect(programMix?.points).toContainEqual({ label: 'Not Tagged', count: 0, percent: 0 });
+    expect(programMix?.points).toHaveLength(5);
     expect(programMix?.description).toContain('percentages of total learners');
+    expect(graphs.find(({ title }) => title.includes('tagged versus untagged'))?.points)
+      .toEqual([{ label: 'Tagged', count: 2, percent: 100 }, { label: 'Not Tagged', count: 0, percent: 0 }]);
+  });
+
+  it.each([
+    { records: [] },
+    { records: [{ is4Ps: true, isIP: true, isARAL: true }, { isMuslim: true }, {}] },
+    { records: [{ is4Ps: true, isIP: true }, { is4Ps: true, isSNED: true }, {}] },
+  ])('keeps server and browser chart context aligned for overlapping memberships (%j)', ({ records }) => {
+    const browserGraphs = buildEduAiGraphs(records);
+    const serverGraphs = serverContext.buildEduAiContext('School Admin', '2026-2027', records).graphs;
+    for (const title of ['program-tag distribution', 'tagged versus untagged']) {
+      const graph = browserGraphs.find(graph => graph.title.includes(title));
+      expect(serverGraphs.find((item: { title: string }) => item.title.includes(title))).toEqual(graph);
+    }
+    const tagging = browserGraphs.find(graph => graph.title.includes('tagged versus untagged'))!;
+    expect(tagging.points.reduce((sum, point) => sum + point.count, 0)).toBe(records.length);
   });
 });

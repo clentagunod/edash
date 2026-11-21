@@ -59,25 +59,30 @@
         </div>
       </section>
 
-      <div class="two-col">
-        <section class="panel">
-          <div class="panel-header"><h3>Learner Distribution by Program</h3></div>
+      <div class="two-col program-insights-grid">
+        <section class="panel program-insight-panel">
+          <div class="panel-header"><div><h3>Program Tagging Coverage</h3><p>Tagged versus untagged learners</p></div></div>
           <div class="panel-body">
-            <div class="donut-wrap">
+            <div class="donut-wrap learner-tagging-wrap">
               <div id="donutSvg"></div>
               <div class="legend-list" id="donutLegend"></div>
             </div>
           </div>
-          <div class="panel-note">Percentages show each group's share of total learners. Circle slices compare group counts; learners may belong to multiple groups.</div>
+          <div class="panel-note">Each learner is counted once. Tagged learners belong to at least one program or group.</div>
         </section>
-
-        <section class="panel">
-          <div class="panel-header"><h3>Learners by Grade Level</h3></div>
+        <section class="panel program-insight-panel">
+          <div class="panel-header"><div><h3>Learners by Program</h3><p>Count and percentage of total learners</p></div></div>
           <div class="panel-body">
-            <div class="bar-chart" id="gradeBarChart"></div>
+            <div class="program-percentage-chart" id="programDistributionBars"></div>
           </div>
+          <div class="panel-note">Learners may belong to multiple programs. Percentages may total more than 100%.</div>
         </section>
       </div>
+
+      <section class="panel" style="margin-bottom:16px;">
+        <div class="panel-header"><h3>Learners by Grade Level</h3></div>
+        <div class="panel-body"><div class="bar-chart" id="gradeBarChart"></div></div>
+      </section>
 
       <div class="two-col">
         <section class="panel">

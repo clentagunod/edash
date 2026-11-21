@@ -128,7 +128,6 @@ function buildEduAiGraphs(learners) {
     })),
   };
   const programEntries = [
-    ["Not Tagged", (learner) => !learner.is4Ps && !learner.isIP && !learner.isSNED && !learner.isARAL && !learner.isMuslim],
     ["4Ps Beneficiaries", (learner) => learner.is4Ps === true],
     ["IP Learners", (learner) => learner.isIP === true],
     ["SNED Learners", (learner) => learner.isSNED === true],
@@ -139,14 +138,23 @@ function buildEduAiGraphs(learners) {
     label,
     count: learners.filter(predicate).length,
   }));
-  const segmentTotal = programPoints.reduce((sum, point) => sum + point.count, 0) || 1;
+  const enrollmentPercentage = (count) => learners.length ? Math.round((count / learners.length) * 10000) / 100 : 0;
   const programMix = {
-    title: "Dashboard: program-tag distribution",
-    description: "Counts and shares shown in the Dashboard and Reports donut. Program tags can overlap; percentages are shares of all displayed segments, not shares of total enrollment.",
+    title: "Dashboard and Reports: program-tag distribution",
+    description: "Counts and percentages of total learners shown in the program percentage bars. Each bar uses total active enrollment as its denominator. Learners may belong to multiple groups, so program percentages may add up to more than 100%.",
     points: programPoints.map((point) => ({
       ...point,
-      percent: Math.round((point.count / segmentTotal) * 1000) / 10,
+      percent: enrollmentPercentage(point.count),
     })),
+  };
+  const untaggedCount = learners.filter((learner) => !learner.is4Ps && !learner.isIP && !learner.isSNED && !learner.isARAL && !learner.isMuslim).length;
+  const learnerTagging = {
+    title: "Dashboard and Reports: tagged versus untagged learners",
+    description: "Unique learners in the tagging coverage circle. Tagged learners have at least one program or group tag; untagged learners have none. Each learner appears once, and the two counts sum to total active enrollment.",
+    points: [
+      { label: "Tagged", count: learners.length - untaggedCount },
+      { label: "Not Tagged", count: untaggedCount },
+    ].map((point) => ({ ...point, percent: enrollmentPercentage(point.count) })),
   };
   const coverage = (title, fields) => ({
     title,
@@ -163,6 +171,7 @@ function buildEduAiGraphs(learners) {
   const graphList = [
     enrollmentByGrade,
     programMix,
+    learnerTagging,
     coverage("Reports: reading-profile coverage by grade", ["bosyCRLA", "mosyCRLA", "eosyCRLA", "bosyPhilIRI", "mosyPhilIRI", "eosyPhilIRI"]),
     coverage("Reports: math-profile coverage by grade", ["bosyRMA", "mosyRMA", "eosyRMA"]),
     coverage("Reports: nutritional-record coverage by grade", ["bosyNutritionalStatus", "mosyNutritionalStatus", "eosyNutritionalStatus"]),
